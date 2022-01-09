@@ -114,7 +114,6 @@ public class Tool {
     }
 
     private boolean verify(Path executable) {
-logger.error(executable.toString());
         Command command = new Command(executable.toString())
             .arg(properties.getProperty(COMMAND_VERSION));
 
@@ -125,15 +124,15 @@ logger.error(executable.toString());
             String verify = properties.getProperty(COMMAND_VERIFY).trim();
             Map<String, Object> props = props();
             verify = applyTemplate(verify, props);
-logger.error("verify = " + verify);
 
             Pattern pattern = Pattern.compile(verify);
-logger.error(out.toString());
             return pattern.matcher(out.toString()).find();
-        } catch (ToolException ignored) {
-logger.error("WTF", ignored);
-ignored.printStackTrace();
-            // noop
+        } catch (CommandException e) {
+            if (null != e.getCause()) {
+                logger.debug(e.getCause().getMessage());
+            } else {
+                logger.debug(e.getMessage());
+            }
         }
         return false;
     }
@@ -210,16 +209,12 @@ ignored.printStackTrace();
         return props;
     }
 
-    private void executeCommandCapturing(Command command, OutputStream out) throws ToolException {
-        try {
-            int exitValue = new CommandExecutor(logger)
-                .executeCommandCapturing(command, out);
-            if (exitValue != 0) {
-                logger.error(out.toString().trim());
-                throw new CommandException(RB.$("ERROR_command_execution_exit_value", exitValue));
-            }
-        } catch (CommandException e) {
-            throw new ToolException(RB.$("ERROR_unexpected_error"), e);
+    private void executeCommandCapturing(Command command, OutputStream out) throws CommandException {
+        int exitValue = new CommandExecutor(logger)
+            .executeCommandCapturing(command, out);
+        if (exitValue != 0) {
+            logger.error(out.toString().trim());
+            throw new CommandException(RB.$("ERROR_command_execution_exit_value", exitValue));
         }
     }
 

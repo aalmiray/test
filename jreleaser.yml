@@ -186,6 +186,10 @@ assemble:
         - '-H:IncludeLocales=en,ca,de,es,fr,hi,it,ja,nl,pt_BR,zh_TW,ru'
         - '-H:Optimize=2'
         - '-H:+RemoveUnusedSymbols'
+        - '-H:+TraceClassInitialization'
+        - '--trace-class-initialization=apple.security.AppleProvider'
+        - '--trace-object-instantiation=apple.security.AppleProvider'
+        - '--report-unsupported-elements-at-runtime'
 
 distributions:
   jreleaser:
