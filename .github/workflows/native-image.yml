@@ -48,6 +48,10 @@ jobs:
       - name: Build
         run: ./gradlew -Prelease=true :jreleaser:assemble -S
 
+      - name: 'Add Developer Command Prompt for Microsoft Visual C++'
+        if: ${{ runner.os == 'Windows' }}
+        uses: ilammy/msvc-dev-cmd@v1
+
       - name: 'Set up Graal'
         uses: graalvm/setup-graalvm@v1
         with:
@@ -55,10 +59,6 @@ jobs:
           java-version: '17 '
           components: 'native-image'
           github-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: 'Add Developer Command Prompt for Microsoft Visual C++ '
-        if: ${{ runner.os == 'Windows' }}
-        uses: ilammy/msvc-dev-cmd@v1
 
       - name: 'Install upx (osx)'
         run: brew install upx
