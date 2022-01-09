@@ -49,17 +49,17 @@ jobs:
           components: 'native-image'
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: 'Install upx (linux)'
-        run: sudo apt-get install upx
-        if: ${{ runner.os == 'Linux' }}
+      #- name: 'Install upx (linux)'
+      #  run: sudo apt-get install upx
+      #  if: ${{ runner.os == 'Linux' }}
 
       - name: 'Install upx (osx)'
         run: brew install upx
         if: ${{ runner.os == 'macOS' }}
 
-      - name: 'Install upx (windows)'
-        run: choco install upx
-        if: ${{ runner.os == 'Windows' }}
+      #- name: 'Install upx (windows)'
+      #  run: choco install upx
+      #  if: ${{ runner.os == 'Windows' }}
 
       - name: Version
         id: vars
