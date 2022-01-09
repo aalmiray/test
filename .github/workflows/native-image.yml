@@ -92,6 +92,7 @@ jobs:
           path: |
             out/jreleaser/trace.log
             out/jreleaser/output.properties
+            out/jreleaser/assemble/jreleaser-native/native-image/jreleaser.build_artifacts.txt
 
   # Collect all executables and release
   release:
