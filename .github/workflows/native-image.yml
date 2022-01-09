@@ -65,6 +65,7 @@ jobs:
         uses: jreleaser/release-action@v2
         with:
           version: early-access
+          setup-java: false
           arguments: assemble -a native-image
         env:
           JRELEASER_PROJECT_VERSION: ${{ steps.vars.outputs.version }}
