@@ -116,6 +116,7 @@ public class Tool {
     private boolean verify(Path executable) {
         Command command = new Command(executable.toString())
             .arg(properties.getProperty(COMMAND_VERSION));
+System.out.println(executable.toString());
 
         try {
             ByteArrayOutputStream out = new ByteArrayOutputStream();
@@ -124,10 +125,13 @@ public class Tool {
             String verify = properties.getProperty(COMMAND_VERIFY).trim();
             Map<String, Object> props = props();
             verify = applyTemplate(verify, props);
+System.out.println("verify = " + verify);
 
             Pattern pattern = Pattern.compile(verify);
+System.out.println(out.toString());
             return pattern.matcher(out.toString()).find();
         } catch (ToolException ignored) {
+ignored.printStackTrace();
             // noop
         }
         return false;

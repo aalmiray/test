@@ -9,6 +9,9 @@
     "name": "[Lorg.kohsuke.github.GHMilestone;"
   },
   {
+    "name": "apple.security.AppleProvider"
+  },
+  {
     "name": "com.amazonaws.internal.config.Builder",
     "allDeclaredFields": true,
     "allPublicConstructors": true,
