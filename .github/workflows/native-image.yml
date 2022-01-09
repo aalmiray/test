@@ -62,10 +62,9 @@ jobs:
         run: echo ::set-output name=version::$(cat VERSION)
 
       - name: Assemble
-        uses: jreleaser/release-action@v2
+        uses: jreleaser/release-action@v1
         with:
           version: early-access
-          setup-java: false
           arguments: assemble -a native-image
         env:
           JRELEASER_PROJECT_VERSION: ${{ steps.vars.outputs.version }}
