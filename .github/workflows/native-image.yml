@@ -6,7 +6,6 @@ on:
 jobs:
   build:
     name: 'Build with Graal on ${{ matrix.os }}'
-    if: github.repository == 'jreleaser/jreleaser'
     strategy:
       fail-fast: true
       matrix:
