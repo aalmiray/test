@@ -316,13 +316,13 @@ public final class FileUtils {
 
     private static int getEntryMode(ArchiveEntry entry) {
         if (entry instanceof TarArchiveEntry) {
-            return getEntryMode((TarArchiveEntry) entry);
+            return getEntryMode(entry, ((TarArchiveEntry) entry).getMode());
         }
-        return getEntryMode((ZipArchiveEntry) entry);
+        return getEntryMode(entry, ((ZipArchiveEntry) entry).getUnixMode());
     }
 
-    private static int getEntryMode(ZipArchiveEntry entry) {
-        int unixMode = entry.getUnixMode() & 0777;
+    private static int getEntryMode(ArchiveEntry entry, int mode) {
+        int unixMode = mode & 0777;
         if (unixMode == 0) {
             if (entry.isDirectory()) {
                 unixMode = 0755;
@@ -333,20 +333,12 @@ public final class FileUtils {
         return unixMode;
     }
 
-    private static int getEntryMode(TarArchiveEntry entry) {
-        int unixMode = entry.getMode() & 0777;
-        if (unixMode == 0) {
-            if (entry.isDirectory()) {
-                unixMode = 0755;
-            } else {
-                unixMode = 0644;
-            }
-        }
-        return unixMode;
+    public static void chmod(File file, int mode) throws IOException {
+        chmod(file.toPath(), mode);
     }
 
-    public static void chmod(File f, int mode) throws IOException {
-        PosixFileAttributeView fileAttributeView = Files.getFileAttributeView(f.toPath(), PosixFileAttributeView.class);
+    public static void chmod(Path path, int mode) throws IOException {
+        PosixFileAttributeView fileAttributeView = Files.getFileAttributeView(path, PosixFileAttributeView.class);
         fileAttributeView.setPermissions(convertToPermissionsSet(mode));
     }
 
