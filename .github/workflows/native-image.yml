@@ -38,6 +38,13 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gradlew-
 
+      - uses: actions/cache@v2
+        with:
+          path: ~/.jreleaser/caches
+          key: ${{ runner.os }}-jreleaser-${{ hashFiles('jreleaser.yml') }}
+          restore-keys: |
+            ${{ runner.os }}-jreleaser-
+                
       - name: Build
         run: ./gradlew -Prelease=true :jreleaser:assemble -S
 
@@ -49,17 +56,13 @@ jobs:
           components: 'native-image'
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      #- name: 'Install upx (linux)'
-      #  run: sudo apt-get install upx
-      #  if: ${{ runner.os == 'Linux' }}
+      - name: 'Add Developer Command Prompt for Microsoft Visual C++ '
+        if: ${{ runner.os == 'Windows' }}
+        uses: ilammy/msvc-dev-cmd@v1
 
       - name: 'Install upx (osx)'
         run: brew install upx
         if: ${{ runner.os == 'macOS' }}
-
-      #- name: 'Install upx (windows)'
-      #  run: choco install upx
-      #  if: ${{ runner.os == 'Windows' }}
 
       - name: Version
         id: vars
@@ -92,7 +95,6 @@ jobs:
           path: |
             out/jreleaser/trace.log
             out/jreleaser/output.properties
-            out/jreleaser/assemble/jreleaser-native/native-image/jreleaser.build_artifacts.txt
 
   # Collect all executables and release
   release:
