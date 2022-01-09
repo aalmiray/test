@@ -1,0 +1,165 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+
+    SPDX-License-Identifier: Apache-2.0
+
+    Copyright 2020-2022 The JReleaser authors.
+
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+
+        https://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+-->
+<project xmlns:jreleaser="antlib:org.jreleaser.ant">
+    <taskdef uri="antlib:org.jreleaser.ant"
+             resource="org/jreleaser/ant/antlib.xml"
+             classpathref="jreleaser.classpath"/>
+
+    <property name="jreleaser.skip" value="false"/>
+    <property name="jreleaser.config.file" value=""/>
+    <property name="jreleaser.dryrun" value="false"/>
+    <property name="jreleaser.git.root.search" value="false"/>
+    <property name="jreleaser.overwrite" value="false"/>
+    <property name="jreleaser.format" value="yml"/>
+    <property name="jreleaser.distribution.name" value=""/>
+    <property name="jreleaser.distribution.type" value="JAVA_BINARY"/>
+    <property name="jreleaser.packager.name" value=""/>
+    <property name="jreleaser.announcer.name" value=""/>
+    <property name="jreleaser.overwrite" value="false"/>
+    <property name="jreleaser.snapshot" value="false"/>
+    <property name="jreleaser.full" value="false"/>
+    <property name="jreleaser.assembly" value="false"/>
+    <property name="jreleaser.outputdir" value="build"/>
+    <property name="jreleaser.select.current.platform" value="false"/>
+
+    <target name="jreleaser-template">
+        <jreleaser:template skip="${jreleaser.skip}"
+                            configFile="${jreleaser.config.file}"
+                            distributionName="${jreleaser.distribution.name}"
+                            packagerName="${jreleaser.packager.name}"
+                            announcerName="${jreleaser.announcer.name}"
+                            distributionType="${jreleaser.distribution.type}"
+                            overwrite="${jreleaser.overwrite}"
+                            snapshot="${jreleaser.snapshot}"
+                            outputDir="${jreleaser.outputdir"/>
+    </target>
+
+    <target name="jreleaser-announce">
+        <jreleaser:announce dryrun="${jreleaser.dryrun}"
+                            selectCurrentPlatform="${jreleaser.select.current.platform}"
+                            gitRootSearch="${jreleaser.git.root.search}"
+                            skip="${jreleaser.skip}"
+                            configFile="${jreleaser.config.file}"
+                            outputDir="${jreleaser.outputdir"/>
+    </target>
+
+    <target name="jreleaser-assemble">
+        <jreleaser:assembler skip="${jreleaser.skip}"
+                             selectCurrentPlatform="${jreleaser.select.current.platform}"
+                             gitRootSearch="${jreleaser.git.root.search}"
+                             configFile="${jreleaser.config.file}"
+                             outputDir="${jreleaser.outputdir"/>
+    </target>
+
+    <target name="jreleaser-changelog">
+        <jreleaser:changelog dryrun="${jreleaser.dryrun}"
+                             gitRootSearch="${jreleaser.git.root.search}"
+                             skip="${jreleaser.skip}"
+                             configFile="${jreleaser.config.file}"
+                             outputDir="${jreleaser.outputdir"/>
+    </target>
+
+    <target name="jreleaser-checksum">
+        <jreleaser:checksum dryrun="${jreleaser.dryrun}"
+                            selectCurrentPlatform="${jreleaser.select.current.platform}"
+                            gitRootSearch="${jreleaser.git.root.search}"
+                            skip="${jreleaser.skip}"
+                            configFile="${jreleaser.config.file}"
+                            outputDir="${jreleaser.outputdir"/>
+    </target>
+
+    <target name="jreleaser-config">
+        <jreleaser:config full="${jreleaser.full}"
+                          selectCurrentPlatform="${jreleaser.select.current.platform}"
+                          gitRootSearch="${jreleaser.git.root.search}"
+                          assembly="${jreleaser.assembly}"
+                          configFile="${jreleaser.config.file}"
+                          outputDir="${jreleaser.outputdir"/>
+    </target>
+
+    <target name="jreleaser-full-release">
+        <jreleaser:full-release dryrun="${jreleaser.dryrun}"
+                                selectCurrentPlatform="${jreleaser.select.current.platform}"
+                                gitRootSearch="${jreleaser.git.root.search}"
+                                skip="${jreleaser.skip}"
+                                configFile="${jreleaser.config.file}"
+                                outputDir="${jreleaser.outputdir"/>
+    </target>
+
+    <target name="jreleaser-init">
+        <jreleaser:init overwrite="${jreleaser.overwrite}"
+                        format="${jreleaser.format}"/>
+    </target>
+
+    <target name="jreleaser-package">
+        <jreleaser:package dryrun="${jreleaser.dryrun}"
+                           selectCurrentPlatform="${jreleaser.select.current.platform}"
+                           gitRootSearch="${jreleaser.git.root.search}"
+                           skip="${jreleaser.skip}"
+                           configFile="${jreleaser.config.file}"
+                           outputDir="${jreleaser.outputdir"/>
+    </target>
+
+    <target name="jreleaser-publish">
+        <jreleaser:publish dryrun="${jreleaser.dryrun}"
+                           selectCurrentPlatform="${jreleaser.select.current.platform}"
+                           gitRootSearch="${jreleaser.git.root.search}"
+                           skip="${jreleaser.skip}"
+                           configFile="${jreleaser.config.file}"
+                           outputDir="${jreleaser.outputdir"/>
+    </target>
+
+    <target name="jreleaser-prepare">
+        <jreleaser:prepare dryrun="${jreleaser.dryrun}"
+                           selectCurrentPlatform="${jreleaser.select.current.platform}"
+                           gitRootSearch="${jreleaser.git.root.search}"
+                           skip="${jreleaser.skip}"
+                           configFile="${jreleaser.config.file}"
+                           outputDir="${jreleaser.outputdir"/>
+    </target>
+
+    <target name="jreleaser-release">
+        <jreleaser:release dryrun="${jreleaser.dryrun}"
+                           selectCurrentPlatform="${jreleaser.select.current.platform}"
+                           gitRootSearch="${jreleaser.git.root.search}"
+                           skip="${jreleaser.skip}"
+                           configFile="${jreleaser.config.file}"
+                           outputDir="${jreleaser.outputdir"/>
+    </target>
+
+    <target name="jreleaser-sign">
+        <jreleaser:sign dryrun="${jreleaser.dryrun}"
+                        selectCurrentPlatform="${jreleaser.select.current.platform}"
+                        gitRootSearch="${jreleaser.git.root.search}"
+                        skip="${jreleaser.skip}"
+                        configFile="${jreleaser.config.file}"
+                        outputDir="${jreleaser.outputdir"/>
+    </target>
+
+    <target name="jreleaser-upload">
+        <jreleaser:upload dryrun="${jreleaser.dryrun}"
+                          selectCurrentPlatform="${jreleaser.select.current.platform}"
+                          gitRootSearch="${jreleaser.git.root.search}"
+                          skip="${jreleaser.skip}"
+                          configFile="${jreleaser.config.file}"
+                          outputDir="${jreleaser.outputdir"/>
+    </target>
+</project>

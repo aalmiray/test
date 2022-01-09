@@ -1,0 +1,216 @@
+
+:linkattrs:
+:project-owner:   jreleaser
+:project-name:    jreleaser
+:project-group:   org.jreleaser
+:project-version: 0.10.0
+
+image::src/media/banner.png[JReleaser]
+
+image:https://img.shields.io/github/workflow/status/{project-owner}/{project-name}/EarlyAccess?logo=github["Build Status", link="https://github.com/{project-owner}/{project-name}/actions"]
+image:https://img.shields.io/maven-central/v/{project-group}/{project-name}.svg[Download, link="https://search.maven.org/#search|ga|1|{project-name}"]
+image:https://img.shields.io/github/downloads/{project-owner}/{project-name}/total[GitHub all releases]
+image:https://img.shields.io/docker/pulls/{project-owner}/{project-owner}-slim?label={project-owner}-slim&logo=docker&logoColor=white[Docker Pulls {project-owner}-slim]
+image:https://img.shields.io/docker/pulls/{project-owner}/{project-owner}-alpine?label={project-owner}-alpine&logo=docker&logoColor=white[Docker Pulls {project-owner}-alpine]
+
+---
+
+Release Java and non-Java projects quickly and easily with link:https://jreleaser.org[JReleaser]!
+
+JReleaser is a release automation tool for Java and non-Java projects. Its goal is to simplify creating releases and
+publishing artifacts to multiple package managers while providing customizable options.
+
+For questions, support and general discussion, please use link:https://github.com/jreleaser/jreleaser/discussions[GitHub Discussions].
+
+== Install
+
+There are multiple choices depending on your preference.
+
+=== CLI
+The CLI can be installed in the following ways:
+
+*Homebrew*:
+
+Requires Java 8
+[source]
+----
+brew install jreleaser/tap/jreleaser
+----
+
+*Scoop*:
+
+Requires Java 8
+[source]
+----
+scoop bucket add jreleaser https://github.com/jreleaser/scoop-jreleaser.git
+scoop install jreleaser
+----
+
+*Sdkman*:
+
+Requires Java 8
+[source]
+----
+sdk install jreleaser
+----
+
+*JBang*
+
+Requires Java 8
+[source]
+.stable
+----
+// Download, cache, and run
+jbang jreleaser@jreleaser <command> [<args>]
+----
+[source]
+.early-access
+----
+// Download, cache, and run
+jbang jreleaser-snapshot@jreleaser <command> [<args>]
+----
+
+*Fedora COPR*
+
+[source]
+----
+dnf install dnf-plugins-core
+dnf copr enable aalmiray/jreleaser
+dnf install jreleaser
+----
+
+*Macports*
+
+Requires Java 8
+[source]
+----
+port install jreleaser
+----
+
+*Chocolatey*
+
+Requires Java 8
+[source]
+----
+choco install jreleaser
+----
+
+*Flatpak*
+[source]
+----
+flatpak install --user flathub org.jreleaser.cli
+flatpak run org.jreleaser.cli
+----
+
+*GoFish*
+[source]
+----
+gofish install jreleaser
+----
+
+*AppImage*
+[source]
+[subs="attributes"]
+----
+curl https://github.com/jreleaser/jreleaser-appimage/releases/download/v{project-version}/jreleaser-{project-version}-x86_64.AppImage --output jreleaser
+chmod +x jreleaser
+----
+
+*Curl*
+
+Requires Java 11
+[source]
+----
+// Get the jreleaser downloader
+curl -sL https://git.io/get-jreleaser > get_jreleaser.java
+
+// Download JReleaser with version = <version>
+// Change <version> to a tagged JReleaser release
+// or leave it out to pull `latest`.
+java get_jreleaser.java <version>
+
+// Execute a JReleaser
+java -jar jreleaser-cli.jar <command> [<args>]
+----
+
+*Manually*:
+
+Download the pre-compiled binary from the link:https://github.com/jreleaser/jreleaser/releases[releases page],
+uncompress and copy to the desired location.
+
+Be mindful that `jreleaser-{project-version}.zip` requires Java 8 to be installed while
+`jreleaser-standalone-{project-version}-[linux|osx|windows].zip` can be used without a previous installation of Java as
+it includes its own Java Runtime.
+
+=== Docker
+You can run JReleaser as a docker image, skipping the need to have a pre-installed Java runtime. You must mount the
+working directory at the `/workspace` volume, for example assuming the current directory is the starting point:
+
+[source]
+----
+docker run -it --rm -v `(pwd)`:/workspace \
+  jreleaser/<image>:<tag> <command> [<args>]
+----
+
+Where image may be `jreleaser-slim`, `jreleaser-alpine`.
+
+NOTE: The `jreleaser` command will be automatically executed inside `/workspace`.
+
+You may also need to map environment variables to the container, such as `JRELEASER_PROJECT_VERSION`,
+`JRELEASER_GITHUB_TOKEN`, or others depending on your setup. Refer to the
+link:https://jreleaser.org/guide/latest/configuration/environment.html[configuration] pages.
+
+You can find the tag listing link:hub.docker.com/r/jreleaser/jreleaser-slim/tags[here].
+
+=== Maven
+Configure the jreleaser-maven-plugin in your POM file
+
+[source,xml]
+[subs="verbatim,attributes"]
+.pom.xml
+----
+<plugin>
+  <groupId>org.jreleaser</groupId>
+  <artifactId>jreleaser-maven-plugin</artifactId>
+  <version>{project-version}</version>
+</plugin>
+----
+
+=== Gradle
+Configure the jreleaser-gradle-plugin in your `build.gradle` or `settings.gradle` file
+
+[source,groovy]
+[subs="attributes"]
+.build.gradle
+----
+plugins {
+    id 'org.jreleaser' version '{project-version}'
+}
+----
+
+=== Ant
+Download the jreleaser-ant-tasks ZIP bundle from the
+link:https://github.com/jreleaser/jreleaser/releases[releases page] and unzip it in your project. Place all JARs inside
+the `lib` folder. Create this folder if there is none. Add the following elements to your `build.xml` file
+
+[source,xml]
+[subs="verbatim,attributes"]
+.build.xml
+----
+<path id="jreleaser.classpath">
+    <fileset dir="lib">
+        <include name="jreleaser-ant-tasks-{project-version}/*.jar"/>
+    </fileset>
+</path>
+
+<import>
+  <javaresource name="org/jreleaser/ant/targets.xml"
+                classpathref="jreleaser.classpath"/>
+</import>
+----
+
+== Badges
+
+image:https://img.shields.io/lgtm/alerts/g/{project-owner}/{project-owner}.svg?logo=lgtm&logoWidth=18[link="https://lgtm.com/projects/g/{project-owner}/{project-owner}/alerts"]
+image:https://img.shields.io/lgtm/grade/java/g/{project-owner}/{project-owner}.svg?logo=lgtm&logoWidth=18[link="https://lgtm.com/projects/g/{project-owner}/{project-owner}/context:java"]
+

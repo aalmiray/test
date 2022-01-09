@@ -1,0 +1,143 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright 2020-2022 The JReleaser authors.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+plugins {
+    id 'application'
+    id 'org.jreleaser.jdks'
+}
+
+application {
+    mainClass = 'org.jreleaser.cli.Main'
+}
+
+jar {
+    manifest {
+        attributes('Main-Class': 'org.jreleaser.cli.Main')
+    }
+}
+
+config {
+    info {
+        specification { enabled = true }
+    }
+}
+
+dependencies {
+    api project(':jreleaser-workflow')
+    //config
+    api project(':jreleaser-config-yaml')
+    api project(':jreleaser-config-toml')
+    api project(':jreleaser-config-json')
+    api "com.github.victools:jsonschema-generator:$jsonSchemaVersion"
+    api "com.github.victools:jsonschema-module-jackson:$jsonSchemaVersion"
+
+    annotationProcessor "info.picocli:picocli-codegen:$picocliVersion"
+    api "info.picocli:picocli:$picocliVersion"
+    api "org.slf4j:slf4j-api:$slf4jVersion"
+    runtimeOnly "org.slf4j:slf4j-simple:$slf4jVersion"
+}
+
+//compileJava {
+//    options.compilerArgs += ["-Aproject=${project.name}"]
+//}
+
+processResources {
+    inputs.property('version', project.version)
+    filesMatching(['**/Banner*.properties']) {
+        expand(
+            'version': project.version,
+            'id': 'jreleaser',
+            'name': 'jreleaser'
+        )
+    }
+}
+
+distributions {
+    main {
+        contents {
+            from('../..') {
+                include 'VERSION'
+            }
+        }
+    }
+}
+
+jdks {
+    zulu17Linux {
+        platform = 'linux-x86_64'
+        url = 'https://cdn.azul.com/zulu/bin/zulu17.30.15-ca-jdk17.0.1-linux_x64.zip'
+        checksum = 'b1587c9fcd9eef6b3b6a05993057ae54e6bf35ae4f5c5d0d40ea752522860b12'
+    }
+    zulu17LinuxArm {
+        platform = 'linux-aarch64'
+        url = 'https://cdn.azul.com/zulu/bin/zulu17.30.15-ca-jdk17.0.1-linux_aarch64.tar.gz'
+        checksum = '4d9c9116eb0cdd2d7fb220d6d27059f4bf1b7e95cc93d5512bd8ce3791af86c7'
+    }
+    zulu17LinuxMusl {
+        platform = 'linux_musl-x86_64'
+        url = 'https://cdn.azul.com/zulu/bin/zulu17.30.15-ca-jdk17.0.1-linux_musl_x64.tar.gz'
+        checksum = '02764bb49dc7e1a01bfa3b99ba7cc20ca8403dc41e914d1a5ae43a32eb25f7b1'
+    }
+    zulu17LinuxMuslArm {
+        platform = 'linux_musl-aarch64'
+        url = 'https://cdn.azul.com/zulu/bin/zulu17.30.15-ca-jdk17.0.1-linux_musl_aarch64.tar.gz'
+        checksum = '74e9ffa86b8cf7757501794b847133502f33d916ce07a07171317bcf97c646f1'
+    }
+    zulu17Windows {
+        platform = 'windows-x86_64'
+        url = 'https://cdn.azul.com/zulu/bin/zulu17.30.15-ca-jdk17.0.1-win_x64.zip'
+        checksum = 'ab7c10f1cb76d10b801a4a130fee874e8e30e597fecb0afa9e76800e7d34aee7'
+    }
+    zulu17WindowsArm {
+        platform = 'windows-aarch64'
+        url = 'https://cdn.azul.com/zulu/bin/zulu17.30.15-ca-jdk17.0.1-win_aarch64.zip'
+        checksum = '811d7e7591bac4f081dfb00ba6bd15b6fc5969e1f89f0f327ef75147027c3877'
+    }
+    zulu17Osx {
+        platform = 'osx-x86_64'
+        url = 'https://cdn.azul.com/zulu/bin/zulu17.30.15-ca-jdk17.0.1-macosx_x64.zip'
+        checksum = 'b30ef16a4384899f5a87e4de7c70f901168efd70bc614e06fc4f78ecfb81af68'
+    }
+    zulu17OsxArm {
+        platform = 'osx-aarch64'
+        url = 'https://cdn.azul.com/zulu/bin/zulu17.30.15-ca-jdk17.0.1-macosx_aarch64.zip'
+        checksum = 'd8ef6d5f12d8f7c703924b01c98759eb5a44b015bf72f569e2925434d1bba7ce'
+    }
+    graal17Linux {
+        platform = 'linux-x86_64'
+        url = 'https://github.com/graalvm/graalvm-ce-builds/releases/download/vm-21.3.0/graalvm-ce-java17-linux-amd64-21.3.0.tar.gz'
+        checksum = '11d8039e0a7a31b799a6f20a0e806e4128730e9a2595a7ffdec1443539d4c3f6'
+    }
+    graal17Osx {
+        platform = 'osx-x86_64'
+        url = 'https://github.com/graalvm/graalvm-ce-builds/releases/download/vm-21.3.0/graalvm-ce-java17-darwin-amd64-21.3.0.tar.gz'
+        checksum = '60236506920cc84a07ea7602f4514d05da2c07c7176e0634652f8a9c5ad677aa'
+    }
+    graal17Windows {
+        platform = 'windows-x86_64'
+        url = 'https://github.com/graalvm/graalvm-ce-builds/releases/download/vm-21.3.0/graalvm-ce-java17-windows-amd64-21.3.0.zip'
+        checksum = 'dd8b89ad60bf909327fdb6e5711d944c5e581d47add6414757ac9b293febc7be'
+    }
+}
+
+copyDependencies {
+    dependsOn classes
+    inputs.files(configurations.runtimeClasspath)
+    configuration = 'runtimeClasspath'
+}
+
+assemble.dependsOn copyDependencies
