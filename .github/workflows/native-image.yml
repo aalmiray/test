@@ -74,7 +74,7 @@ jobs:
         uses: jreleaser/release-action@v1
         with:
           version: early-access
-          arguments: assemble -a native-image
+          arguments: assemble -s native-image
         env:
           JRELEASER_PROJECT_VERSION: ${{ steps.vars.outputs.content }}
           JRELEASER_GITHUB_TOKEN: ${{ secrets.GIT_ACCESS_TOKEN }}
