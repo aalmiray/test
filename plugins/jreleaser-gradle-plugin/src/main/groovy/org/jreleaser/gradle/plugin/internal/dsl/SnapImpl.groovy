@@ -44,7 +44,7 @@ import static org.jreleaser.util.StringUtils.isNotBlank
  * @since 0.1.0
  */
 @CompileStatic
-class SnapImpl extends AbstractRepositoryTool implements Snap {
+class SnapImpl extends AbstractRepositoryPackager implements Snap {
     final Property<String> packageName
     final Property<String> base
     final Property<String> grade
@@ -185,32 +185,32 @@ class SnapImpl extends AbstractRepositoryTool implements Snap {
     }
 
     org.jreleaser.model.Snap toModel() {
-        org.jreleaser.model.Snap tool = new org.jreleaser.model.Snap()
-        fillToolProperties(tool)
-        fillTemplateToolProperties(tool)
-        if (snap.isSet()) tool.snap = snap.toSnapTap()
-        if (packageName.present) tool.packageName = packageName.get()
-        if (base.present) tool.base = base.get()
-        if (grade.present) tool.grade = grade.get()
-        if (confinement.present) tool.confinement = confinement.get()
-        if (snap.isSet()) tool.snap = snap.toSnapTap()
-        if (commitAuthor.isSet()) tool.commitAuthor = commitAuthor.toModel()
+        org.jreleaser.model.Snap packager = new org.jreleaser.model.Snap()
+        fillPackagerProperties(packager)
+        fillTemplatePackagerProperties(packager)
+        if (snap.isSet()) packager.snap = snap.toSnapTap()
+        if (packageName.present) packager.packageName = packageName.get()
+        if (base.present) packager.base = base.get()
+        if (grade.present) packager.grade = grade.get()
+        if (confinement.present) packager.confinement = confinement.get()
+        if (snap.isSet()) packager.snap = snap.toSnapTap()
+        if (commitAuthor.isSet()) packager.commitAuthor = commitAuthor.toModel()
         if (exportedLogin.present) {
-            tool.exportedLogin = exportedLogin.get().asFile.absolutePath
+            packager.exportedLogin = exportedLogin.get().asFile.absolutePath
         }
-        tool.remoteBuild = remoteBuild.getOrElse(false)
-        tool.localPlugs = (Set<String>) localPlugs.getOrElse([] as Set<String>)
-        tool.localSlots = (Set<String>) localSlots.getOrElse([] as Set<String>)
-        tool.plugs.addAll(plugs.collect([]) { Plug plug ->
+        packager.remoteBuild = remoteBuild.getOrElse(false)
+        packager.localPlugs = (Set<String>) localPlugs.getOrElse([] as Set<String>)
+        packager.localSlots = (Set<String>) localSlots.getOrElse([] as Set<String>)
+        packager.plugs.addAll(plugs.collect([]) { Plug plug ->
             ((PlugImpl) plug).toModel()
         } as Set<org.jreleaser.model.Snap.Plug>)
-        tool.slots.addAll(slots.collect([]) { Slot slot ->
+        packager.slots.addAll(slots.collect([]) { Slot slot ->
             ((SlotImpl) slot).toModel()
         } as Set<org.jreleaser.model.Snap.Slot>)
         for (ArchitectureImpl architecture : architectures) {
-            tool.addArchitecture(architecture.toModel())
+            packager.addArchitecture(architecture.toModel())
         }
-        tool
+        packager
     }
 
     @CompileStatic
@@ -266,10 +266,14 @@ class SnapImpl extends AbstractRepositoryTool implements Snap {
     static class PlugImpl implements Plug {
         String name
         final MapProperty<String, String> attributes
+        final ListProperty<String> reads
+        final ListProperty<String> writes
 
         @Inject
         PlugImpl(ObjectFactory objects) {
             attributes = objects.mapProperty(String, String).convention([:])
+            reads = objects.listProperty(String).convention(Providers.notDefined())
+            writes = objects.listProperty(String).convention(Providers.notDefined())
         }
 
         void setName(String name) {
@@ -283,10 +287,26 @@ class SnapImpl extends AbstractRepositoryTool implements Snap {
             }
         }
 
+        @Override
+        void addRead(String read) {
+            if (isNotBlank(read)) {
+                this.reads.add(read.trim())
+            }
+        }
+
+        @Override
+        void addWrite(String write) {
+            if (isNotBlank(write)) {
+                this.writes.add(write.trim())
+            }
+        }
+
         org.jreleaser.model.Snap.Plug toModel() {
             org.jreleaser.model.Snap.Plug plug = new org.jreleaser.model.Snap.Plug()
             plug.name = name
             plug.attributes.putAll(attributes.get())
+            plug.reads = (List<String>) reads.getOrElse([])
+            plug.writes = (List<String>) writes.getOrElse([])
             plug
         }
     }

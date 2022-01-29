@@ -17,6 +17,8 @@
  */
 package org.jreleaser.model.validation;
 
+import org.jreleaser.bundle.RB;
+import org.jreleaser.model.Active;
 import org.jreleaser.model.Artifact;
 import org.jreleaser.model.Distribution;
 import org.jreleaser.model.GitService;
@@ -25,7 +27,7 @@ import org.jreleaser.model.JReleaserModel;
 import org.jreleaser.model.Scoop;
 import org.jreleaser.util.Errors;
 
-import java.util.Set;
+import java.util.List;
 
 import static org.jreleaser.model.Checksum.INDIVIDUAL_CHECKSUM;
 import static org.jreleaser.model.validation.DistributionsValidator.validateArtifactPlatforms;
@@ -38,57 +40,63 @@ import static org.jreleaser.util.StringUtils.isBlank;
  * @since 0.1.0
  */
 public abstract class ScoopValidator extends Validator {
-    public static void validateScoop(JReleaserContext context, Distribution distribution, Scoop tool, Errors errors) {
+    public static void validateScoop(JReleaserContext context, Distribution distribution, Scoop packager, Errors errors) {
         JReleaserModel model = context.getModel();
-        Scoop parentTool = model.getPackagers().getScoop();
+        Scoop parentPackager = model.getPackagers().getScoop();
 
-        if (!tool.isActiveSet() && parentTool.isActiveSet()) {
-            tool.setActive(parentTool.getActive());
+        if (!packager.isActiveSet() && parentPackager.isActiveSet()) {
+            packager.setActive(parentPackager.getActive());
         }
-        if (!tool.resolveEnabled(context.getModel().getProject(), distribution)) return;
+        if (!packager.resolveEnabled(context.getModel().getProject(), distribution)) return;
         GitService service = model.getRelease().getGitService();
         if (!service.isReleaseSupported()) {
-            tool.disable();
+            packager.disable();
             return;
         }
 
         context.getLogger().debug("distribution.{}.scoop", distribution.getName());
 
-        validateCommitAuthor(tool, parentTool);
-        Scoop.ScoopBucket bucket = tool.getBucket();
-        bucket.resolveEnabled(model.getProject());
-        validateTap(context, distribution, bucket, parentTool.getBucket(), "scoop.bucket");
-        validateTemplate(context, distribution, tool, parentTool, errors);
-        mergeExtraProperties(tool, parentTool);
-        validateContinueOnError(tool, parentTool);
-
-        if (isBlank(tool.getPackageName())) {
-            tool.setPackageName(parentTool.getPackageName());
-            if (isBlank(tool.getPackageName())) {
-                tool.setPackageName(distribution.getExecutable());
-            }
+        List<Artifact> candidateArtifacts = packager.resolveCandidateArtifacts(context, distribution);
+        if (candidateArtifacts.size() == 0) {
+            packager.setActive(Active.NEVER);
+            packager.disable();
+            return;
+        } else if (candidateArtifacts.size() > 1) {
+            errors.configuration(RB.$("validation_packager_multiple_artifacts", "distribution." + distribution.getName() + ".scoop"));
+            packager.disable();
+            return;
         }
-        if (isBlank(tool.getCheckverUrl())) {
-            tool.setCheckverUrl(parentTool.getCheckverUrl());
-            if (isBlank(tool.getCheckverUrl())) {
-                tool.setCheckverUrl(service.getLatestReleaseUrl());
-            }
-        }
-        if (isBlank(tool.getAutoupdateUrl())) {
-            tool.setAutoupdateUrl(parentTool.getAutoupdateUrl());
-            if (isBlank(tool.getAutoupdateUrl())) {
-                tool.setAutoupdateUrl(service.getDownloadUrl());
-            }
-        }
-
-        validateArtifactPlatforms(context, distribution, tool, errors);
 
         // activate individual checksums on matching artifacts
-        Set<String> fileExtensions = tool.getSupportedExtensions();
-        distribution.getArtifacts().stream()
-            .filter(Artifact::isActive)
-            .filter(artifact -> fileExtensions.stream().anyMatch(ext -> artifact.getPath().endsWith(ext)))
-            .filter(artifact -> tool.supportsPlatform(artifact.getPlatform()))
-            .forEach(artifact -> artifact.getExtraProperties().put(INDIVIDUAL_CHECKSUM, true));
+        candidateArtifacts.forEach(artifact -> artifact.getExtraProperties().put(INDIVIDUAL_CHECKSUM, true));
+
+        validateCommitAuthor(packager, parentPackager);
+        Scoop.ScoopBucket bucket = packager.getBucket();
+        bucket.resolveEnabled(model.getProject());
+        validateTap(context, distribution, bucket, parentPackager.getBucket(), "scoop.bucket");
+        validateTemplate(context, distribution, packager, parentPackager, errors);
+        mergeExtraProperties(packager, parentPackager);
+        validateContinueOnError(packager, parentPackager);
+        if (isBlank(packager.getDownloadUrl())) {
+            packager.setDownloadUrl(parentPackager.getDownloadUrl());
+        }
+
+        if (isBlank(packager.getPackageName())) {
+            packager.setPackageName(parentPackager.getPackageName());
+            if (isBlank(packager.getPackageName())) {
+                packager.setPackageName(distribution.getExecutable().getName());
+            }
+        }
+        if (isBlank(packager.getCheckverUrl())) {
+            packager.setCheckverUrl(parentPackager.getCheckverUrl());
+            if (isBlank(packager.getCheckverUrl())) {
+                packager.setCheckverUrl(service.getLatestReleaseUrl());
+            }
+        }
+        if (isBlank(packager.getAutoupdateUrl())) {
+            packager.setAutoupdateUrl(parentPackager.getAutoupdateUrl());
+        }
+
+        validateArtifactPlatforms(context, distribution, packager, candidateArtifacts, errors);
     }
 }

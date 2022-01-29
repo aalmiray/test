@@ -18,6 +18,7 @@
 package org.jreleaser.util;
 
 import kr.motd.maven.os.Detector;
+import org.jreleaser.bundle.RB;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -40,6 +41,8 @@ public final class PlatformUtils {
     private static final OsDetector OS_DETECTOR = new OsDetector();
     private static final List<String> OS_NAMES = new ArrayList<>();
     private static final List<String> OS_ARCHS = new ArrayList<>();
+    private static final String JRELEASER_PLATFORM_OVERRIDE = "JRELEASER_PLATFORM_OVERRIDE";
+    private static String currentPlatform;
 
     static {
         OS_NAMES.addAll(Arrays.asList(
@@ -120,6 +123,32 @@ public final class PlatformUtils {
         }
     }
 
+    public static boolean isIntel32(String osNameOrClassifier) {
+        if (isBlank(osNameOrClassifier)) return false;
+        String[] parts = osNameOrClassifier.split("-");
+
+        switch (parts.length) {
+            case 1:
+            case 2:
+                return "x86_32".equals(parts[1]);
+            default:
+                return false;
+        }
+    }
+
+    public static boolean isIntel64(String osNameOrClassifier) {
+        if (isBlank(osNameOrClassifier)) return false;
+        String[] parts = osNameOrClassifier.split("-");
+
+        switch (parts.length) {
+            case 1:
+            case 2:
+                return "x86_64".equals(parts[1]);
+            default:
+                return false;
+        }
+    }
+
     public static boolean isArm(String osNameOrClassifier) {
         if (isBlank(osNameOrClassifier)) return false;
         String[] parts = osNameOrClassifier.split("-");
@@ -129,6 +158,32 @@ public final class PlatformUtils {
             case 2:
                 return "arm_32".equals(parts[1]) ||
                     "aarch_64".equals(parts[1]);
+            default:
+                return false;
+        }
+    }
+
+    public static boolean isArm32(String osNameOrClassifier) {
+        if (isBlank(osNameOrClassifier)) return false;
+        String[] parts = osNameOrClassifier.split("-");
+
+        switch (parts.length) {
+            case 1:
+            case 2:
+                return "arm_32".equals(parts[1]);
+            default:
+                return false;
+        }
+    }
+
+    public static boolean isArm64(String osNameOrClassifier) {
+        if (isBlank(osNameOrClassifier)) return false;
+        String[] parts = osNameOrClassifier.split("-");
+
+        switch (parts.length) {
+            case 1:
+            case 2:
+                return "aarch_64".equals(parts[1]);
             default:
                 return false;
         }
@@ -187,15 +242,21 @@ public final class PlatformUtils {
         if (isBlank(osNameOrClassifier)) return false;
         String[] parts = osNameOrClassifier.split("-");
 
-        return "linux_musl".equals(parts[0]);
+        return "linux_musl".equalsIgnoreCase(parts[0]);
     }
 
     public static String getCurrent() {
         String platform = getDetectedOs();
 
         if (isLinux(platform)) {
-            Path release = Paths.get(System.getProperty("java.home"))
-                .resolve("release");
+            String javaHome = System.getProperty("java.home");
+            if (isBlank(javaHome)) {
+                // Can only happen when running as native-image, ignore for now
+                // TODO: native-image
+                return platform;
+            }
+
+            Path release = Paths.get(javaHome).resolve("release");
 
             try {
                 Properties props = new Properties();
@@ -214,26 +275,39 @@ public final class PlatformUtils {
         return platform;
     }
 
+    public static void resolveCurrentPlatform(JReleaserLogger logger) {
+        String resolved = getCurrent() + "-" + getDetectedArch();
+        String platform = System.getenv().getOrDefault(JRELEASER_PLATFORM_OVERRIDE,
+            System.getProperty(JRELEASER_PLATFORM_OVERRIDE, resolved));
+
+        if (!isSupported(platform)) {
+            logger.warn(RB.$("ERROR_unsupported_platform_override", platform, resolved));
+            platform = resolved;
+        }
+
+        currentPlatform = platform;
+    }
+
     public static String getCurrentFull() {
-        return getCurrent() + "-" + getDetectedArch();
+        return currentPlatform;
     }
 
     public static boolean isWindows() {
-        return "windows".equals(getDetectedOs());
+        return "windows".equalsIgnoreCase(getDetectedOs());
     }
 
     public static boolean isMac() {
-        return "osx".equals(getDetectedOs());
+        return "osx".equalsIgnoreCase(getDetectedOs());
     }
 
     public static boolean isCompatible(String expected, String actual) {
         if (expected.contains("-")) {
             // expected is strict
-            return expected.equals(actual);
+            return expected.equalsIgnoreCase(actual);
         }
 
         String[] parts = actual.split("-");
-        return expected.equals(parts[0]);
+        return expected.equalsIgnoreCase(parts[0]);
     }
 
     public static String getDetectedOs() {

@@ -18,11 +18,11 @@ architectures:
   {{/snapArchitectures}}
 {{/hasArchitectures}}
 apps:
-  {{distributionExecutable}}:
+  {{distributionExecutableName}}:
     command: ${JAVA_HOME}/bin/java -jar $SNAP/{{distributionArtifactFile}}
     environment:
-      JAVA_HOME: "$SNAP/usr/lib/jvm/java/jre/"
-      PATH: "$PATH:$SNAP/usr/lib/jvm/java/jre/bin"
+      JAVA_HOME: "$SNAP/usr/lib/jvm/java"
+      PATH: "$PATH:$JAVA_HOME/bin"
     {{#snapHasLocalPlugs}}
     plugs:
       {{#snapLocalPlugs}}
@@ -40,18 +40,30 @@ apps:
 plugs:
   {{#snapPlugs}}
   {{name}}:
-    {{#attributes}}
+    {{#attrs}}
     {{key}}: {{value}}
-    {{/attributes}}
+    {{/attrs}}
+    {{#hasReads}}
+    read:
+      {{#reads}}
+      - {{.}}
+      {{/reads}}
+    {{/hasReads}}
+    {{#hasWrites}}
+    write:
+      {{#writes}}
+      - {{.}}
+      {{/writes}}
+    {{/hasWrites}}
   {{/snapPlugs}}
 {{/snapHasPlugs}}
 {{#snapHasSlots}}
 slots:
   {{#snapSlots}}
   {{name}}:
-    {{#attributes}}
+    {{#attrs}}
     {{key}}: {{value}}
-    {{/attributes}}
+    {{/attrs}}
     {{#hasReads}}
     reads:
       {{#reads}}
@@ -67,7 +79,7 @@ slots:
   {{/snapSlots }}
 {{/snapHasSlots}}
 parts:
-  {{distributionExecutable}}:
+  {{distributionExecutableName}}:
     plugin: nil
     override-build: |
       wget -O $SNAPCRAFT_PART_INSTALL/{{distributionArtifactFile}} {{distributionUrl}}
@@ -79,7 +91,6 @@ parts:
       - ca-certificates
       - ca-certificates-java
     organize:
-      'usr/lib/jvm/java-{{distributionJavaVersion}}-openjdk*': 'usr/lib/jvm/java'
+      'usr/lib/jvm/java-*': 'usr/lib/jvm/java'
     prime:
       - -usr/lib/jvm/java/lib/security/cacerts
-      - -usr/lib/jvm/java/jre/lib/security/cacerts

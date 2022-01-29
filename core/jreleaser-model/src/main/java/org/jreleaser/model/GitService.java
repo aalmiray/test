@@ -29,11 +29,11 @@ import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 
-import static org.jreleaser.util.MustacheUtils.applyTemplate;
 import static org.jreleaser.util.MustacheUtils.applyTemplates;
 import static org.jreleaser.util.StringUtils.getClassNameForLowerCaseHyphenSeparatedName;
 import static org.jreleaser.util.StringUtils.isBlank;
 import static org.jreleaser.util.StringUtils.isNotBlank;
+import static org.jreleaser.util.Templates.resolveTemplate;
 
 /**
  * @author Andres Almiray
@@ -60,10 +60,10 @@ public abstract class GitService implements Releaser, CommitAuthorAware, OwnerAw
     private final Changelog changelog = new Changelog();
     private final Milestone milestone = new Milestone();
     private final CommitAuthor commitAuthor = new CommitAuthor();
+    private final Update update = new Update();
     private final Prerelease prerelease = new Prerelease();
     @JsonIgnore
     private final boolean releaseSupported;
-    private final Set<UpdateSection> updateSections = new LinkedHashSet<>();
 
     private Boolean enabled;
     private String host;
@@ -87,7 +87,6 @@ public abstract class GitService implements Releaser, CommitAuthorAware, OwnerAw
     private Boolean skipTag;
     private Boolean skipRelease;
     private Boolean overwrite;
-    private Boolean update;
     private String apiEndpoint;
     private int connectTimeout;
     private int readTimeout;
@@ -141,7 +140,6 @@ public abstract class GitService implements Releaser, CommitAuthorAware, OwnerAw
         this.skipTag = service.skipTag;
         this.skipRelease = service.skipRelease;
         this.overwrite = service.overwrite;
-        this.update = service.update;
         this.apiEndpoint = service.apiEndpoint;
         this.connectTimeout = service.connectTimeout;
         this.readTimeout = service.readTimeout;
@@ -152,10 +150,10 @@ public abstract class GitService implements Releaser, CommitAuthorAware, OwnerAw
         this.uploadAssets = service.uploadAssets;
         this.uploadAssetsEnabled = service.uploadAssetsEnabled;
         setCommitAuthor(service.commitAuthor);
+        setUpdate(service.update);
         setPrerelease(service.prerelease);
         setChangelog(service.changelog);
         setMilestone(service.milestone);
-        setUpdateSections(service.updateSections);
     }
 
     public String getCanonicalRepoName() {
@@ -181,9 +179,9 @@ public abstract class GitService implements Releaser, CommitAuthorAware, OwnerAw
         }
 
         if (isBlank(cachedTagName)) {
-            cachedTagName = applyTemplate(tagName, props(model));
+            cachedTagName = resolveTemplate(tagName, props(model));
         } else if (cachedTagName.contains("{{")) {
-            cachedTagName = applyTemplate(cachedTagName, props(model));
+            cachedTagName = resolveTemplate(cachedTagName, props(model));
         }
 
         return cachedTagName;
@@ -206,9 +204,9 @@ public abstract class GitService implements Releaser, CommitAuthorAware, OwnerAw
         }
 
         if (isBlank(cachedReleaseName)) {
-            cachedReleaseName = applyTemplate(releaseName, props(model));
+            cachedReleaseName = resolveTemplate(releaseName, props(model));
         } else if (cachedReleaseName.contains("{{")) {
-            cachedReleaseName = applyTemplate(cachedReleaseName, props(model));
+            cachedReleaseName = resolveTemplate(cachedReleaseName, props(model));
         }
 
         return cachedReleaseName;
@@ -220,12 +218,12 @@ public abstract class GitService implements Releaser, CommitAuthorAware, OwnerAw
 
     public String getResolvedRepoUrl(JReleaserModel model) {
         if (!releaseSupported) return "";
-        return applyTemplate(repoUrl, props(model));
+        return resolveTemplate(repoUrl, props(model));
     }
 
     public String getResolvedRepoCloneUrl(JReleaserModel model) {
         if (!releaseSupported) return "";
-        return applyTemplate(repoCloneUrl, props(model));
+        return resolveTemplate(repoCloneUrl, props(model));
     }
 
     public String getResolvedRepoUrl(JReleaserModel model, String repoOwner, String repoName) {
@@ -233,7 +231,7 @@ public abstract class GitService implements Releaser, CommitAuthorAware, OwnerAw
         Map<String, Object> props = props(model);
         props.put(Constants.KEY_REPO_OWNER, repoOwner);
         props.put(Constants.KEY_REPO_NAME, repoName);
-        return applyTemplate(repoUrl, props);
+        return resolveTemplate(repoUrl, props);
     }
 
     public String getResolvedRepoCloneUrl(JReleaserModel model, String repoOwner, String repoName) {
@@ -241,37 +239,37 @@ public abstract class GitService implements Releaser, CommitAuthorAware, OwnerAw
         Map<String, Object> props = props(model);
         props.put(Constants.KEY_REPO_OWNER, repoOwner);
         props.put(Constants.KEY_REPO_NAME, repoName);
-        return applyTemplate(repoCloneUrl, props);
+        return resolveTemplate(repoCloneUrl, props);
     }
 
     public String getResolvedCommitUrl(JReleaserModel model) {
         if (!releaseSupported) return "";
-        return applyTemplate(commitUrl, props(model));
+        return resolveTemplate(commitUrl, props(model));
     }
 
     public String getResolvedSrcUrl(JReleaserModel model) {
         if (!releaseSupported) return "";
-        return applyTemplate(srcUrl, props(model));
+        return resolveTemplate(srcUrl, props(model));
     }
 
     public String getResolvedDownloadUrl(JReleaserModel model) {
         if (!releaseSupported) return "";
-        return applyTemplate(downloadUrl, props(model));
+        return resolveTemplate(downloadUrl, props(model));
     }
 
     public String getResolvedReleaseNotesUrl(JReleaserModel model) {
         if (!releaseSupported) return "";
-        return applyTemplate(releaseNotesUrl, props(model));
+        return resolveTemplate(releaseNotesUrl, props(model));
     }
 
     public String getResolvedLatestReleaseUrl(JReleaserModel model) {
         if (!releaseSupported) return "";
-        return applyTemplate(latestReleaseUrl, props(model));
+        return resolveTemplate(latestReleaseUrl, props(model));
     }
 
     public String getResolvedIssueTrackerUrl(JReleaserModel model) {
         if (!releaseSupported) return "";
-        return applyTemplate(issueTrackerUrl, props(model));
+        return resolveTemplate(issueTrackerUrl, props(model));
     }
 
     public boolean resolveUploadAssetsEnabled(Project project) {
@@ -605,25 +603,18 @@ public abstract class GitService implements Releaser, CommitAuthorAware, OwnerAw
         return overwrite != null;
     }
 
-    public boolean isUpdate() {
-        return update != null && update;
+    public Update getUpdate() {
+        return update;
     }
 
-    public void setUpdate(Boolean update) {
-        this.update = update;
+    public void setUpdate(Update update) {
+        this.update.setAll(update);
     }
 
-    public boolean isUpdateSet() {
-        return update != null;
-    }
-
-    public Set<UpdateSection> getUpdateSections() {
-        return updateSections;
-    }
-
+    @Deprecated
     public void setUpdateSections(Set<UpdateSection> updateSections) {
-        this.updateSections.clear();
-        this.updateSections.addAll(updateSections);
+        System.out.println("updateSections has been deprecated since 1.0.0-M2 and will be removed in the future. Use update.sections instead");
+        this.update.setSections(updateSections);
     }
 
     public String getApiEndpoint() {
@@ -753,8 +744,7 @@ public abstract class GitService implements Releaser, CommitAuthorAware, OwnerAw
         props.put("skipRelease", isSkipRelease());
         props.put("overwrite", isOverwrite());
         if (releaseSupported) {
-            props.put("update", isUpdate());
-            props.put("updateSections", updateSections);
+            props.put("update", update.asMap(full));
             props.put("apiEndpoint", apiEndpoint);
             props.put("connectTimeout", connectTimeout);
             props.put("readTimeout", readTimeout);
@@ -863,6 +853,53 @@ public abstract class GitService implements Releaser, CommitAuthorAware, OwnerAw
         props.put(Constants.KEY_ISSUE_TRACKER_URL, getResolvedIssueTrackerUrl(model));
     }
 
+    public static class Update implements Domain {
+        private final Set<UpdateSection> sections = new LinkedHashSet<>();
+        private Boolean enabled;
+
+        public Update() {
+        }
+
+        public Update(Boolean enabled) {
+            System.out.println("update has been deprecated since 1.0.0-M2 and will be removed in the future. Use update.enabled instead");
+            this.enabled = enabled;
+        }
+
+        void setAll(Update update) {
+            this.enabled = update.enabled;
+            setSections(update.sections);
+        }
+
+        public boolean isEnabled() {
+            return enabled != null && enabled;
+        }
+
+        public void setEnabled(Boolean enabled) {
+            this.enabled = enabled;
+        }
+
+        public boolean isEnabledSet() {
+            return enabled != null;
+        }
+
+        public Set<UpdateSection> getSections() {
+            return sections;
+        }
+
+        public void setSections(Set<UpdateSection> sections) {
+            this.sections.clear();
+            this.sections.addAll(sections);
+        }
+
+        @Override
+        public Map<String, Object> asMap(boolean full) {
+            Map<String, Object> map = new LinkedHashMap<>();
+            map.put("enabled", isEnabled());
+            map.put("sections", sections);
+            return map;
+        }
+    }
+
     public static class Prerelease implements Domain {
         private Boolean enabled;
         private String pattern;
@@ -950,9 +987,9 @@ public abstract class GitService implements Releaser, CommitAuthorAware, OwnerAw
             }
 
             if (isBlank(cachedName)) {
-                cachedName = applyTemplate(name, props);
+                cachedName = resolveTemplate(name, props);
             } else if (cachedName.contains("{{")) {
-                cachedName = applyTemplate(cachedName, props);
+                cachedName = resolveTemplate(cachedName, props);
             }
 
             return cachedName;

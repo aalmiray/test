@@ -18,9 +18,9 @@
 package org.jreleaser.cli;
 
 import org.jreleaser.model.Distribution;
-import org.jreleaser.model.JReleaserException;
 import org.jreleaser.templates.TemplateGenerationException;
 import org.jreleaser.templates.TemplateGenerator;
+import org.jreleaser.util.JReleaserException;
 import picocli.CommandLine;
 
 import java.nio.file.Path;
@@ -90,7 +90,7 @@ public class Template extends AbstractLoggingCommand {
     @CommandLine.Option(names = {"-o", "--overwrite"})
     boolean overwrite;
 
-    @CommandLine.Option(names = {"-s", "--snapshot"})
+    @CommandLine.Option(names = {"-sn", "--snapshot"})
     boolean snapshot;
 
     @CommandLine.ParentCommand

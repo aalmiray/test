@@ -72,9 +72,14 @@ abstract class AbstractJReleaserTask extends DefaultTask {
         outputDirectory = objects.directoryProperty()
     }
 
-    @Option(option = 'dryrun', description = 'Skip remote operations (OPTIONAL).')
+    @Option(option = 'dry-run', description = 'Skip remote operations (OPTIONAL).')
     void setDryrun(boolean dryrun) {
         this.dryrun.set(dryrun)
+    }
+
+    @Option(option = 'git-root-search', description = 'Searches for the Git root (OPTIONAL).')
+    void setGitRootSearch(boolean gitRootSearch) {
+        this.gitRootSearch.set(gitRootSearch)
     }
 
     protected JReleaserContext createContext() {

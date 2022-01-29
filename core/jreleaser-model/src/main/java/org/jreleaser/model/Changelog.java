@@ -18,6 +18,7 @@
 package org.jreleaser.model;
 
 import org.jreleaser.bundle.RB;
+import org.jreleaser.util.JReleaserException;
 
 import java.io.IOException;
 import java.io.Reader;
@@ -105,7 +106,7 @@ public class Changelog implements Domain, EnabledAware {
 
     @Override
     public boolean isEnabled() {
-        return enabled;
+        return enabled != null && enabled;
     }
 
     @Override

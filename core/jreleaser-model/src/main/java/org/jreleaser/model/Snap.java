@@ -17,26 +17,66 @@
  */
 package org.jreleaser.model;
 
-import org.jreleaser.util.FileType;
 import org.jreleaser.util.PlatformUtils;
 
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static java.util.stream.Collectors.toList;
+import static org.jreleaser.model.Distribution.DistributionType.BINARY;
+import static org.jreleaser.model.Distribution.DistributionType.JAVA_BINARY;
+import static org.jreleaser.model.Distribution.DistributionType.JLINK;
+import static org.jreleaser.model.Distribution.DistributionType.NATIVE_IMAGE;
+import static org.jreleaser.model.Distribution.DistributionType.NATIVE_PACKAGE;
+import static org.jreleaser.model.Distribution.DistributionType.SINGLE_JAR;
+import static org.jreleaser.util.CollectionUtils.newSet;
+import static org.jreleaser.util.FileType.DEB;
+import static org.jreleaser.util.FileType.JAR;
+import static org.jreleaser.util.FileType.RPM;
+import static org.jreleaser.util.FileType.TAR;
+import static org.jreleaser.util.FileType.TAR_BZ2;
+import static org.jreleaser.util.FileType.TAR_GZ;
+import static org.jreleaser.util.FileType.TAR_XZ;
+import static org.jreleaser.util.FileType.TBZ2;
+import static org.jreleaser.util.FileType.TGZ;
+import static org.jreleaser.util.FileType.TXZ;
 import static org.jreleaser.util.StringUtils.isBlank;
+import static org.jreleaser.util.StringUtils.isFalse;
 import static org.jreleaser.util.StringUtils.isNotBlank;
 
 /**
  * @author Andres Almiray
  * @since 0.1.0
  */
-public class Snap extends AbstractRepositoryTool {
-    public static final String NAME = "snap";
+public class Snap extends AbstractRepositoryPackager {
+    public static final String TYPE = "snap";
     public static final String SKIP_SNAP = "skipSnap";
+
+    private static final Map<Distribution.DistributionType, Set<String>> SUPPORTED = new LinkedHashMap<>();
+
+    static {
+        Set<String> extensions = newSet(
+            TAR_BZ2.extension(),
+            TAR_GZ.extension(),
+            TAR_XZ.extension(),
+            TBZ2.extension(),
+            TGZ.extension(),
+            TXZ.extension(),
+            TAR.extension());
+
+        SUPPORTED.put(BINARY, extensions);
+        SUPPORTED.put(JAVA_BINARY, extensions);
+        SUPPORTED.put(JLINK, extensions);
+        SUPPORTED.put(NATIVE_IMAGE, extensions);
+        SUPPORTED.put(NATIVE_PACKAGE, newSet(DEB.extension(), RPM.extension()));
+        SUPPORTED.put(SINGLE_JAR, newSet(JAR.extension()));
+    }
 
     private final Set<String> localPlugs = new LinkedHashSet<>();
     private final Set<String> localSlots = new LinkedHashSet<>();
@@ -53,20 +93,7 @@ public class Snap extends AbstractRepositoryTool {
     private Boolean remoteBuild;
 
     public Snap() {
-        super(NAME);
-    }
-
-    @Override
-    public Set<String> getSupportedExtensions() {
-        Set<String> set = new LinkedHashSet<>();
-        set.add(FileType.TAR_BZ2.extension());
-        set.add(FileType.TAR_GZ.extension());
-        set.add(FileType.TAR_XZ.extension());
-        set.add(FileType.TBZ2.extension());
-        set.add(FileType.TGZ.extension());
-        set.add(FileType.TXZ.extension());
-        set.add(FileType.TAR.extension());
-        return set;
+        super(TYPE);
     }
 
     void setAll(Snap snap) {
@@ -312,6 +339,31 @@ public class Snap extends AbstractRepositoryTool {
         return isBlank(platform) || PlatformUtils.isUnix(platform);
     }
 
+    @Override
+    public boolean supportsDistribution(Distribution distribution) {
+        return SUPPORTED.containsKey(distribution.getType());
+    }
+
+    @Override
+    public Set<String> getSupportedExtensions(Distribution distribution) {
+        return SUPPORTED.getOrDefault(distribution.getType(), Collections.emptySet());
+    }
+
+    @Override
+    protected boolean isNotSkipped(Artifact artifact) {
+        return isFalse(artifact.getExtraProperties().get(SKIP_SNAP));
+    }
+
+    public static class Attribute {
+        public final String key;
+        public final String value;
+
+        public Attribute(String key, String value) {
+            this.key = key;
+            this.value = value;
+        }
+    }
+
     public static class Slot implements Domain {
         private final Map<String, String> attributes = new LinkedHashMap<>();
         private final List<String> reads = new ArrayList<>();
@@ -333,6 +385,12 @@ public class Snap extends AbstractRepositoryTool {
         public void setAttributes(Map<String, String> attributes) {
             this.attributes.clear();
             this.attributes.putAll(attributes);
+        }
+
+        public Collection<Attribute> getAttrs() {
+            return attributes.entrySet().stream()
+                .map(e-> new Attribute(e.getKey(), e.getValue()))
+                .collect(toList());
         }
 
         public void addAttributes(Map<String, String> attributes) {
@@ -422,6 +480,8 @@ public class Snap extends AbstractRepositoryTool {
 
     public static class Plug implements Domain {
         private final Map<String, String> attributes = new LinkedHashMap<>();
+        private final List<String> reads = new ArrayList<>();
+        private final List<String> writes = new ArrayList<>();
         private String name;
 
         public String getName() {
@@ -441,6 +501,12 @@ public class Snap extends AbstractRepositoryTool {
             this.attributes.putAll(attributes);
         }
 
+        public Collection<Attribute> getAttrs() {
+            return attributes.entrySet().stream()
+                .map(e-> new Attribute(e.getKey(), e.getValue()))
+                .collect(toList());
+        }
+
         public void addAttributes(Map<String, String> attributes) {
             this.attributes.putAll(attributes);
         }
@@ -449,10 +515,70 @@ public class Snap extends AbstractRepositoryTool {
             attributes.put(key, value);
         }
 
+        public List<String> getReads() {
+            return reads;
+        }
+
+        public void setReads(List<String> reads) {
+            this.reads.clear();
+            this.reads.addAll(reads);
+        }
+
+        public void addRead(List<String> read) {
+            this.reads.addAll(read);
+        }
+
+        public void addRead(String read) {
+            if (isNotBlank(read)) {
+                this.reads.add(read.trim());
+            }
+        }
+
+        public void removeRead(String read) {
+            if (isNotBlank(read)) {
+                this.reads.remove(read.trim());
+            }
+        }
+
+        public List<String> getWrites() {
+            return writes;
+        }
+
+        public void setWrites(List<String> writes) {
+            this.writes.clear();
+            this.writes.addAll(writes);
+        }
+
+        public void addWrite(List<String> write) {
+            this.writes.addAll(write);
+        }
+
+        public void addWrite(String write) {
+            if (isNotBlank(write)) {
+                this.writes.add(write.trim());
+            }
+        }
+
+        public void removeWrite(String write) {
+            if (isNotBlank(write)) {
+                this.writes.remove(write.trim());
+            }
+        }
+
+        public boolean getHasRead() {
+            return !reads.isEmpty();
+        }
+
+        public boolean getHasWrite() {
+            return !writes.isEmpty();
+        }
+
         @Override
         public Map<String, Object> asMap(boolean full) {
             Map<String, Object> map = new LinkedHashMap<>();
             map.put(name, attributes);
+            map.put("reads", reads);
+            map.put("writes", writes);
             return map;
         }
 
@@ -460,6 +586,8 @@ public class Snap extends AbstractRepositoryTool {
             Plug copy = new Plug();
             copy.setName(other.getName());
             copy.setAttributes(other.getAttributes());
+            copy.setReads(other.getReads());
+            copy.setWrites(other.getWrites());
             return copy;
         }
     }

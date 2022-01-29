@@ -44,21 +44,22 @@ jobs:
           key: ${{ runner.os }}-jreleaser-${{ hashFiles('jreleaser.yml') }}
           restore-keys: |
             ${{ runner.os }}-jreleaser-
-                
+
       - name: Build
         run: ./gradlew -Prelease=true :jreleaser:assemble -S
 
-      - name: 'Add Developer Command Prompt for Microsoft Visual C++'
-        if: ${{ runner.os == 'Windows' }}
-        uses: ilammy/msvc-dev-cmd@v1
+      - name: Add Developer Command Prompt for Microsoft Visual C++
+        uses: ilammy/msvc-dev-cmd@v1.10.0
 
-      - name: 'Set up Graal'
-        uses: DeLaGuardo/setup-graalvm@5.0
+      - name: Setup GraalVM
+        uses: graalvm/setup-graalvm@v1
         with:
-          graalvm: '21.3.0'
-          java: 'java17'
+          version: 22.0.0.2
+          java-version: 17
+          components: 'native-image'
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: 'Install upx (osx)'
+      - name: Install upx
         run: brew install upx
         if: ${{ runner.os == 'macOS' }}
 

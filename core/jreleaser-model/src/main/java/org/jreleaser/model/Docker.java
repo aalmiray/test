@@ -21,32 +21,58 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.jreleaser.util.FileType;
 import org.jreleaser.util.PlatformUtils;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static java.util.Comparator.naturalOrder;
+import static java.util.stream.Collectors.toList;
+import static org.jreleaser.model.Distribution.DistributionType.BINARY;
+import static org.jreleaser.model.Distribution.DistributionType.JAVA_BINARY;
+import static org.jreleaser.model.Distribution.DistributionType.JLINK;
+import static org.jreleaser.model.Distribution.DistributionType.NATIVE_IMAGE;
+import static org.jreleaser.model.Distribution.DistributionType.SINGLE_JAR;
+import static org.jreleaser.util.CollectionUtils.newSet;
+import static org.jreleaser.util.FileType.JAR;
+import static org.jreleaser.util.FileType.ZIP;
 import static org.jreleaser.util.StringUtils.isBlank;
+import static org.jreleaser.util.StringUtils.isFalse;
 
 /**
  * @author Andres Almiray
  * @since 0.1.0
  */
-public class Docker extends AbstractDockerConfiguration implements RepositoryTool {
+public class Docker extends AbstractDockerConfiguration implements RepositoryPackager {
+    public static final String SKIP_DOCKER = "skipDocker";
+
+    private static final Map<Distribution.DistributionType, Set<String>> SUPPORTED = new LinkedHashMap<>();
+
+    static {
+        Set<String> extensions = newSet(ZIP.extension());
+        SUPPORTED.put(BINARY, extensions);
+        SUPPORTED.put(JAVA_BINARY, extensions);
+        SUPPORTED.put(JLINK, extensions);
+        SUPPORTED.put(NATIVE_IMAGE, extensions);
+        SUPPORTED.put(SINGLE_JAR, newSet(JAR.extension()));
+    }
+
     private final Map<String, DockerSpec> specs = new LinkedHashMap<>();
     private final CommitAuthor commitAuthor = new CommitAuthor();
     private final DockerRepository repository = new DockerRepository();
 
     private Boolean continueOnError;
+    private String downloadUrl;
     @JsonIgnore
     private boolean failed;
 
     void setAll(Docker docker) {
         super.setAll(docker);
         this.continueOnError = docker.continueOnError;
+        this.downloadUrl = docker.downloadUrl;
         this.failed = docker.failed;
         setSpecs(docker.specs);
         setCommitAuthor(docker.commitAuthor);
@@ -79,13 +105,49 @@ public class Docker extends AbstractDockerConfiguration implements RepositoryToo
     }
 
     @Override
+    public String getDownloadUrl() {
+        return downloadUrl;
+    }
+
+    @Override
+    public void setDownloadUrl(String downloadUrl) {
+        this.downloadUrl = downloadUrl;
+    }
+
+    @Override
     public boolean supportsPlatform(String platform) {
         return isBlank(platform) || PlatformUtils.isUnix(platform);
     }
 
     @Override
     public boolean supportsDistribution(Distribution distribution) {
-        return true;
+        return SUPPORTED.containsKey(distribution.getType());
+    }
+
+    @Override
+    public Set<String> getSupportedExtensions(Distribution distribution) {
+        return SUPPORTED.getOrDefault(distribution.getType(), Collections.emptySet());
+    }
+
+    @Override
+    public List<Artifact> resolveCandidateArtifacts(JReleaserContext context, Distribution distribution) {
+        List<String> fileExtensions = new ArrayList<>(getSupportedExtensions(distribution));
+        fileExtensions.sort(naturalOrder());
+
+        return distribution.getArtifacts().stream()
+            .filter(Artifact::isActive)
+            .filter(artifact -> fileExtensions.stream().anyMatch(ext -> artifact.getResolvedPath(context, distribution).toString().endsWith(ext)))
+            .filter(artifact -> supportsPlatform(artifact.getPlatform()))
+            .filter(this::isNotSkipped)
+            .sorted(Artifact.comparatorByPlatform().thenComparingInt(artifact -> {
+                String ext = FileType.getFileNameExtension(artifact.getResolvedPath(context, distribution));
+                return fileExtensions.indexOf(ext);
+            }))
+            .collect(toList());
+    }
+
+    protected boolean isNotSkipped(Artifact artifact) {
+        return isFalse(artifact.getExtraProperties().get(SKIP_DOCKER));
     }
 
     @Override
@@ -94,8 +156,8 @@ public class Docker extends AbstractDockerConfiguration implements RepositoryToo
     }
 
     @Override
-    public String getName() {
-        return NAME;
+    public String getType() {
+        return TYPE;
     }
 
     @Override
@@ -106,14 +168,6 @@ public class Docker extends AbstractDockerConfiguration implements RepositoryToo
     @Override
     public void setCommitAuthor(CommitAuthor commitAuthor) {
         this.commitAuthor.setAll(commitAuthor);
-    }
-
-    @Override
-    public Set<String> getSupportedExtensions() {
-        Set<String> set = new LinkedHashSet<>();
-        set.add(FileType.JAR.extension());
-        set.add(FileType.ZIP.extension());
-        return set;
     }
 
     public List<DockerSpec> getActiveSpecs() {
@@ -144,7 +198,7 @@ public class Docker extends AbstractDockerConfiguration implements RepositoryToo
         if (!full && !isEnabled()) return Collections.emptyMap();
 
         Map<String, Object> map = new LinkedHashMap<>();
-        map.put(getName(), super.asMap(full));
+        map.put(getType(), super.asMap(full));
         return map;
     }
 
@@ -152,6 +206,7 @@ public class Docker extends AbstractDockerConfiguration implements RepositoryToo
     protected void asMap(boolean full, Map<String, Object> props) {
         props.put("commitAuthor", commitAuthor.asMap(full));
         props.put("repository", repository.asMap(full));
+        props.put("downloadUrl", downloadUrl);
         props.put("continueOnError", isContinueOnError());
         List<Map<String, Object>> specs = this.specs.values()
             .stream()

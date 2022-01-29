@@ -90,24 +90,23 @@ public class GithubReleaser extends AbstractReleaser {
                     }
                     context.getLogger().debug(RB.$("git.releaser.release.create"), tagName);
                     createRelease(api, tagName, changelog, true);
-                } else if (github.isUpdate()) {
+                } else if (github.getUpdate().isEnabled()) {
                     context.getLogger().debug(RB.$("git.releaser.release.update"), tagName);
                     if (!context.isDryrun()) {
-                        boolean update = false;
                         GHReleaseUpdater updater = release.update();
-                        if (github.getUpdateSections().contains(UpdateSection.TITLE)) {
-                            update = true;
+                        updater.prerelease(github.getPrerelease().isEnabled());
+                        updater.draft(github.isDraft());
+                        if (github.getUpdate().getSections().contains(UpdateSection.TITLE)) {
                             context.getLogger().info(RB.$("git.releaser.release.update.title"), github.getEffectiveReleaseName());
                             updater.name(github.getEffectiveReleaseName());
                         }
-                        if (github.getUpdateSections().contains(UpdateSection.BODY)) {
-                            update = true;
+                        if (github.getUpdate().getSections().contains(UpdateSection.BODY)) {
                             context.getLogger().info(RB.$("git.releaser.release.update.body"));
                             updater.body(changelog);
                         }
-                        if (update) updater.update();
+                        updater.update();
 
-                        if (github.getUpdateSections().contains(UpdateSection.ASSETS)) {
+                        if (github.getUpdate().getSections().contains(UpdateSection.ASSETS)) {
                             api.uploadAssets(release, assets);
                         }
                         linkDiscussion(tagName, release);

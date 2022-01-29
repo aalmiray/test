@@ -18,20 +18,27 @@
 package org.jreleaser.sdk.commons;
 
 import org.jreleaser.model.Artifact;
+import org.jreleaser.model.Artifactory;
+import org.jreleaser.model.Checksum;
 import org.jreleaser.model.Distribution;
 import org.jreleaser.model.ExtraProperties;
 import org.jreleaser.model.JReleaserContext;
+import org.jreleaser.model.Signing;
 import org.jreleaser.model.Uploader;
 import org.jreleaser.model.uploader.spi.ArtifactUploader;
 import org.jreleaser.model.util.Artifacts;
+import org.jreleaser.util.Algorithm;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
+import static org.jreleaser.model.Checksum.INDIVIDUAL_CHECKSUM;
+import static org.jreleaser.model.Checksum.KEY_SKIP_CHECKSUM;
 import static org.jreleaser.model.Signing.KEY_SKIP_SIGNING;
 import static org.jreleaser.util.StringUtils.isNotBlank;
+import static org.jreleaser.util.StringUtils.isTrue;
 
 /**
  * @author Andres Almiray
@@ -46,8 +53,9 @@ public abstract class AbstractArtifactUploader<U extends Uploader> implements Ar
 
     protected List<Artifact> collectArtifacts() {
         List<Artifact> artifacts = new ArrayList<>();
-
         List<String> keys = getUploader().resolveSkipKeys();
+        Checksum checksum = context.getModel().getChecksum();
+        boolean uploadChecksums = getUploader().isChecksums() && !(getUploader() instanceof Artifactory);
 
         if (getUploader().isFiles()) {
             for (Artifact artifact : Artifacts.resolveFiles(context)) {
@@ -56,13 +64,20 @@ public abstract class AbstractArtifactUploader<U extends Uploader> implements Ar
                 if (isSkip(artifact, keys)) continue;
                 if (Files.exists(path) && 0 != path.toFile().length()) {
                     artifacts.add(artifact);
+                    if (uploadChecksums && isIndividual(context, artifact) &&
+                        !artifact.extraPropertyIsTrue(KEY_SKIP_CHECKSUM)) {
+                        for (Algorithm algorithm : checksum.getAlgorithms()) {
+                            artifacts.add(Artifact.of(context.getChecksumsDirectory()
+                                .resolve(path.getFileName() + "." + algorithm.formatted())));
+                        }
+                    }
                 }
             }
         }
 
         if (getUploader().isArtifacts()) {
             for (Distribution distribution : context.getModel().getActiveDistributions()) {
-                if (!context.isDistributionIncluded(distribution) || isSkip(distribution, keys)) continue;
+                if (isSkip(distribution, keys)) continue;
                 for (Artifact artifact : distribution.getArtifacts()) {
                     if (!artifact.isActive()) continue;
                     Path path = artifact.getEffectivePath(context, distribution);
@@ -74,13 +89,31 @@ public abstract class AbstractArtifactUploader<U extends Uploader> implements Ar
                             artifact.getExtraProperties().put("platformReplaced", platformReplaced);
                         }
                         artifacts.add(artifact);
+                        if (uploadChecksums && isIndividual(context, distribution, artifact)) {
+                            for (Algorithm algorithm : checksum.getAlgorithms()) {
+                                artifacts.add(Artifact.of(context.getChecksumsDirectory()
+                                    .resolve(distribution.getName())
+                                    .resolve(path.getFileName() + "." + algorithm.formatted())));
+                            }
+                        }
                     }
                 }
             }
         }
 
-        if (getUploader().isSignatures() && context.getModel().getSigning().isEnabled()) {
-            String extension = context.getModel().getSigning().isArmored() ? ".asc" : ".sig";
+        if (uploadChecksums) {
+            for (Algorithm algorithm : checksum.getAlgorithms()) {
+                Path checksums = context.getChecksumsDirectory()
+                    .resolve(checksum.getResolvedName(context, algorithm));
+                if (Files.exists(checksums)) {
+                    artifacts.add(Artifact.of(checksums));
+                }
+            }
+        }
+
+        Signing signing = context.getModel().getSigning();
+        if (getUploader().isSignatures() && signing.isEnabled()) {
+            String extension = signing.getSignatureExtension();
 
             List<Artifact> signatures = new ArrayList<>();
             for (Artifact artifact : artifacts) {
@@ -88,8 +121,12 @@ public abstract class AbstractArtifactUploader<U extends Uploader> implements Ar
                 Path signaturePath = context.getSignaturesDirectory()
                     .resolve(artifact.getEffectivePath(context).getFileName() + extension);
                 if (Files.exists(signaturePath) && 0 != signaturePath.toFile().length()) {
-                    signatures.add(Artifact.of(signaturePath));
+                    signatures.add(Artifact.of(signaturePath, artifact.getExtraProperties()));
                 }
+            }
+            if (!signatures.isEmpty() && signing.getMode() == Signing.Mode.COSIGN) {
+                Path publicKeyFile = signing.getCosign().getResolvedPublicKeyFilePath(context);
+                signatures.add(Artifact.of(publicKeyFile));
             }
 
             artifacts.addAll(signatures);
@@ -105,5 +142,22 @@ public abstract class AbstractArtifactUploader<U extends Uploader> implements Ar
             }
         }
         return false;
+    }
+
+    private boolean isIndividual(JReleaserContext context, Artifact artifact) {
+        if (artifact.getExtraProperties().containsKey(INDIVIDUAL_CHECKSUM)) {
+            return isTrue(artifact.getExtraProperties().get(INDIVIDUAL_CHECKSUM));
+        }
+        return context.getModel().getChecksum().isIndividual();
+    }
+
+    private boolean isIndividual(JReleaserContext context, Distribution distribution, Artifact artifact) {
+        if (artifact.getExtraProperties().containsKey(INDIVIDUAL_CHECKSUM)) {
+            return isTrue(artifact.getExtraProperties().get(INDIVIDUAL_CHECKSUM));
+        }
+        if (distribution.getExtraProperties().containsKey(INDIVIDUAL_CHECKSUM)) {
+            return isTrue(distribution.getExtraProperties().get(INDIVIDUAL_CHECKSUM));
+        }
+        return context.getModel().getChecksum().isIndividual();
     }
 }

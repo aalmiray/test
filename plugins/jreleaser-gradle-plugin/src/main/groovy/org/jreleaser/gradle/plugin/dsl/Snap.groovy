@@ -32,7 +32,7 @@ import org.gradle.api.provider.SetProperty
  * @since 0.1.0
  */
 @CompileStatic
-interface Snap extends RepositoryTool {
+interface Snap extends RepositoryPackager {
     Property<String> getPackageName()
 
     Property<String> getBase()
@@ -95,6 +95,14 @@ interface Snap extends RepositoryTool {
         MapProperty<String, String> getAttributes()
 
         void addAttribute(String key, String value)
+
+        ListProperty<String> getReads()
+
+        void addRead(String read)
+
+        ListProperty<String> getWrites()
+
+        void addWrite(String write)
     }
 
     @CompileStatic

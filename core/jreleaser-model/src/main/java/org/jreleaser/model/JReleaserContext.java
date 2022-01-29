@@ -22,10 +22,11 @@ import org.jreleaser.bundle.RB;
 import org.jreleaser.model.releaser.spi.Releaser;
 import org.jreleaser.util.Constants;
 import org.jreleaser.util.Errors;
+import org.jreleaser.util.JReleaserException;
 import org.jreleaser.util.JReleaserLogger;
 import org.jreleaser.util.PlatformUtils;
-import org.jreleaser.util.StringUtils;
 import org.jreleaser.util.SemVer;
+import org.jreleaser.util.StringUtils;
 import org.jreleaser.util.signing.FilesKeyring;
 import org.jreleaser.util.signing.InMemoryKeyring;
 import org.jreleaser.util.signing.Keyring;
@@ -225,7 +226,7 @@ public class JReleaserContext {
             distribution.setType(assembler.getDistributionType());
             distribution.setActive(assembler.getActive());
             if (assembler instanceof JavaAssembler) {
-                distribution.setExecutable(((JavaAssembler) assembler).getExecutable());
+                distribution.getExecutable().setName(((JavaAssembler) assembler).getExecutable());
                 distribution.setJava(((JavaAssembler) assembler).getJava());
             }
             mergeArtifacts(assembler, distribution);

@@ -19,24 +19,28 @@ package org.jreleaser.model;
 
 import org.jreleaser.bundle.RB;
 import org.jreleaser.util.CalVer;
+import org.jreleaser.util.ChronVer;
 import org.jreleaser.util.Constants;
+import org.jreleaser.util.CustomVersion;
 import org.jreleaser.util.Env;
+import org.jreleaser.util.JReleaserException;
 import org.jreleaser.util.JavaModuleVersion;
 import org.jreleaser.util.JavaRuntimeVersion;
 import org.jreleaser.util.MustacheUtils;
 import org.jreleaser.util.PlatformUtils;
 import org.jreleaser.util.SemVer;
+import org.jreleaser.util.Version;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-import static org.jreleaser.util.MustacheUtils.applyTemplate;
 import static org.jreleaser.util.MustacheUtils.applyTemplates;
 import static org.jreleaser.util.StringUtils.getClassNameForLowerCaseHyphenSeparatedName;
 import static org.jreleaser.util.StringUtils.isBlank;
 import static org.jreleaser.util.StringUtils.isNotBlank;
+import static org.jreleaser.util.Templates.resolveTemplate;
 
 /**
  * @author Andres Almiray
@@ -422,6 +426,22 @@ public class Project implements Domain, ExtraProperties {
                     throw new JReleaserException(RB.$("ERROR_version_invalid", v, "calver"), e);
                 }
             }
+            break;
+            case CHRONVER: {
+                try {
+                    ChronVer parsedVersion = ChronVer.of(v);
+                    addExtraProperty(Constants.KEY_VERSION_NUMBER, v);
+                    addExtraProperty(Constants.KEY_VERSION_YEAR, parsedVersion.getYear());
+                    addExtraProperty(Constants.KEY_VERSION_MONTH, parsedVersion.getMonth());
+                    addExtraProperty(Constants.KEY_VERSION_DAY, parsedVersion.getDay());
+                    if (parsedVersion.hasChangeset()) {
+                        addExtraProperty(Constants.KEY_VERSION_MODIFIER, parsedVersion.getChangeset().toString());
+                    }
+                } catch (IllegalArgumentException e) {
+                    throw new JReleaserException(RB.$("ERROR_version_invalid", v, "chronver"), e);
+                }
+            }
+            break;
             default:
                 addExtraProperty(Constants.KEY_VERSION_NUMBER, v);
                 // noop
@@ -436,6 +456,25 @@ public class Project implements Domain, ExtraProperties {
         if (isNotBlank(ev)) {
             addExtraProperty(Constants.KEY_EFFECTIVE_VERSION_WITH_UNDERSCORES, new MustacheUtils.UnderscoreFunction().apply(ev));
             addExtraProperty(Constants.KEY_EFFECTIVE_VERSION_WITH_DASHES, new MustacheUtils.DashFunction().apply(ev));
+        }
+    }
+
+    public Version<?> version() {
+        String v = getResolvedVersion();
+        switch (versionPattern().getType()) {
+            case SEMVER:
+                return SemVer.of(v);
+            case JAVA_RUNTIME:
+                return JavaRuntimeVersion.of(v);
+            case JAVA_MODULE:
+                return JavaModuleVersion.of(v);
+            case CALVER:
+                return CalVer.of(versionPattern().getFormat(), v);
+            case CHRONVER:
+                return ChronVer.of(v);
+            case CUSTOM:
+            default:
+                return CustomVersion.of(v);
         }
     }
 
@@ -482,9 +521,9 @@ public class Project implements Domain, ExtraProperties {
             }
 
             if (isBlank(cachedLabel)) {
-                cachedLabel = applyTemplate(label, props(model));
+                cachedLabel = resolveTemplate(label, props(model));
             } else if (cachedLabel.contains("{{")) {
-                cachedLabel = applyTemplate(cachedLabel, props(model));
+                cachedLabel = resolveTemplate(cachedLabel, props(model));
             }
 
             return cachedLabel;

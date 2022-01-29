@@ -18,32 +18,54 @@
 package org.jreleaser.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import org.jreleaser.util.FileType;
 import org.jreleaser.util.PlatformUtils;
 
-import java.io.StringReader;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.stream.Collectors;
 
-import static org.jreleaser.util.MustacheUtils.applyTemplate;
+import static java.util.stream.Collectors.toList;
+import static org.jreleaser.model.Distribution.DistributionType.BINARY;
+import static org.jreleaser.model.Distribution.DistributionType.JAVA_BINARY;
+import static org.jreleaser.model.Distribution.DistributionType.JLINK;
+import static org.jreleaser.model.Distribution.DistributionType.NATIVE_IMAGE;
+import static org.jreleaser.model.Distribution.DistributionType.NATIVE_PACKAGE;
+import static org.jreleaser.model.Distribution.DistributionType.SINGLE_JAR;
+import static org.jreleaser.util.CollectionUtils.newSet;
+import static org.jreleaser.util.FileType.DMG;
+import static org.jreleaser.util.FileType.JAR;
+import static org.jreleaser.util.FileType.PKG;
+import static org.jreleaser.util.FileType.ZIP;
 import static org.jreleaser.util.StringUtils.getClassNameForLowerCaseHyphenSeparatedName;
 import static org.jreleaser.util.StringUtils.getNaturalName;
 import static org.jreleaser.util.StringUtils.isBlank;
+import static org.jreleaser.util.StringUtils.isFalse;
 import static org.jreleaser.util.StringUtils.isNotBlank;
+import static org.jreleaser.util.Templates.resolveTemplate;
 
 /**
  * @author Andres Almiray
  * @since 0.1.0
  */
-public class Brew extends AbstractRepositoryTool {
-    public static final String NAME = "brew";
+public class Brew extends AbstractRepositoryPackager {
+    public static final String TYPE = "brew";
     public static final String SKIP_BREW = "skipBrew";
+
+    private static final Map<Distribution.DistributionType, Set<String>> SUPPORTED = new LinkedHashMap<>();
+
+    static {
+        Set<String> extensions = newSet(ZIP.extension());
+        SUPPORTED.put(BINARY, extensions);
+        SUPPORTED.put(JAVA_BINARY, extensions);
+        SUPPORTED.put(JLINK, extensions);
+        SUPPORTED.put(NATIVE_IMAGE, extensions);
+        SUPPORTED.put(NATIVE_PACKAGE, newSet(ZIP.extension(), DMG.extension(), PKG.extension()));
+        SUPPORTED.put(SINGLE_JAR, newSet(JAR.extension()));
+    }
 
     private final List<Dependency> dependencies = new ArrayList<>();
     private final List<String> livecheck = new ArrayList<>();
@@ -55,7 +77,7 @@ public class Brew extends AbstractRepositoryTool {
     private Boolean multiPlatform;
 
     public Brew() {
-        super(NAME);
+        super(TYPE);
     }
 
     void setAll(Brew brew) {
@@ -70,11 +92,7 @@ public class Brew extends AbstractRepositoryTool {
 
     public String getResolvedFormulaName(JReleaserContext context) {
         if (isBlank(cachedFormulaName)) {
-            if (formulaName.contains("{{")) {
-                cachedFormulaName = applyTemplate(formulaName, context.props());
-            } else {
-                cachedFormulaName = formulaName;
-            }
+            cachedFormulaName = resolveTemplate(formulaName, context.props());
             cachedFormulaName = getClassNameForLowerCaseHyphenSeparatedName(cachedFormulaName);
         }
         return cachedFormulaName;
@@ -82,14 +100,10 @@ public class Brew extends AbstractRepositoryTool {
 
     public String getResolvedFormulaName(Map<String, Object> props) {
         if (isBlank(cachedFormulaName)) {
-            if (formulaName.contains("{{")) {
-                cachedFormulaName = applyTemplate(formulaName, props);
-            } else {
-                cachedFormulaName = formulaName;
-            }
+            cachedFormulaName = resolveTemplate(formulaName, props);
             cachedFormulaName = getClassNameForLowerCaseHyphenSeparatedName(cachedFormulaName);
         } else if (cachedFormulaName.contains("{{")) {
-            cachedFormulaName = applyTemplate(cachedFormulaName, props);
+            cachedFormulaName = resolveTemplate(cachedFormulaName, props);
             cachedFormulaName = getClassNameForLowerCaseHyphenSeparatedName(cachedFormulaName);
         }
         return cachedFormulaName;
@@ -205,13 +219,31 @@ public class Brew extends AbstractRepositoryTool {
     }
 
     @Override
-    public Set<String> getSupportedExtensions() {
-        Set<String> set = new LinkedHashSet<>();
-        set.add(FileType.DMG.extension());
-        set.add(FileType.PKG.extension());
-        set.add(FileType.ZIP.extension());
-        set.add(FileType.JAR.extension());
-        return set;
+    public boolean supportsDistribution(Distribution distribution) {
+        return SUPPORTED.containsKey(distribution.getType());
+    }
+
+    @Override
+    public Set<String> getSupportedExtensions(Distribution distribution) {
+        return SUPPORTED.getOrDefault(distribution.getType(), Collections.emptySet());
+    }
+
+    @Override
+    public List<Artifact> resolveCandidateArtifacts(JReleaserContext context, Distribution distribution) {
+        List<Artifact> candidateArtifacts = super.resolveCandidateArtifacts(context, distribution);
+
+        if (cask.isEnabled()) {
+            return candidateArtifacts.stream()
+                .filter(artifact -> PlatformUtils.isMac(artifact.getPlatform()))
+                .collect(toList());
+        }
+
+        return candidateArtifacts;
+    }
+
+    @Override
+    protected boolean isNotSkipped(Artifact artifact) {
+        return isFalse(artifact.getExtraProperties().get(SKIP_BREW));
     }
 
     public static class Dependency {
@@ -325,18 +357,14 @@ public class Brew extends AbstractRepositoryTool {
 
         public String getResolvedAppcast(Map<String, Object> props) {
             if (isNotBlank(appcast)) {
-                return applyTemplate(new StringReader(appcast), props);
+                return resolveTemplate(appcast, props);
             }
             return appcast;
         }
 
         public String getResolvedCaskName(JReleaserContext context) {
             if (isBlank(cachedCaskName)) {
-                if (name.contains("{{")) {
-                    cachedCaskName = applyTemplate(new StringReader(name), context.getModel().props());
-                } else {
-                    cachedCaskName = name;
-                }
+                cachedCaskName = resolveTemplate(name, context.getModel().props());
                 cachedCaskName = cachedCaskName.toLowerCase();
             }
             return cachedCaskName;
@@ -344,14 +372,10 @@ public class Brew extends AbstractRepositoryTool {
 
         public String getResolvedCaskName(Map<String, Object> props) {
             if (isBlank(cachedCaskName)) {
-                if (name.contains("{{")) {
-                    cachedCaskName = applyTemplate(new StringReader(name), props);
-                } else {
-                    cachedCaskName = name;
-                }
+                cachedCaskName = resolveTemplate(name, props);
                 cachedCaskName = getClassNameForLowerCaseHyphenSeparatedName(cachedCaskName);
             } else if (cachedCaskName.contains("{{")) {
-                cachedCaskName = applyTemplate(new StringReader(cachedCaskName), props);
+                cachedCaskName = resolveTemplate(cachedCaskName, props);
                 cachedCaskName = getClassNameForLowerCaseHyphenSeparatedName(cachedCaskName);
             }
             return cachedCaskName;
@@ -359,11 +383,7 @@ public class Brew extends AbstractRepositoryTool {
 
         public String getResolvedDisplayName(JReleaserContext context) {
             if (isBlank(cachedDisplayName)) {
-                if (displayName.contains("{{")) {
-                    cachedDisplayName = applyTemplate(new StringReader(displayName), context.getModel().props());
-                } else {
-                    cachedDisplayName = displayName;
-                }
+                cachedDisplayName = resolveTemplate(displayName, context.getModel().props());
                 cachedDisplayName = getClassNameForLowerCaseHyphenSeparatedName(cachedDisplayName);
             }
             return cachedDisplayName;
@@ -371,14 +391,10 @@ public class Brew extends AbstractRepositoryTool {
 
         public String getResolvedDisplayName(Map<String, Object> props) {
             if (isBlank(cachedDisplayName)) {
-                if (displayName.contains("{{")) {
-                    cachedDisplayName = applyTemplate(new StringReader(displayName), props);
-                } else {
-                    cachedDisplayName = displayName;
-                }
+                cachedDisplayName = resolveTemplate(displayName, props);
                 cachedDisplayName = getNaturalName(getClassNameForLowerCaseHyphenSeparatedName(cachedDisplayName));
             } else if (cachedDisplayName.contains("{{")) {
-                cachedDisplayName = applyTemplate(new StringReader(cachedDisplayName), props);
+                cachedDisplayName = resolveTemplate(cachedDisplayName, props);
                 cachedDisplayName = getNaturalName(getClassNameForLowerCaseHyphenSeparatedName(cachedDisplayName));
             }
             return cachedDisplayName;
@@ -386,48 +402,32 @@ public class Brew extends AbstractRepositoryTool {
 
         public String getResolvedAppName(JReleaserContext context) {
             if (isBlank(cachedAppName)) {
-                if (appName.contains("{{")) {
-                    cachedAppName = applyTemplate(new StringReader(appName), context.getModel().props());
-                } else {
-                    cachedAppName = appName;
-                }
+                cachedAppName = resolveTemplate(appName, context.getModel().props());
             }
             return cachedAppName;
         }
 
         public String getResolvedAppName(Map<String, Object> props) {
             if (isBlank(cachedAppName)) {
-                if (appName.contains("{{")) {
-                    cachedAppName = applyTemplate(new StringReader(appName), props);
-                } else {
-                    cachedAppName = appName;
-                }
+                cachedAppName = resolveTemplate(appName, props);
             } else if (cachedAppName.contains("{{")) {
-                cachedAppName = applyTemplate(new StringReader(cachedAppName), props);
+                cachedAppName = resolveTemplate(cachedAppName, props);
             }
             return cachedAppName;
         }
 
         public String getResolvedPkgName(JReleaserContext context) {
             if (isBlank(cachedPkgName)) {
-                if (pkgName.contains("{{")) {
-                    cachedPkgName = applyTemplate(new StringReader(pkgName), context.getModel().props());
-                } else {
-                    cachedPkgName = pkgName;
-                }
+                cachedPkgName = resolveTemplate(pkgName, context.getModel().props());
             }
             return cachedPkgName;
         }
 
         public String getResolvedPkgName(Map<String, Object> props) {
             if (isBlank(cachedPkgName)) {
-                if (pkgName.contains("{{")) {
-                    cachedPkgName = applyTemplate(new StringReader(pkgName), props);
-                } else {
-                    cachedPkgName = pkgName;
-                }
+                cachedPkgName = resolveTemplate(pkgName, props);
             } else if (cachedPkgName.contains("{{")) {
-                cachedPkgName = applyTemplate(new StringReader(cachedPkgName), props);
+                cachedPkgName = resolveTemplate(cachedPkgName, props);
             }
             return cachedPkgName;
         }
@@ -532,12 +532,12 @@ public class Brew extends AbstractRepositoryTool {
             if (!uninstall.isEmpty()) {
                 map.put("uninstall", uninstall.stream()
                     .map(CaskItem::asMap)
-                    .collect(Collectors.toList()));
+                    .collect(toList()));
             }
             if (!zap.isEmpty()) {
                 map.put("zap", zap.stream()
                     .map(CaskItem::asMap)
-                    .collect(Collectors.toList()));
+                    .collect(toList()));
             }
             return map;
         }

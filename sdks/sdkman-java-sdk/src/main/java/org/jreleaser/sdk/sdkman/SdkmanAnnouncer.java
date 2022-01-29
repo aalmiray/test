@@ -18,24 +18,22 @@
 package org.jreleaser.sdk.sdkman;
 
 import org.jreleaser.bundle.RB;
-import org.jreleaser.model.Artifact;
 import org.jreleaser.model.Distribution;
 import org.jreleaser.model.JReleaserCommand;
 import org.jreleaser.model.JReleaserContext;
 import org.jreleaser.model.Sdkman;
 import org.jreleaser.model.announcer.spi.AnnounceException;
 import org.jreleaser.model.announcer.spi.Announcer;
-import org.jreleaser.util.Constants;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import static org.jreleaser.model.util.SdkmanHelper.collectArtifacts;
 import static org.jreleaser.util.Constants.MAGIC_SET;
-import static org.jreleaser.util.MustacheUtils.applyTemplate;
-import static org.jreleaser.util.StringUtils.isBlank;
 import static org.jreleaser.util.StringUtils.isNotBlank;
 import static org.jreleaser.util.StringUtils.isTrue;
+import static org.jreleaser.util.Templates.resolveTemplate;
 
 /**
  * @author Andres Almiray
@@ -62,7 +60,6 @@ public class SdkmanAnnouncer implements Announcer {
     @Override
     public void announce() throws AnnounceException {
         Map<String, Distribution> distributions = context.getModel().getActiveDistributions().stream()
-            .filter(context::isDistributionIncluded)
             .filter(d -> d.getSdkman().isEnabled())
             .filter(d -> !JReleaserCommand.supportsPublish(context.getCommand()) || d.getSdkman().isPublished())
             .collect(Collectors.toMap(distribution -> {
@@ -88,7 +85,7 @@ public class SdkmanAnnouncer implements Announcer {
             Sdkman sdkman = distribution.getSdkman();
             Map<String, Object> props = context.props();
             props.putAll(distribution.props());
-            String releaseNotesUrl = applyTemplate(sdkman.getReleaseNotesUrl(), props);
+            String releaseNotesUrl = resolveTemplate(sdkman.getReleaseNotesUrl(), props);
             String command = sdkman.getCommand().name().toLowerCase();
 
             context.getLogger().info(RB.$("sdkman.release.announce"), command, candidate);
@@ -121,32 +118,10 @@ public class SdkmanAnnouncer implements Announcer {
         Map<String, String> platforms = new LinkedHashMap<>();
         // collect artifacts by supported SDKMAN! platform
         for (Distribution distribution : context.getModel().getActiveDistributions()) {
-            if (!context.isDistributionIncluded(distribution) ||
-                !isDistributionSupported(distribution)) {
+            if (!isDistributionSupported(distribution)) {
                 continue;
             }
-            for (Artifact artifact : distribution.getArtifacts()) {
-                if (!artifact.isActive()) continue;
-                // only zips are supported
-                if (!artifact.getPath().endsWith(".zip")) {
-                    context.getLogger().debug(RB.$("sdkman.no.artifacts.match"),
-                        artifact.getEffectivePath(context, distribution).getFileName());
-                    continue;
-                }
-
-                if (isTrue(artifact.getExtraProperties().get("skipSdkman"))) {
-                    context.getLogger().debug(RB.$("sdkman.artifact.explicit.skip"),
-                        artifact.getEffectivePath(context, distribution).getFileName());
-                    continue;
-                }
-
-                String platform = mapPlatform(artifact.getPlatform());
-                String url = artifactUrl(distribution, artifact);
-                if (platforms.containsKey(platform)) {
-                    context.getLogger().warn(RB.$("sdkman.platform.replacement"), platform, url, platforms.get(platform));
-                }
-                platforms.put(platform, url);
-            }
+            collectArtifacts(context, distribution, platforms);
         }
 
         if (platforms.isEmpty()) {
@@ -156,7 +131,7 @@ public class SdkmanAnnouncer implements Announcer {
 
         try {
             String candidate = isNotBlank(sdkman.getCandidate()) ? sdkman.getCandidate().trim() : context.getModel().getProject().getName();
-            String releaseNotesUrl = applyTemplate(sdkman.getReleaseNotesUrl(), context.props());
+            String releaseNotesUrl = resolveTemplate(sdkman.getReleaseNotesUrl(), context.props());
 
             if (sdkman.isMajor()) {
                 context.getLogger().info(RB.$("sdkman.release.announce.major"), candidate);
@@ -197,42 +172,5 @@ public class SdkmanAnnouncer implements Announcer {
             distribution.getType() == Distribution.DistributionType.JLINK ||
             distribution.getType() == Distribution.DistributionType.NATIVE_IMAGE) &&
             !isTrue(distribution.getExtraProperties().get("skipSdkman"));
-    }
-
-    private String mapPlatform(String platform) {
-        /*
-           SDKMAN! supports the following platform mappings
-           - LINUX_64
-           - LINUX_32
-           - LINUX_ARM32
-           - LINUX_ARM64
-           - MAC_OSX
-           - MAC_ARM64
-           - WINDOWS_64
-           - UNIVERSAL
-         */
-
-        if (isBlank(platform)) {
-            return "UNIVERSAL";
-        }
-        if (platform.contains("mac") || platform.contains("osx")) {
-            return platform.contains("aarch_64") ? "MAC_ARM64" : "MAC_OSX";
-        } else if (platform.contains("win")) {
-            return "WINDOWS_64";
-        } else if (platform.contains("linux")) {
-            if (platform.contains("x86_32")) return "LINUX_32";
-            if (platform.contains("x86_64")) return "LINUX_64";
-            if (platform.contains("arm_32")) return "LINUX_ARM32";
-            if (platform.contains("aarch_64")) return "LINUX_ARM64";
-            return "LINUX_32";
-        }
-
-        return null;
-    }
-
-    private String artifactUrl(Distribution distribution, Artifact artifact) {
-        Map<String, Object> newProps = context.props();
-        newProps.put(Constants.KEY_ARTIFACT_FILE, artifact.getEffectivePath(context, distribution).getFileName().toString());
-        return applyTemplate(context.getModel().getRelease().getGitService().getDownloadUrl(), newProps, "downloadUrl");
     }
 }

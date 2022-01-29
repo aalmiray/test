@@ -22,6 +22,7 @@ import org.jreleaser.model.Checksum;
 import org.jreleaser.model.Distribution;
 import org.jreleaser.model.GitService;
 import org.jreleaser.model.JReleaserContext;
+import org.jreleaser.model.Signing;
 import org.jreleaser.model.util.Artifacts;
 import org.jreleaser.util.Algorithm;
 
@@ -106,8 +107,7 @@ public abstract class AbstractReleaserBuilder<R extends Releaser> implements Rel
 
         if (service.isArtifacts()) {
             for (Distribution distribution : context.getModel().getActiveDistributions()) {
-                if (!context.isDistributionIncluded(distribution) ||
-                    distribution.extraPropertyIsTrue(KEY_SKIP_RELEASE)) {
+                if (distribution.extraPropertyIsTrue(KEY_SKIP_RELEASE)) {
                     continue;
                 }
                 for (Artifact artifact : distribution.getArtifacts()) {
@@ -135,16 +135,23 @@ public abstract class AbstractReleaserBuilder<R extends Releaser> implements Rel
             }
         }
 
-        if (context.getModel().getSigning().isEnabled() && service.isSignatures()) {
+        Signing signing = context.getModel().getSigning();
+        if (signing.isEnabled() && service.isSignatures()) {
+            boolean signaturesAdded = false;
             List<Asset> assetsCopy = new ArrayList<>(assets);
             for (Asset asset : assetsCopy) {
                 if (asset.getArtifact().extraPropertyIsTrue(KEY_SKIP_SIGNING) ||
                     asset.getArtifact().extraPropertyIsTrue(KEY_SKIP_RELEASE_SIGNATURES)) continue;
                 Path signature = context.getSignaturesDirectory()
-                    .resolve(asset.getFilename() + (context.getModel().getSigning().isArmored() ? ".asc" : ".sig"));
+                    .resolve(asset.getFilename() + (signing.getSignatureExtension()));
                 if (Files.exists(signature)) {
                     assets.add(Asset.signature(Artifact.of(signature)));
+                    signaturesAdded = true;
                 }
+            }
+            if (signaturesAdded && signing.getMode() == Signing.Mode.COSIGN) {
+                Path publicKeyFile = signing.getCosign().getResolvedPublicKeyFilePath(context);
+                assets.add(Asset.signature(Artifact.of(publicKeyFile)));
             }
         }
 

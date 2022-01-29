@@ -17,26 +17,35 @@
  */
 package org.jreleaser.model;
 
-import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
+
+import static java.util.Collections.emptySet;
+import static org.jreleaser.model.Distribution.DistributionType.JAVA_BINARY;
+import static org.jreleaser.model.Distribution.DistributionType.JLINK;
+import static org.jreleaser.model.Distribution.DistributionType.SINGLE_JAR;
 
 /**
  * @author Andres Almiray
  * @since 0.1.0
  */
-public class Jbang extends AbstractRepositoryTool {
-    public static final String NAME = "jbang";
+public class Jbang extends AbstractRepositoryPackager {
+    public static final String TYPE = "jbang";
+
+    private static final Map<Distribution.DistributionType, Set<String>> SUPPORTED = new LinkedHashMap<>();
+
+    static {
+        SUPPORTED.put(JAVA_BINARY, emptySet());
+        SUPPORTED.put(JLINK, emptySet());
+        SUPPORTED.put(SINGLE_JAR, emptySet());
+    }
+
     private final JbangCatalog catalog = new JbangCatalog();
     private String alias;
 
     public Jbang() {
-        super(NAME);
-    }
-
-    @Override
-    public Set<String> getSupportedExtensions() {
-        return Collections.emptySet();
+        super(TYPE);
     }
 
     void setAll(Jbang jbang) {
@@ -80,9 +89,17 @@ public class Jbang extends AbstractRepositoryTool {
 
     @Override
     public boolean supportsDistribution(Distribution distribution) {
-        return distribution.getType() != Distribution.DistributionType.NATIVE_IMAGE &&
-            distribution.getType() != Distribution.DistributionType.NATIVE_PACKAGE &&
-            distribution.getType() != Distribution.DistributionType.BINARY;
+        return SUPPORTED.containsKey(distribution.getType());
+    }
+
+    @Override
+    public Set<String> getSupportedExtensions(Distribution distribution) {
+        return SUPPORTED.getOrDefault(distribution.getType(), emptySet());
+    }
+
+    @Override
+    protected boolean isNotSkipped(Artifact artifact) {
+        return true;
     }
 
     @Override

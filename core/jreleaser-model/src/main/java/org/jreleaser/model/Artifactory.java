@@ -17,9 +17,9 @@
  */
 package org.jreleaser.model;
 
-import org.jreleaser.model.util.Templates;
 import org.jreleaser.util.Env;
 import org.jreleaser.util.FileType;
+import org.jreleaser.util.Templates;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -148,15 +148,20 @@ public class Artifactory extends AbstractUploader {
 
     @Override
     public String getResolvedDownloadUrl(JReleaserContext context, Artifact artifact) {
-        return resolveUrl(context, artifact);
+        return resolveUrl(context.props(), artifact);
+    }
+
+    @Override
+    public String getResolvedDownloadUrl(Map<String,Object> props, Artifact artifact) {
+        return resolveUrl(props, artifact);
     }
 
     public String getResolvedUploadUrl(JReleaserContext context, Artifact artifact) {
-        return resolveUrl(context, artifact);
+        return resolveUrl(context.props(), artifact);
     }
 
-    private String resolveUrl(JReleaserContext context, Artifact artifact) {
-        Map<String, Object> p = new LinkedHashMap<>(artifactProps(context, artifact));
+    private String resolveUrl(Map<String,Object> props, Artifact artifact) {
+        Map<String, Object> p = new LinkedHashMap<>(artifactProps(props, artifact));
         p.put("artifactoryHost", host);
 
         Optional<ArtifactoryRepository> repository = repositories.stream()
@@ -166,7 +171,7 @@ public class Artifactory extends AbstractUploader {
         if (repository.isPresent()) {
             p.put("repositoryPath", repository.get().getPath());
             String url = "{{artifactoryHost}}/{{repositoryPath}}";
-            return Templates.resolve(url, p);
+            return Templates.resolveTemplate(url, p);
         }
 
         return "";

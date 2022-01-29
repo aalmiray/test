@@ -18,8 +18,8 @@ architectures:
   {{/snapArchitectures}}
 {{/hasArchitectures}}
 apps:
-  {{distributionExecutable}}:
-    command: $SNAP/bin/{{distributionExecutable}}
+  {{distributionExecutableName}}:
+    command: bin/{{distributionExecutableUnix}}
     {{#snapHasLocalPlugs}}
     plugs:
       {{#snapLocalPlugs}}
@@ -37,18 +37,30 @@ apps:
 plugs:
   {{#snapPlugs}}
   {{name}}:
-    {{#attributes}}
+    {{#attrs}}
     {{key}}: {{value}}
-    {{/attributes}}
+    {{/attrs}}
+    {{#hasReads}}
+    read:
+      {{#reads}}
+      - {{.}}
+      {{/reads}}
+    {{/hasReads}}
+    {{#hasWrites}}
+    write:
+      {{#writes}}
+      - {{.}}
+      {{/writes}}
+    {{/hasWrites}}
   {{/snapPlugs}}
 {{/snapHasPlugs}}
 {{#snapHasSlots}}
 slots:
   {{#snapSlots}}
   {{name}}:
-    {{#attributes}}
+    {{#attrs}}
     {{key}}: {{value}}
-    {{/attributes}}
+    {{/attrs}}
     {{#hasReads}}
     reads:
       {{#reads}}
@@ -64,7 +76,7 @@ slots:
   {{/snapSlots }}
 {{/snapHasSlots}}
 parts:
-  {{distributionExecutable}}:
+  {{distributionExecutableName}}:
     plugin: dump
     source: {{distributionUrl}}
     source-checksum: sha256/{{distributionChecksumSha256}}

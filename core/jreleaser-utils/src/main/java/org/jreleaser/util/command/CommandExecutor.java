@@ -23,6 +23,7 @@ import org.zeroturnaround.exec.ProcessExecutor;
 import org.zeroturnaround.exec.ProcessInitException;
 
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.file.Path;
@@ -72,20 +73,59 @@ public class CommandExecutor {
         }
     }
 
+    public int executeCommand(Command command) throws CommandException {
+        return executeCommand(createProcessExecutor(command));
+    }
+
     public int executeCommand(Path directory, Command command) throws CommandException {
-        return executeCommand(new ProcessExecutor(command.getArgs())
+        return executeCommand(createProcessExecutor(command)
             .directory(directory.toFile()));
     }
 
-    public int executeCommand(Command command) throws CommandException {
-        return executeCommand(new ProcessExecutor(command.getArgs()));
+    public int executeCommandCapturing(Command command, OutputStream out) throws CommandException {
+        return executeCommandCapturing(createProcessExecutor(command), out);
     }
 
-    public int executeCommandCapturing(Command command, OutputStream out) throws CommandException {
+    public int executeCommandCapturing(Path directory, Command command, OutputStream out) throws CommandException {
+        return executeCommandCapturing(createProcessExecutor(command)
+            .directory(directory.toFile()), out);
+    }
+
+    public int executeCommandWithInput(Command command, InputStream in) throws CommandException {
+        return executeCommand(createProcessExecutor(command)
+            .redirectInput(in));
+    }
+
+    public int executeCommandWithInputCapturing(Command command, InputStream in, OutputStream out) throws CommandException {
+        return executeCommandCapturing(createProcessExecutor(command)
+            .redirectInput(in), out);
+    }
+
+    public int executeCommandWithInput(Path directory, Command command, InputStream in) throws CommandException {
+        return executeCommand(createProcessExecutor(command)
+            .redirectInput(in)
+            .directory(directory.toFile()));
+    }
+
+    public int executeCommandWithInputCapturing(Path directory, Command command, InputStream in, OutputStream out) throws CommandException {
+        return executeCommandCapturing(createProcessExecutor(command)
+            .directory(directory.toFile())
+            .redirectInput(in), out);
+    }
+
+    private ProcessExecutor createProcessExecutor(Command command) throws CommandException {
+        try {
+            return new ProcessExecutor(command.asCommandLine());
+        } catch (IOException e) {
+            throw new CommandException(RB.$("ERROR_unexpected_error"), e);
+        }
+    }
+
+    private int executeCommandCapturing(ProcessExecutor processor, OutputStream out) throws CommandException {
         try {
             ByteArrayOutputStream err = new ByteArrayOutputStream();
 
-            int exitValue = new ProcessExecutor(command.getArgs())
+            int exitValue = processor
                 .redirectOutput(out)
                 .redirectError(err)
                 .execute()
@@ -101,11 +141,6 @@ public class CommandExecutor {
         } catch (Exception e) {
             throw new CommandException(RB.$("ERROR_unexpected_error"), e);
         }
-    }
-
-    public int executeCommandWithInput(Command command, InputStream in) throws CommandException {
-        return executeCommand(new ProcessExecutor(command.getArgs())
-            .redirectInput(in));
     }
 
     private void info(ByteArrayOutputStream out) {

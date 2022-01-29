@@ -21,10 +21,10 @@ import org.jreleaser.bundle.RB;
 import org.jreleaser.model.Artifact;
 import org.jreleaser.model.Distribution;
 import org.jreleaser.model.JReleaserContext;
-import org.jreleaser.model.JReleaserException;
 import org.jreleaser.model.util.Artifacts;
 import org.jreleaser.util.Algorithm;
 import org.jreleaser.util.ChecksumUtils;
+import org.jreleaser.util.JReleaserException;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -63,8 +63,6 @@ public class Checksum {
         }
 
         for (Distribution distribution : context.getModel().getActiveDistributions()) {
-            if (!context.isDistributionIncluded(distribution)) continue;
-
             for (Artifact artifact : distribution.getArtifacts()) {
                 if (!artifact.isActive()) continue;
                 artifact.getEffectivePath(context, distribution);
@@ -94,6 +92,7 @@ public class Checksum {
                     String oldContent = new String(Files.readAllBytes(checksumsFilePath));
                     if (newContent.equals(oldContent)) {
                         // no need to write down the same content
+                        context.getLogger().info(RB.$("checksum.not.changed"));
                         context.getLogger().restorePrefix();
                         context.getLogger().decreaseIndent();
                         return;

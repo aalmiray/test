@@ -89,13 +89,19 @@ public class NativeImageAssemblerProcessor extends AbstractJavaAssemblerProcesso
     private void installNativeImage(Path graalPath) throws AssemblerProcessingException {
         Path nativeImageExecutable = graalPath
             .resolve("bin")
-            .resolve(PlatformUtils.isWindows() ? "native-image.exe" : "native-image")
+            .resolve(PlatformUtils.isWindows() ? "native-image.cmd" : "native-image")
             .toAbsolutePath();
 
         if (!Files.exists(nativeImageExecutable)) {
+            Path guExecutable = graalPath
+                .resolve("bin")
+                .resolve(PlatformUtils.isWindows() ? "gu.cmd" : "gu")
+                .toAbsolutePath();
+
             context.getLogger().debug(RB.$("assembler.graal.install.native.exec"));
-            Command cmd = new Command(graalPath.resolve("bin").resolve("gu").toAbsolutePath().toString())
+            Command cmd = new Command(guExecutable.toString())
                 .arg("install")
+                .arg("-n")
                 .arg("native-image");
             context.getLogger().debug(String.join(" ", cmd.getArgs()));
             executeCommand(cmd);
@@ -124,7 +130,12 @@ public class NativeImageAssemblerProcessor extends AbstractJavaAssemblerProcesso
             .findFirst()
             .ifPresent(assembler.getArgs()::remove);
 
-        Command cmd = new Command(graalPath.resolve("bin").resolve("native-image").toAbsolutePath().toString())
+        Path nativeImageExecutable = graalPath
+            .resolve("bin")
+            .resolve(PlatformUtils.isWindows() ? "native-image.cmd" : "native-image")
+            .toAbsolutePath();
+
+        Command cmd = new Command(nativeImageExecutable.toString(), true)
             .args(assembler.getArgs())
             .arg("-jar")
             .arg(assembler.getMainJar().getEffectivePath(context, assembler).toAbsolutePath().toString());
@@ -132,7 +143,7 @@ public class NativeImageAssemblerProcessor extends AbstractJavaAssemblerProcesso
         if (!jars.isEmpty()) {
             cmd.arg("-cp")
                 .arg(jars.stream()
-                    .map(path -> context.relativize(image.getParent(), path))
+                    .map(Path::toAbsolutePath)
                     .map(Path::toString)
                     .collect(Collectors.joining(File.pathSeparator)));
         }
@@ -151,6 +162,9 @@ public class NativeImageAssemblerProcessor extends AbstractJavaAssemblerProcesso
             Path binDirectory = distDirectory.resolve("bin");
             Files.createDirectories(binDirectory);
             Files.copy(image, binDirectory.resolve(image.getFileName()));
+            FileUtils.copyFiles(context.getLogger(),
+                context.getBasedir(),
+                distDirectory, path -> path.getFileName().startsWith("LICENSE"));
             copyFiles(context, distDirectory);
             copyFileSets(context, distDirectory);
 

@@ -117,7 +117,12 @@ public interface Constants {
     // Distribution
     String KEY_DISTRIBUTION_NAME = "distributionName";
     String KEY_DISTRIBUTION_EXECUTABLE = "distributionExecutable";
+    String KEY_DISTRIBUTION_EXECUTABLE_NAME = "distributionExecutableName";
+    String KEY_DISTRIBUTION_EXECUTABLE_UNIX = "distributionExecutableUnix";
+    String KEY_DISTRIBUTION_EXECUTABLE_WINDOWS = "distributionExecutableWindows";
     String KEY_DISTRIBUTION_EXECUTABLE_EXTENSION = "distributionExecutableExtension";
+    String KEY_DISTRIBUTION_EXECUTABLE_EXTENSION_UNIX = "distributionExecutableExtensionUnix";
+    String KEY_DISTRIBUTION_EXECUTABLE_EXTENSION_WINDOWS = "distributionExecutableExtensionWindows";
     String KEY_DISTRIBUTION_TAGS_BY_SPACE = "distributionTagsBySpace";
     String KEY_DISTRIBUTION_TAGS_BY_COMMA = "distributionTagsByComma";
     String KEY_DISTRIBUTION_URL = "distributionUrl";
@@ -218,6 +223,7 @@ public interface Constants {
     String KEY_JBANG_CATALOG_REPO_CLONE_URL = "jbangCatalogRepoCloneUrl";
 
     // Macports
+    String KEY_MACPORTS_APP_NAME = "macportsAppName";
     String KEY_MACPORTS_PACKAGE_NAME = "macportsPackageName";
     String KEY_MACPORTS_REVISION = "macportsRevision";
     String KEY_MACPORTS_CATEGORIES = "macportsCategories";

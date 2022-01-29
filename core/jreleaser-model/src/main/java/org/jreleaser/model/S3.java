@@ -24,9 +24,10 @@ import java.util.Map;
 
 import static org.jreleaser.util.Constants.HIDE;
 import static org.jreleaser.util.Constants.UNSET;
-import static org.jreleaser.util.MustacheUtils.applyTemplate;
+import static org.jreleaser.util.StringUtils.capitalize;
 import static org.jreleaser.util.StringUtils.isBlank;
 import static org.jreleaser.util.StringUtils.isNotBlank;
+import static org.jreleaser.util.Templates.resolveTemplate;
 
 /**
  * @author Andres Almiray
@@ -64,31 +65,42 @@ public class S3 extends AbstractUploader {
 
     @Override
     public String getResolvedDownloadUrl(JReleaserContext context, Artifact artifact) {
+        return getResolvedDownloadUrl(context.props(), artifact);
+    }
+
+    @Override
+    public String getResolvedDownloadUrl(Map<String, Object> props, Artifact artifact) {
         if (isNotBlank(getResolvedDownloadUrl())) {
-            Map<String, Object> p = new LinkedHashMap<>(artifactProps(context, artifact));
+            Map<String, Object> p = new LinkedHashMap<>(artifactProps(props, artifact));
             p.putAll(getResolvedExtraProperties());
             p.put("bucket", bucket);
             p.put("region", region);
-            return applyTemplate(getResolvedDownloadUrl(), p);
+            return resolveTemplate(getResolvedDownloadUrl(), p);
         }
 
         if (isBlank(getResolvedEndpoint())) {
             String url = "https://{{bucket}}.s3.{{region}}.amazonaws.com/" + getResolvedPath();
-            Map<String, Object> p = new LinkedHashMap<>(artifactProps(context, artifact));
+            Map<String, Object> p = new LinkedHashMap<>(artifactProps(props, artifact));
             p.putAll(getResolvedExtraProperties());
             p.put("bucket", bucket);
             p.put("region", region);
-            return applyTemplate(url, p);
+            return resolveTemplate(url, p);
         }
 
         return "";
     }
 
     public String getResolvedPath(JReleaserContext context, Artifact artifact) {
-        String path = getResolvedPath();
+        String artifactPath = getResolvedPath();
+
+        String customPathKey = "s3" + capitalize(getName()) + "Path";
+        if (artifact.getExtraProperties().containsKey(customPathKey)) {
+            artifactPath = artifact.getExtraProperty(customPathKey);
+        }
+
         Map<String, Object> p = new LinkedHashMap<>(artifactProps(context, artifact));
         p.putAll(getResolvedExtraProperties());
-        return applyTemplate(path, p);
+        return resolveTemplate(artifactPath, p);
     }
 
     public String getResolvedRegion() {

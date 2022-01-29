@@ -25,13 +25,13 @@ import org.jreleaser.model.GitService;
 import org.jreleaser.model.Github;
 import org.jreleaser.model.Gitlab;
 import org.jreleaser.model.JReleaserContext;
-import org.jreleaser.model.JReleaserException;
 import org.jreleaser.model.JReleaserModel;
 import org.jreleaser.model.JReleaserVersion;
 import org.jreleaser.model.UpdateSection;
 import org.jreleaser.model.releaser.spi.Repository;
 import org.jreleaser.model.util.Artifacts;
 import org.jreleaser.sdk.git.GitSdk;
+import org.jreleaser.util.JReleaserException;
 import org.jreleaser.util.JReleaserLogger;
 
 import java.io.IOException;
@@ -414,12 +414,12 @@ public class ModelAutoConfigurer {
             service.setReleaseName(releaseName);
             service.getMilestone().setName(milestoneName);
             service.setOverwrite(overwrite);
-            service.setUpdate(update);
+            service.getUpdate().setEnabled(update);
             if (!updateSections.isEmpty()) {
-                if (!service.isUpdate()) {
+                if (!update) {
                     throw new JReleaserException(RB.$("ERROR_context_configurer_update_not_set"));
                 }
-                service.setUpdateSections(updateSections);
+                service.getUpdate().setSections(updateSections);
             }
             service.setSkipTag(skipTag);
             service.setSkipRelease(skipRelease);

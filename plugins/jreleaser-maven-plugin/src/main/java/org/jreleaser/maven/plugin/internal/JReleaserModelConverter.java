@@ -63,6 +63,7 @@ import org.jreleaser.maven.plugin.Mail;
 import org.jreleaser.maven.plugin.Mastodon;
 import org.jreleaser.maven.plugin.Mattermost;
 import org.jreleaser.maven.plugin.NativeImage;
+import org.jreleaser.maven.plugin.Packager;
 import org.jreleaser.maven.plugin.Packagers;
 import org.jreleaser.maven.plugin.Platform;
 import org.jreleaser.maven.plugin.Project;
@@ -297,10 +298,7 @@ public final class JReleaserModelConverter {
         if (service.isSkipTagSet()) s.setSkipTag(service.isSkipTag());
         if (service.isSkipReleaseSet()) s.setSkipRelease(service.isSkipRelease());
         if (service.isOverwriteSet()) s.setOverwrite(service.isOverwrite());
-        if (service.isUpdateSet()) {
-            s.setUpdate(service.isUpdate());
-            s.setUpdateSections(convertUpdateSections(service.getUpdateSections()));
-        }
+        s.setUpdate(convertUpdate(service.getUpdate()));
         if (isNotBlank(service.getApiEndpoint())) s.setApiEndpoint(tr(service.getApiEndpoint()));
         s.setChangelog(convertChangelog(service.getChangelog()));
         s.setMilestone(convertMilestone(service.getMilestone()));
@@ -311,6 +309,13 @@ public final class JReleaserModelConverter {
         if (service.isChecksumsSet()) s.setChecksums(service.isChecksums());
         if (service.isSignaturesSet()) s.setSignatures(service.isSignatures());
         s.setUploadAssets(tr(service.resolveUploadAssets()));
+    }
+
+    private static org.jreleaser.model.GitService.Update convertUpdate(GitService.Update update) {
+        org.jreleaser.model.GitService.Update u = new org.jreleaser.model.GitService.Update();
+        if (update.isEnabledSet()) u.setEnabled(update.isEnabled());
+        u.setSections(convertUpdateSections(update.getSections()));
+        return u;
     }
 
     private static Set<org.jreleaser.model.UpdateSection> convertUpdateSections(Set<UpdateSection> updateSections) {
@@ -466,6 +471,7 @@ public final class JReleaserModelConverter {
         if (from.isArtifactsSet()) into.setArtifacts(from.isArtifacts());
         if (from.isFilesSet()) into.setFiles(from.isFiles());
         if (from.isSignaturesSet()) into.setSignatures(from.isSignatures());
+        if (from.isChecksumsSet()) into.setChecksums(from.isChecksums());
         if (from instanceof HttpUploader) {
             convertHttpUploader((HttpUploader) from, (org.jreleaser.model.HttpUploader) into);
         }
@@ -674,6 +680,7 @@ public final class JReleaserModelConverter {
         a.setConsumerToken(tr(sdkman.getConsumerToken()));
         a.setCandidate(tr(sdkman.getCandidate()));
         a.setReleaseNotesUrl(tr(sdkman.getReleaseNotesUrl()));
+        a.setDownloadUrl(tr(sdkman.getDownloadUrl()));
         a.setMajor(sdkman.isMajor());
         a.setCommand(sdkman.resolveCommand());
         return a;
@@ -805,6 +812,7 @@ public final class JReleaserModelConverter {
         f.setIncludes(tr(fileSet.getIncludes()));
         f.setExcludes(tr(fileSet.getExcludes()));
         f.setExtraProperties(fileSet.getExtraProperties());
+        if (fileSet.isFailOnMissingInputSet()) f.setFailOnMissingInput(fileSet.isFailOnMissingInput());
         return f;
     }
 
@@ -987,13 +995,28 @@ public final class JReleaserModelConverter {
         if (signing.isArtifactsSet()) s.setArtifacts(signing.isArtifacts());
         if (signing.isFilesSet()) s.setFiles(signing.isFiles());
         if (signing.isChecksumsSet()) s.setChecksums(signing.isChecksums());
-        if (signing.isDefaultKeyringSet()) s.setDefaultKeyring(signing.isDefaultKeyring());
-        s.setExecutable(tr(signing.getExecutable()));
-        s.setKeyName(tr(signing.getKeyName()));
-        s.setHomeDir(tr(signing.getHomeDir()));
-        s.setPublicKeyring(tr(signing.getPublicKeyring()));
-        s.setArgs(tr(signing.getArgs()));
+        s.setCommand(convertSigningCommand(signing.getCommand()));
+        s.setCosign(convertCosign(signing.getCosign()));
         return s;
+    }
+
+    private static org.jreleaser.model.Signing.Command convertSigningCommand(Signing.Command command) {
+        org.jreleaser.model.Signing.Command c = new org.jreleaser.model.Signing.Command();
+        if (command.isDefaultKeyringSet()) c.setDefaultKeyring(command.isDefaultKeyring());
+        c.setExecutable(tr(command.getExecutable()));
+        c.setKeyName(tr(command.getKeyName()));
+        c.setHomeDir(tr(command.getHomeDir()));
+        c.setPublicKeyring(tr(command.getPublicKeyring()));
+        c.setArgs(tr(command.getArgs()));
+        return c;
+    }
+
+    private static org.jreleaser.model.Signing.Cosign convertCosign(Signing.Cosign cosign) {
+        org.jreleaser.model.Signing.Cosign c = new org.jreleaser.model.Signing.Cosign();
+        c.setVersion(tr(cosign.getVersion()));
+        c.setPrivateKeyFile(tr(cosign.getPrivateKeyFile()));
+        c.setPublicKeyFile(tr(cosign.getPublicKeyFile()));
+        return c;
     }
 
     private static Map<String, org.jreleaser.model.Distribution> convertDistributions(Map<String, Distribution> distributions) {
@@ -1010,8 +1033,7 @@ public final class JReleaserModelConverter {
         d.setActive(tr(distribution.resolveActive()));
         d.setName(tr(distribution.getName()));
         d.setType(tr(distribution.getType().name()));
-        d.setExecutable(tr(distribution.getExecutable()));
-        d.setExecutableExtension(tr(distribution.getExecutableExtension()));
+        d.setExecutable(convertExecutable(distribution.getExecutable()));
         d.setJava(convertJava(distribution.getJava()));
         d.setPlatform(convertPlatform(distribution.getPlatform()));
         d.setTags(tr(distribution.getTags()));
@@ -1032,8 +1054,17 @@ public final class JReleaserModelConverter {
         return d;
     }
 
+    private static org.jreleaser.model.Distribution.Executable convertExecutable(Distribution.Executable executable) {
+        org.jreleaser.model.Distribution.Executable e = new org.jreleaser.model.Distribution.Executable();
+        e.setName(tr(executable.getName()));
+        e.setUnixExtension(tr(executable.getUnixExtension()));
+        if (isNotBlank(executable.getWindowsExtension())) e.setWindowsExtension(tr(executable.getWindowsExtension()));
+        return e;
+    }
+
     private static org.jreleaser.model.Files convertFiles(Files files) {
         org.jreleaser.model.Files fs = new org.jreleaser.model.Files();
+        fs.setActive(tr(files.resolveActive()));
         fs.setArtifacts(convertArtifacts(files.getArtifacts()));
         fs.setGlobs(convertGlobs(files.getGlobs()));
         return fs;
@@ -1075,26 +1106,32 @@ public final class JReleaserModelConverter {
         return g;
     }
 
-    private static org.jreleaser.model.Brew convertBrew(Brew tool) {
+    private static void convertPackager(Packager from, org.jreleaser.model.Packager into) {
+        into.setActive(tr(from.resolveActive()));
+        into.setDownloadUrl(tr(from.getDownloadUrl()));
+        if (from.isContinueOnErrorSet()) into.setContinueOnError(from.isContinueOnError());
+        into.setExtraProperties(from.getExtraProperties());
+    }
+
+    private static org.jreleaser.model.Brew convertBrew(Brew packager) {
         org.jreleaser.model.Brew t = new org.jreleaser.model.Brew();
-        t.setActive(tr(tool.resolveActive()));
-        t.setTemplateDirectory(tr(tool.getTemplateDirectory()));
-        if (tool.isContinueOnErrorSet()) t.setContinueOnError(tool.isContinueOnError());
-        t.setExtraProperties(tool.getExtraProperties());
-        t.setTap(convertHomebrewTap(tool.getTap()));
-        t.setFormulaName(tr(tool.getFormulaName()));
-        if (tool.isMultiPlatformSet()) t.setMultiPlatform(tool.isMultiPlatform());
-        t.setCommitAuthor(convertCommitAuthor(tool.getCommitAuthor()));
-        tool.getDependencies().forEach(dependency -> {
+        convertPackager(packager, t);
+        t.setTemplateDirectory(tr(packager.getTemplateDirectory()));
+        t.setSkipTemplates(tr(packager.getSkipTemplates()));
+        t.setTap(convertHomebrewTap(packager.getTap()));
+        t.setFormulaName(tr(packager.getFormulaName()));
+        if (packager.isMultiPlatformSet()) t.setMultiPlatform(packager.isMultiPlatform());
+        t.setCommitAuthor(convertCommitAuthor(packager.getCommitAuthor()));
+        packager.getDependencies().forEach(dependency -> {
             if (isNotBlank(dependency.getValue())) {
                 t.addDependency(dependency.getKey(), dependency.getValue());
             } else {
                 t.addDependency(dependency.getKey());
             }
         });
-        t.setLivecheck(tr(tool.getLivecheck()));
-        if (tool.getCask().isSet()) {
-            t.setCask(convertCask(tool.getCask()));
+        t.setLivecheck(tr(packager.getLivecheck()));
+        if (packager.getCask().isSet()) {
+            t.setCask(convertCask(packager.getCask()));
         }
         return t;
     }
@@ -1118,22 +1155,27 @@ public final class JReleaserModelConverter {
         return t;
     }
 
-    private static org.jreleaser.model.Chocolatey convertChocolatey(Chocolatey tool) {
+    private static org.jreleaser.model.Chocolatey convertChocolatey(Chocolatey packager) {
         org.jreleaser.model.Chocolatey t = new org.jreleaser.model.Chocolatey();
-        t.setActive(tr(tool.resolveActive()));
-        if (tool.isContinueOnErrorSet()) t.setContinueOnError(tool.isContinueOnError());
-        t.setPackageName(tr(tool.getPackageName()));
-        t.setUsername(tr(tool.getUsername()));
-        t.setApiKey(tr(tool.getApiKey()));
-        t.setTitle(tr(tool.getTitle()));
-        t.setIconUrl(tr(tool.getIconUrl()));
-        t.setSource(tr(tool.getSource()));
-        t.setRemoteBuild(tool.isRemoteBuild());
-        t.setTemplateDirectory(tr(tool.getTemplateDirectory()));
-        t.setExtraProperties(tool.getExtraProperties());
-        t.setBucket(convertChocolateyBucket(tool.getBucket()));
-        t.setCommitAuthor(convertCommitAuthor(tool.getCommitAuthor()));
+        convertPackager(packager, t);
+        t.setPackageName(tr(packager.getPackageName()));
+        t.setUsername(tr(packager.getUsername()));
+        t.setApiKey(tr(packager.getApiKey()));
+        t.setTitle(tr(packager.getTitle()));
+        t.setIconUrl(tr(packager.getIconUrl()));
+        t.setSource(tr(packager.getSource()));
+        t.setRemoteBuild(packager.isRemoteBuild());
+        t.setTemplateDirectory(tr(packager.getTemplateDirectory()));
+        t.setSkipTemplates(tr(packager.getSkipTemplates()));
+        t.setBucket(convertChocolateyBucket(packager.getBucket()));
+        t.setCommitAuthor(convertCommitAuthor(packager.getCommitAuthor()));
         return t;
+    }
+
+    private static org.jreleaser.model.Chocolatey.ChocolateyBucket convertChocolateyBucket(Bucket bucket) {
+        org.jreleaser.model.Chocolatey.ChocolateyBucket b = new org.jreleaser.model.Chocolatey.ChocolateyBucket();
+        convertTap(bucket, b);
+        return b;
     }
 
     private static org.jreleaser.model.Docker convertDocker(Docker docker) {
@@ -1151,9 +1193,11 @@ public final class JReleaserModelConverter {
 
             dd.setRepository(convertDockerRepository(kk.getRepository()));
             dd.setCommitAuthor(convertCommitAuthor(kk.getCommitAuthor()));
+            dd.setDownloadUrl(tr(kk.getDownloadUrl()));
         }
         d.setActive(tr(docker.resolveActive()));
         d.setTemplateDirectory(tr(docker.getTemplateDirectory()));
+        d.setSkipTemplates(tr(docker.getSkipTemplates()));
         d.setExtraProperties(docker.getExtraProperties());
         d.setBaseImage(tr(docker.getBaseImage()));
         d.setImageNames(tr(docker.getImageNames()));
@@ -1205,21 +1249,14 @@ public final class JReleaserModelConverter {
         return r;
     }
 
-    private static org.jreleaser.model.Chocolatey.ChocolateyBucket convertChocolateyBucket(Bucket bucket) {
-        org.jreleaser.model.Chocolatey.ChocolateyBucket b = new org.jreleaser.model.Chocolatey.ChocolateyBucket();
-        convertTap(bucket, b);
-        return b;
-    }
-
-    private static org.jreleaser.model.Jbang convertJbang(Jbang tool) {
+    private static org.jreleaser.model.Jbang convertJbang(Jbang packager) {
         org.jreleaser.model.Jbang t = new org.jreleaser.model.Jbang();
-        t.setActive(tr(tool.resolveActive()));
-        if (tool.isContinueOnErrorSet()) t.setContinueOnError(tool.isContinueOnError());
-        t.setTemplateDirectory(tr(tool.getTemplateDirectory()));
-        t.setExtraProperties(tool.getExtraProperties());
-        t.setAlias(tr(tool.getAlias()));
-        t.setCatalog(convertJbangCatalog(tool.getCatalog()));
-        t.setCommitAuthor(convertCommitAuthor(tool.getCommitAuthor()));
+        convertPackager(packager, t);
+        t.setTemplateDirectory(tr(packager.getTemplateDirectory()));
+        t.setSkipTemplates(tr(packager.getSkipTemplates()));
+        t.setAlias(tr(packager.getAlias()));
+        t.setCatalog(convertJbangCatalog(packager.getCatalog()));
+        t.setCommitAuthor(convertCommitAuthor(packager.getCommitAuthor()));
         return t;
     }
 
@@ -1229,18 +1266,17 @@ public final class JReleaserModelConverter {
         return t;
     }
 
-    private static org.jreleaser.model.Macports convertMacports(Macports tool) {
+    private static org.jreleaser.model.Macports convertMacports(Macports packager) {
         org.jreleaser.model.Macports t = new org.jreleaser.model.Macports();
-        t.setActive(tr(tool.resolveActive()));
-        if (tool.isContinueOnErrorSet()) t.setContinueOnError(tool.isContinueOnError());
-        t.setPackageName(tr(tool.getPackageName()));
-        t.setTemplateDirectory(tr(tool.getTemplateDirectory()));
-        t.setExtraProperties(tool.getExtraProperties());
-        t.setRevision(tool.getRevision());
-        t.setCategories(tr(tool.getCategories()));
-        t.setMaintainers(tr(tool.getMaintainers()));
-        t.setRepository(convertMacportsRepository(tool.getRepository()));
-        t.setCommitAuthor(convertCommitAuthor(tool.getCommitAuthor()));
+        convertPackager(packager, t);
+        t.setPackageName(tr(packager.getPackageName()));
+        t.setTemplateDirectory(tr(packager.getTemplateDirectory()));
+        t.setSkipTemplates(tr(packager.getSkipTemplates()));
+        t.setRevision(packager.getRevision());
+        t.setCategories(tr(packager.getCategories()));
+        t.setMaintainers(tr(packager.getMaintainers()));
+        t.setRepository(convertMacportsRepository(packager.getRepository()));
+        t.setCommitAuthor(convertCommitAuthor(packager.getCommitAuthor()));
         return t;
     }
 
@@ -1250,17 +1286,16 @@ public final class JReleaserModelConverter {
         return r;
     }
 
-    private static org.jreleaser.model.Scoop convertScoop(Scoop tool) {
+    private static org.jreleaser.model.Scoop convertScoop(Scoop packager) {
         org.jreleaser.model.Scoop t = new org.jreleaser.model.Scoop();
-        t.setActive(tr(tool.resolveActive()));
-        if (tool.isContinueOnErrorSet()) t.setContinueOnError(tool.isContinueOnError());
-        t.setPackageName(tr(tool.getPackageName()));
-        t.setTemplateDirectory(tr(tool.getTemplateDirectory()));
-        t.setExtraProperties(tool.getExtraProperties());
-        t.setCheckverUrl(tr(tool.getCheckverUrl()));
-        t.setAutoupdateUrl(tr(tool.getAutoupdateUrl()));
-        t.setBucket(convertScoopBucket(tool.getBucket()));
-        t.setCommitAuthor(convertCommitAuthor(tool.getCommitAuthor()));
+        convertPackager(packager, t);
+        t.setPackageName(tr(packager.getPackageName()));
+        t.setTemplateDirectory(tr(packager.getTemplateDirectory()));
+        t.setSkipTemplates(tr(packager.getSkipTemplates()));
+        t.setCheckverUrl(tr(packager.getCheckverUrl()));
+        t.setAutoupdateUrl(tr(packager.getAutoupdateUrl()));
+        t.setBucket(convertScoopBucket(packager.getBucket()));
+        t.setCommitAuthor(convertCommitAuthor(packager.getCommitAuthor()));
         return t;
     }
 
@@ -1270,39 +1305,36 @@ public final class JReleaserModelConverter {
         return b;
     }
 
-    private static org.jreleaser.model.Sdkman convertSdkman(Sdkman tool) {
+    private static org.jreleaser.model.Sdkman convertSdkman(Sdkman packager) {
         org.jreleaser.model.Sdkman t = new org.jreleaser.model.Sdkman();
-        t.setActive(tr(tool.resolveActive()));
-        if (tool.isContinueOnErrorSet()) t.setContinueOnError(tool.isContinueOnError());
-        t.setExtraProperties(tool.getExtraProperties());
-        t.setConsumerKey(tr(tool.getConsumerKey()));
-        t.setConsumerToken(tr(tool.getConsumerToken()));
-        t.setCandidate(tr(tool.getCandidate()));
-        t.setCommand(tr(tool.resolveCommand()));
-        t.setConnectTimeout(tool.getConnectTimeout());
-        t.setReadTimeout(tool.getReadTimeout());
+        convertPackager(packager, t);
+        t.setConsumerKey(tr(packager.getConsumerKey()));
+        t.setConsumerToken(tr(packager.getConsumerToken()));
+        t.setCandidate(tr(packager.getCandidate()));
+        t.setCommand(tr(packager.resolveCommand()));
+        t.setConnectTimeout(packager.getConnectTimeout());
+        t.setReadTimeout(packager.getReadTimeout());
         return t;
     }
 
-    private static org.jreleaser.model.Snap convertSnap(Snap tool) {
+    private static org.jreleaser.model.Snap convertSnap(Snap packager) {
         org.jreleaser.model.Snap t = new org.jreleaser.model.Snap();
-        t.setActive(tr(tool.resolveActive()));
-        if (tool.isContinueOnErrorSet()) t.setContinueOnError(tool.isContinueOnError());
-        t.setPackageName(tr(tool.getPackageName()));
-        t.setTemplateDirectory(tr(tool.getTemplateDirectory()));
-        t.setExtraProperties(tool.getExtraProperties());
-        if (isNotBlank(tool.getBase())) t.setBase(tool.getBase());
-        if (isNotBlank(tool.getGrade())) t.setGrade(tool.getGrade());
-        if (isNotBlank(tool.getConfinement())) t.setConfinement(tool.getConfinement());
-        if (null != tool.getExportedLogin()) t.setExportedLogin(tool.getExportedLogin().getAbsolutePath());
-        t.setRemoteBuild(tool.isRemoteBuild());
-        t.setLocalPlugs(tool.getLocalPlugs());
-        t.setLocalSlots(tool.getLocalSlots());
-        t.setPlugs(convertPlugs(tool.getPlugs()));
-        t.setSlots(convertSlots(tool.getSlots()));
-        t.setArchitectures(convertArchitectures(tool.getArchitectures()));
-        t.setSnap(convertSnapTap(tool.getSnap()));
-        t.setCommitAuthor(convertCommitAuthor(tool.getCommitAuthor()));
+        convertPackager(packager, t);
+        t.setPackageName(tr(packager.getPackageName()));
+        t.setTemplateDirectory(tr(packager.getTemplateDirectory()));
+        t.setSkipTemplates(tr(packager.getSkipTemplates()));
+        if (isNotBlank(packager.getBase())) t.setBase(packager.getBase());
+        if (isNotBlank(packager.getGrade())) t.setGrade(packager.getGrade());
+        if (isNotBlank(packager.getConfinement())) t.setConfinement(packager.getConfinement());
+        if (null != packager.getExportedLogin()) t.setExportedLogin(packager.getExportedLogin().getAbsolutePath());
+        t.setRemoteBuild(packager.isRemoteBuild());
+        t.setLocalPlugs(packager.getLocalPlugs());
+        t.setLocalSlots(packager.getLocalSlots());
+        t.setPlugs(convertPlugs(packager.getPlugs()));
+        t.setSlots(convertSlots(packager.getSlots()));
+        t.setArchitectures(convertArchitectures(packager.getArchitectures()));
+        t.setSnap(convertSnapTap(packager.getSnap()));
+        t.setCommitAuthor(convertCommitAuthor(packager.getCommitAuthor()));
         return t;
     }
 
@@ -1315,15 +1347,17 @@ public final class JReleaserModelConverter {
     private static List<org.jreleaser.model.Snap.Plug> convertPlugs(List<Snap.Plug> plugs) {
         List<org.jreleaser.model.Snap.Plug> ps = new ArrayList<>();
         for (Snap.Plug plug : plugs) {
-            ps.add(convertArtifact(plug));
+            ps.add(convertPlug(plug));
         }
         return ps;
     }
 
-    private static org.jreleaser.model.Snap.Plug convertArtifact(Snap.Plug plug) {
+    private static org.jreleaser.model.Snap.Plug convertPlug(Snap.Plug plug) {
         org.jreleaser.model.Snap.Plug p = new org.jreleaser.model.Snap.Plug();
         p.setName(tr(plug.getName()));
         p.setAttributes(plug.getAttributes());
+        p.setReads(tr(plug.getReads()));
+        p.setWrites(tr(plug.getWrites()));
         return p;
     }
 
@@ -1360,14 +1394,13 @@ public final class JReleaserModelConverter {
         return a;
     }
 
-    private static org.jreleaser.model.Gofish convertGofish(Gofish tool) {
+    private static org.jreleaser.model.Gofish convertGofish(Gofish packager) {
         org.jreleaser.model.Gofish t = new org.jreleaser.model.Gofish();
-        t.setActive(tr(tool.resolveActive()));
-        if (tool.isContinueOnErrorSet()) t.setContinueOnError(tool.isContinueOnError());
-        t.setTemplateDirectory(tr(tool.getTemplateDirectory()));
-        t.setExtraProperties(tool.getExtraProperties());
-        t.setRepository(convertGofishRepository(tool.getRepository()));
-        t.setCommitAuthor(convertCommitAuthor(tool.getCommitAuthor()));
+        convertPackager(packager, t);
+        t.setTemplateDirectory(tr(packager.getTemplateDirectory()));
+        t.setSkipTemplates(tr(packager.getSkipTemplates()));
+        t.setRepository(convertGofishRepository(packager.getRepository()));
+        t.setCommitAuthor(convertCommitAuthor(packager.getCommitAuthor()));
         return t;
     }
 
@@ -1377,17 +1410,16 @@ public final class JReleaserModelConverter {
         return r;
     }
 
-    private static org.jreleaser.model.Spec convertSpec(Spec tool) {
+    private static org.jreleaser.model.Spec convertSpec(Spec packager) {
         org.jreleaser.model.Spec t = new org.jreleaser.model.Spec();
-        t.setActive(tr(tool.resolveActive()));
-        if (tool.isContinueOnErrorSet()) t.setContinueOnError(tool.isContinueOnError());
-        t.setPackageName(tr(tool.getPackageName()));
-        t.setTemplateDirectory(tr(tool.getTemplateDirectory()));
-        t.setExtraProperties(tool.getExtraProperties());
-        t.setRelease(tr(tool.getRelease()));
-        t.setRequires(tr(tool.getRequires()));
-        t.setRepository(convertSpecRepository(tool.getRepository()));
-        t.setCommitAuthor(convertCommitAuthor(tool.getCommitAuthor()));
+        convertPackager(packager, t);
+        t.setPackageName(tr(packager.getPackageName()));
+        t.setTemplateDirectory(tr(packager.getTemplateDirectory()));
+        t.setSkipTemplates(tr(packager.getSkipTemplates()));
+        t.setRelease(tr(packager.getRelease()));
+        t.setRequires(tr(packager.getRequires()));
+        t.setRepository(convertSpecRepository(packager.getRepository()));
+        t.setCommitAuthor(convertCommitAuthor(packager.getCommitAuthor()));
         return t;
     }
 

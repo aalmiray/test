@@ -42,21 +42,11 @@ abstract class AbstractJReleaserDistributionTask extends AbstractPlatformAwareJR
     @Optional
     final ListProperty<String> excludedDistributions
 
-    @Input
-    @Optional
-    final ListProperty<String> packagers
-
-    @Input
-    @Optional
-    final ListProperty<String> excludedPackagers
-
     @Inject
     AbstractJReleaserDistributionTask(ObjectFactory objects) {
         super(objects)
         distributions = objects.listProperty(String).convention([])
         excludedDistributions = objects.listProperty(String).convention([])
-        packagers = objects.listProperty(String).convention([])
-        excludedPackagers = objects.listProperty(String).convention([])
     }
 
     @Option(option = 'distribution', description = 'Include a distribution (OPTIONAL).')
@@ -69,22 +59,10 @@ abstract class AbstractJReleaserDistributionTask extends AbstractPlatformAwareJR
         this.excludedDistributions.set(excludedDistributions)
     }
 
-    @Option(option = 'packager', description = 'Include a packager (OPTIONAL).')
-    void setPackager(List<String> packagers) {
-        this.packagers.set(packagers)
-    }
-
-    @Option(option = 'exclude-packager', description = 'Exclude a packager (OPTIONAL).')
-    void setExcludePackager(List<String> excludedPackagers) {
-        this.excludedPackagers.set(excludedPackagers)
-    }
-
     protected JReleaserContext setupContext() {
         JReleaserContext ctx = createContext()
         ctx.includedDistributions = distributions.orNull
         ctx.excludedDistributions = excludedDistributions.orNull
-        ctx.includedPackagers = packagers.orNull
-        ctx.excludedPackagers = excludedPackagers.orNull
         ctx
     }
 }
