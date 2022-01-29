@@ -313,7 +313,8 @@ distributions:
         commitMessage: 'jreleaser {{tagName}}'
 
   jreleaser-native:
-    executableExtension: exe
+    executable:
+      windowsExtension: exe
     artifacts:
       - path: '{{artifactsDir}}/jreleaser-{{projectEffectiveVersion}}-osx_x86_64.zip'
         platform: osx-x86_64
