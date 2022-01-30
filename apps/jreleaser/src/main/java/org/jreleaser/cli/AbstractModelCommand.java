@@ -80,8 +80,9 @@ public abstract class AbstractModelCommand extends AbstractLoggingCommand {
     }
 
     private void resolveConfigFile() {
+        System.out.println("configFile = " + configFile);
         if (null != configFile) {
-            actualConfigFile = configFile;
+            actualConfigFile = configFile.normalize();
         } else {
             Path directory = Paths.get(".").normalize();
             Optional<Path> file = resolveConfigFileAt(directory);
@@ -91,6 +92,7 @@ public abstract class AbstractModelCommand extends AbstractLoggingCommand {
             actualConfigFile = file.orElse(null);
         }
 
+        System.out.println("actualConfigFile = " + actualConfigFile);
         if (null == actualConfigFile || !Files.exists(actualConfigFile)) {
             spec.commandLine().getErr()
                 .println(spec.commandLine()
@@ -108,7 +110,7 @@ public abstract class AbstractModelCommand extends AbstractLoggingCommand {
             JReleaserConfigParser.class.getClassLoader());
 
         for (JReleaserConfigParser parser : parsers) {
-            Path file = directory.resolve("jreleaser." + parser.getPreferredFileExtension());
+            Path file = directory.resolve("jreleaser." + parser.getPreferredFileExtension()).normalize();
             if (Files.exists(file)) {
                 return Optional.of(file);
             }
@@ -118,7 +120,7 @@ public abstract class AbstractModelCommand extends AbstractLoggingCommand {
     }
 
     private void resolveBasedir() {
-        actualBasedir = null != basedir ? basedir : actualConfigFile.toAbsolutePath().getParent();
+        actualBasedir = (null != basedir ? basedir : actualConfigFile.toAbsolutePath().getParent()).normalize();
         if (!Files.exists(actualBasedir)) {
             spec.commandLine().getErr()
                 .println(spec.commandLine().getColorScheme().errorText(
