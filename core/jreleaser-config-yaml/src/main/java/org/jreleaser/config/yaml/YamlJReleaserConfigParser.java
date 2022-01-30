@@ -49,8 +49,8 @@ public class YamlJReleaserConfigParser implements JReleaserConfigParser {
         "rules:",
         "  indentation:",
         "    spaces: consistent",
-        "    check-multi-line-strings: true",
-        "    indent-sequences: false")) + lineSeparator();
+        "    check-multi-line-strings: false",
+        "    indent-sequences: true")) + lineSeparator();
 
     @Override
     public String getPreferredFileExtension() {
