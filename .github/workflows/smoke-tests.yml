@@ -32,12 +32,12 @@ jobs:
       fail-fast: false
       matrix:
         job:
-          - { os: macos-latest  , sign: gpg   , args: '-xp docker' }
-          - { os: macos-latest  , sign: cosign, args: '-xp docker' }
-          - { os: ubuntu-latest , sign: gpg   , args: '' }
-          - { os: ubuntu-latest , sign: cosign, args: '' }
-          - { os: windows-latest, sign: gpg   , args: '' }
-          - { os: windows-latest, sign: cosign, args: '' }
+          - { os: macos-latest  , sign: gpg   , s: '/', x: '', args: '-xp docker' }
+          - { os: macos-latest  , sign: cosign, s: '/', x: '', args: '-xp docker' }
+          - { os: ubuntu-latest , sign: gpg   , s: '/', x: '', args: '' }
+          - { os: ubuntu-latest , sign: cosign, s: '/', x: '', args: '' }
+          - { os: windows-latest, sign: gpg   , s: '\', x: '.bat', args: '' }
+          - { os: windows-latest, sign: cosign, s: '\', x: '.bat', args: '' }
     runs-on: ${{ matrix.job.os }}
     steps:
       - name: Checkout
@@ -71,13 +71,12 @@ jobs:
       - name: Prepare
         shell: bash
         run: |
-          unzip -d${{ github.workspace }} -qo apps/jreleaser/build/distributions/jreleaser-${{ needs.precheck.outputs.VERSION }}.zip
+          unzip -qo apps/jreleaser/build/distributions/jreleaser-${{ needs.precheck.outputs.VERSION }}.zip
           cp .github/test-files/jreleaser-${{ matrix.job.sign }}.yml jreleaser.yml
 
       - name: Assemble
-        shell: bash
         run: |
-          ./jreleaser-${{ needs.precheck.outputs.VERSION }}/bin/jreleaser assemble
+          ${{ github.workspace }}${{ matrix.job.s }}jreleaser-${{ needs.precheck.outputs.VERSION }}${{ matrix.job.s }}bin${{ matrix.job.s }}jreleaser${{ matrix.job.x }} assemble
         env:
           JRELEASER_PROJECT_VERSION: ${{ needs.precheck.outputs.VERSION }}
           JRELEASER_GITHUB_TOKEN: ${{ secrets.GIT_ACCESS_TOKEN }}
@@ -93,9 +92,8 @@ jobs:
             out/jreleaser/output.properties
 
       - name: Full Release
-        shell: bash
         run: |
-          ./jreleaser-${{ needs.precheck.outputs.VERSION }}/bin/jreleaser full-release --dry-run ${{ matrix.job.args }}
+          ${{ github.workspace }}${{ matrix.job.s }}jreleaser-${{ needs.precheck.outputs.VERSION }}${{ matrix.job.s }}bin${{ matrix.job.s }}jreleaser${{ matrix.job.x }} full-release --dry-run ${{ matrix.job.args }}
         env:
           JRELEASER_PROJECT_VERSION: ${{ needs.precheck.outputs.VERSION }}
           JRELEASER_GITHUB_TOKEN: ${{ secrets.GIT_ACCESS_TOKEN }}
