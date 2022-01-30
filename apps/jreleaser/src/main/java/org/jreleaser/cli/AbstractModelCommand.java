@@ -80,7 +80,6 @@ public abstract class AbstractModelCommand extends AbstractLoggingCommand {
     }
 
     private void resolveConfigFile() {
-        System.out.println("configFile = " + configFile);
         if (null != configFile) {
             actualConfigFile = configFile.normalize();
         } else {
@@ -92,7 +91,6 @@ public abstract class AbstractModelCommand extends AbstractLoggingCommand {
             actualConfigFile = file.orElse(null);
         }
 
-        System.out.println("actualConfigFile = " + actualConfigFile);
         if (null == actualConfigFile || !Files.exists(actualConfigFile)) {
             spec.commandLine().getErr()
                 .println(spec.commandLine()
