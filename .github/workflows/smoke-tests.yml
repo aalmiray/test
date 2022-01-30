@@ -13,6 +13,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
 
+      - uses: n1hility/cancel-previous-runs@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Version
         id: vars
         shell: bash
@@ -72,8 +76,8 @@ jobs:
       - name: Assemble
         shell: bash
         run: |
-          ${{ github.workspace }}/jreleaser-${{ needs.precheck.outputs.VERSION }}/bin/jreleaser assemble --basedir=${{ github.workspace }} \
-            --config-file=${{ github.workspace }}/.github/test-files/jreleaser-${{ matrix.job.sign }}.yml
+          ./jreleaser-${{ needs.precheck.outputs.VERSION }}/bin/jreleaser assemble --basedir=. \
+            --config-file=.github/test-files/jreleaser-${{ matrix.job.sign }}.yml
         env:
           JRELEASER_PROJECT_VERSION: ${{ needs.precheck.outputs.VERSION }}
           JRELEASER_GITHUB_TOKEN: ${{ secrets.GIT_ACCESS_TOKEN }}
@@ -91,8 +95,8 @@ jobs:
       - name: Full Release
         shell: bash
         run: |
-          ${{ github.workspace }}/jreleaser-${{ needs.precheck.outputs.VERSION }}/bin/jreleaser full-release --basedir=${{ github.workspace }} \
-            --config-file=${{ github.workspace }}/.github/test-files/jreleaser-${{ matrix.job.sign }}.yml --dry-run ${{ matrix.job.args }}
+          ./jreleaser-${{ needs.precheck.outputs.VERSION }}/bin/jreleaser full-release --basedir=. \
+            --config-file=.github/test-files/jreleaser-${{ matrix.job.sign }}.yml --dry-run ${{ matrix.job.args }}
         env:
           JRELEASER_PROJECT_VERSION: ${{ needs.precheck.outputs.VERSION }}
           JRELEASER_GITHUB_TOKEN: ${{ secrets.GIT_ACCESS_TOKEN }}
