@@ -23,23 +23,10 @@ jobs:
   build:
     needs: [ precheck ]
     if: endsWith(${{ needs.precheck.outputs.VERSION }}, '-SNAPSHOT')
-    name: 'Build ${{ matrix.job.os }}-${{ matrix.job.sign }}'
-    strategy:
-      fail-fast: false
-      matrix:
-        job:
-          - { os: macos-latest  , sign: gpg   , s: '/', pargs: '-xp docker' }
-          - { os: macos-latest  , sign: cosign, s: '/', pargs: '-xp docker' }
-          - { os: ubuntu-latest , sign: gpg   , s: '/', pargs: '' }
-          - { os: ubuntu-latest , sign: cosign, s: '/', pargs: '' }
-          - { os: windows-latest, sign: gpg   , s: '\', pargs: '-xp docker' }
-          - { os: windows-latest, sign: cosign, s: '\', pargs: '-xp docker' }
-    runs-on: ${{ matrix.job.os }}
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v2
-        with:
-          fetch-depth: 0
 
       - name: Set up Java
         uses: actions/setup-java@v2
@@ -62,17 +49,54 @@ jobs:
             ${{ runner.os }}-gradlew-
 
       - name: Build
-        run: ./gradlew build -S
+        run: ./gradlew build :jreleaser:distZip -S
+
+      - name: Upload distribution
+        uses: actions/upload-artifact@v2
+        with:
+          retention-days: 1
+          name: distribution
+          path: |
+            apps/jreleaser/build/distributions/jreleaser-*.zip
+
+  test:
+    needs: [ precheck, build ]
+    name: 'Test ${{ matrix.job.os }}-${{ matrix.job.sign }}'
+    strategy:
+      fail-fast: false
+      matrix:
+        job:
+          - { os: macos-latest  , sign: gpg   , s: '/', pargs: '-xp docker' }
+          - { os: macos-latest  , sign: cosign, s: '/', pargs: '-xp docker' }
+          - { os: ubuntu-latest , sign: gpg   , s: '/', pargs: '' }
+          - { os: ubuntu-latest , sign: cosign, s: '/', pargs: '' }
+          - { os: windows-latest, sign: gpg   , s: '\', pargs: '-xp docker' }
+          - { os: windows-latest, sign: cosign, s: '\', pargs: '-xp docker' }
+    runs-on: ${{ matrix.job.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      - name: Download distribution
+        uses: actions/download-artifact@v2
+
+      - name: Set up Java
+        uses: actions/setup-java@v2
+        with:
+          java-version: 11
+          distribution: 'zulu'
 
       - name: Unpack
         shell: bash
         run: |
-          unzip -d${{ github.workspace }} -qo apps/jreleaser/build/distributions/jreleaser-${{ needs.precheck.outputs.VERSION }}.zip
+          unzip -d${{ github.workspace }} -qo artifacts/jreleaser-${{ needs.precheck.outputs.VERSION }}.zip
 
       - name: Assemble
         shell: bash
         run: |
-          ${{ github.workspace }}jreleaser-${{ needs.precheck.outputs.VERSION }}/bin/jreleaser assemble --basedir=${{ github.workspace }} \
+          ${{ github.workspace }}/jreleaser-${{ needs.precheck.outputs.VERSION }}/bin/jreleaser assemble --basedir=${{ github.workspace }} \
             --config-file=${{ github.workspace }}/.github/test-files/jreleaser-${{ matrix.job.sign }}.yml
         env:
           JRELEASER_PROJECT_VERSION: ${{ needs.precheck.outputs.VERSION }}
@@ -91,7 +115,7 @@ jobs:
       - name: Release
         shell: bash
         run: |
-          ${{ github.workspace }}jreleaser-${{ needs.precheck.outputs.VERSION }}/bin/jreleaser release --basedir=${{ github.workspace }} \
+          ${{ github.workspace }}/jreleaser-${{ needs.precheck.outputs.VERSION }}/bin/jreleaser release --basedir=${{ github.workspace }} \
             --config-file=${{ github.workspace }}/.github/test-files/jreleaser-${{ matrix.job.sign }}.yml --dry-run
         env:
           JRELEASER_PROJECT_VERSION: ${{ needs.precheck.outputs.VERSION }}
@@ -120,7 +144,7 @@ jobs:
       - name: Publish
         shell: bash
         run: |
-          ${{ github.workspace }}jreleaser-${{ needs.precheck.outputs.VERSION }}/bin/jreleaser publish --basedir=${{ github.workspace }} \
+          ${{ github.workspace }}/jreleaser-${{ needs.precheck.outputs.VERSION }}/bin/jreleaser publish --basedir=${{ github.workspace }} \
             --config-file=${{ github.workspace }}/.github/test-files/jreleaser-${{ matrix.job.sign }}.yml --dry-run ${{ matrix.job.pargs }}
         env:
           JRELEASER_PROJECT_VERSION: ${{ needs.precheck.outputs.VERSION }}
