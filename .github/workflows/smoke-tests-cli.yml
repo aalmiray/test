@@ -1,4 +1,4 @@
-name: SmokeTests
+name: SmokeTests - CLI
 
 on:
   push:
@@ -36,8 +36,8 @@ jobs:
           - { os: macos-latest  , sign: cosign, s: '/', x: '', args: '-xp docker' }
           - { os: ubuntu-latest , sign: gpg   , s: '/', x: '', args: '' }
           - { os: ubuntu-latest , sign: cosign, s: '/', x: '', args: '' }
-          - { os: windows-latest, sign: gpg   , s: '\', x: '.bat', args: '' }
-          - { os: windows-latest, sign: cosign, s: '\', x: '.bat', args: '' }
+          - { os: windows-latest, sign: gpg   , s: '\', x: '.bat', args: '-xp docker' }
+          - { os: windows-latest, sign: cosign, s: '\', x: '.bat', args: '-xp docker' }
     runs-on: ${{ matrix.job.os }}
     steps:
       - name: Checkout
@@ -85,8 +85,8 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v2
         with:
-          retention-days: 1
-          name: 'jreleaser-assemble-${{ matrix.job.os }}-${{ matrix.job.sign }}'
+          retention-days: 10
+          name: 'jreleaser-assemble-cli-${{ matrix.job.os }}-${{ matrix.job.sign }}'
           path: |
             out/jreleaser/trace.log
             out/jreleaser/output.properties
@@ -111,9 +111,10 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v2
         with:
-          retention-days: 1
-          name: 'jreleaser-full-release-${{ matrix.job.os }}-${{ matrix.job.sign }}'
+          retention-days: 10
+          name: 'jreleaser-full-release-cli-${{ matrix.job.os }}-${{ matrix.job.sign }}'
           path: |
             out/jreleaser/trace.log
             out/jreleaser/output.properties
             out/jreleaser/release/CHANGELOG.md
+            out/jreleaser/prepare

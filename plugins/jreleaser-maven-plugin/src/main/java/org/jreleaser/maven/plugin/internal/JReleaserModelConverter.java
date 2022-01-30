@@ -781,7 +781,7 @@ public final class JReleaserModelConverter {
         org.jreleaser.model.Archive a = new org.jreleaser.model.Archive();
         convertAssembler(archive, a);
         a.setArchiveName(tr(archive.getArchiveName()));
-        a.setDistributionType(tr(archive.getDistributionType().name()));
+        if (archive.getDistributionType() != null) a.setDistributionType(tr(archive.getDistributionType().name()));
         if (archive.isAttachPlatformSet()) a.setAttachPlatform(archive.isAttachPlatform());
         a.setFormats(archive.getFormats().stream()
             .map(Object::toString)
@@ -1216,10 +1216,11 @@ public final class JReleaserModelConverter {
         return t;
     }
 
-    private static Map<String, org.jreleaser.model.DockerSpec> convertDockerSpecs(List<DockerSpec> specs) {
+    private static Map<String, org.jreleaser.model.DockerSpec> convertDockerSpecs(Map<String, DockerSpec> specs) {
         Map<String, org.jreleaser.model.DockerSpec> ds = new LinkedHashMap<>();
-        for (DockerSpec spec : specs) {
-            ds.put(spec.getName(), convertDockerSpec(spec));
+        for (Map.Entry<String, DockerSpec> e : specs.entrySet()) {
+            e.getValue().setName(tr(e.getKey()));
+            ds.put(e.getValue().getName(), convertDockerSpec(e.getValue()));
         }
         return ds;
     }
