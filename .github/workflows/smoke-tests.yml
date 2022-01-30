@@ -45,7 +45,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Set up Java
+      - name: Setup Java
         uses: actions/setup-java@v2
         with:
           java-version: 11
@@ -68,16 +68,16 @@ jobs:
       - name: Build
         run: ./gradlew -Prelease=true build -S
 
-      - name: Unpack
+      - name: Prepare
         shell: bash
         run: |
           unzip -d${{ github.workspace }} -qo apps/jreleaser/build/distributions/jreleaser-${{ needs.precheck.outputs.VERSION }}.zip
+          cp .github/test-files/jreleaser-${{ matrix.job.sign }}.yml jreleaser.yml
 
       - name: Assemble
         shell: bash
         run: |
-          ./jreleaser-${{ needs.precheck.outputs.VERSION }}/bin/jreleaser assemble --basedir=. \
-            --config-file=.github/test-files/jreleaser-${{ matrix.job.sign }}.yml
+          ./jreleaser-${{ needs.precheck.outputs.VERSION }}/bin/jreleaser assemble
         env:
           JRELEASER_PROJECT_VERSION: ${{ needs.precheck.outputs.VERSION }}
           JRELEASER_GITHUB_TOKEN: ${{ secrets.GIT_ACCESS_TOKEN }}
@@ -95,8 +95,7 @@ jobs:
       - name: Full Release
         shell: bash
         run: |
-          ./jreleaser-${{ needs.precheck.outputs.VERSION }}/bin/jreleaser full-release --basedir=. \
-            --config-file=.github/test-files/jreleaser-${{ matrix.job.sign }}.yml --dry-run ${{ matrix.job.args }}
+          ./jreleaser-${{ needs.precheck.outputs.VERSION }}/bin/jreleaser full-release --dry-run ${{ matrix.job.args }}
         env:
           JRELEASER_PROJECT_VERSION: ${{ needs.precheck.outputs.VERSION }}
           JRELEASER_GITHUB_TOKEN: ${{ secrets.GIT_ACCESS_TOKEN }}
