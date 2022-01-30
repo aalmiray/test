@@ -170,7 +170,6 @@ class SigningImpl implements Signing {
         if (checksums.present) signing.checksums = checksums.get()
         signing.command = ((CommandImpl) command).toModel()
         signing.cosign = ((CosignImpl) cosign).toModel()
-        signing.args = (List<String>) args.getOrElse([])
         signing
     }
 
