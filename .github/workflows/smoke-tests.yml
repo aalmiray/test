@@ -62,7 +62,7 @@ jobs:
             ${{ runner.os }}-gradlew-
 
       - name: Build
-        run: ./gradlew build -S
+        run: ./gradlew -Prelease=true build -S
 
       - name: Unpack
         shell: bash
