@@ -71,7 +71,6 @@ jobs:
       - name: Prepare
         shell: bash
         run: |
-          unzip -qo apps/jreleaser/build/distributions/jreleaser-${{ needs.precheck.outputs.VERSION }}.zip
           cp .github/test-files/pom-${{ matrix.job.sign }}.xml pom.xml
 
       - name: Cache Maven packages
