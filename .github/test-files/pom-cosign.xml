@@ -24,7 +24,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>org.jreleaser</groupId>
     <artifactId>jreleaser-test</artifactId>
-    <version>1.0.0-SNAPSHOT</version>
+    <version>0.0.0-SNAPSHOT</version>
 
     <name>jreleaser-test</name>
     <description>Release projects quickly and easily with JReleaser</description>
@@ -71,7 +71,7 @@
             <plugin>
                 <groupId>org.jreleaser</groupId>
                 <artifactId>jreleaser-maven-plugin</artifactId>
-                <version>1.0.0-SNAPSHOT</version>
+                <version>0.0.0-SNAPSHOT</version>
                 <configuration>
                     <jreleaser>
                         <environment>

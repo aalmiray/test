@@ -1,4 +1,4 @@
-name: SmokeTests - Maven
+name: SmokeTests - Ant
 
 on:
   push:
@@ -66,24 +66,20 @@ jobs:
             ${{ runner.os }}-gradlew-
 
       - name: Build
-        run: ./gradlew -Prelease=true build publishToMavenLocal -S
+        run: ./gradlew -Prelease=true build -S
 
       - name: Prepare
         shell: bash
         run: |
-          cp .github/test-files/pom-${{ matrix.job.sign }}.xml pom.xml
-          sed -i -e "s/0.0.0-SNAPSHOT/${VERSION}/g" pom.xml
-
-      - name: Cache Maven packages
-        uses: actions/cache@v2
-        with:
-          path: ~/.m2
-          key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
-          restore-keys: ${{ runner.os }}-m2
+          cp .github/test-files/jreleaser-${{ matrix.job.sign }}.yml jreleaser.yml
+          cp .github/test-files/build.xml build.xml
+          sed -i -e "s/0.0.0-SNAPSHOT/${VERSION}/g" build.xml
+          mkdir lib
+          unzip -dlib -qo plugins/jreleaser-ant-tasks/build/distributions/jreleaser-ant-tasks-${{ needs.precheck.outputs.VERSION }}.zip
 
       - name: Assemble
         run: |
-          mvn -B jreleaser:assemble
+          ant jreleaser-assemble
         env:
           JRELEASER_PROJECT_VERSION: ${{ needs.precheck.outputs.VERSION }}
           JRELEASER_GITHUB_TOKEN: ${{ secrets.GIT_ACCESS_TOKEN }}
@@ -93,14 +89,14 @@ jobs:
         uses: actions/upload-artifact@v2
         with:
           retention-days: 10
-          name: 'jreleaser-assemble-maven-${{ matrix.job.os }}-${{ matrix.job.sign }}'
+          name: 'jreleaser-assemble-ant-${{ matrix.job.os }}-${{ matrix.job.sign }}'
           path: |
-            target/jreleaser/trace.log
-            target/jreleaser/output.properties
+            build/jreleaser/trace.log
+            build/jreleaser/output.properties
 
       - name: Full Release
         run: |
-          mvn -B -Djreleaser.dry.run=true ${{ matrix.job.args }} jreleaser:full-release
+          ant ${{ matrix.job.args }} jreleaser-full-release
         env:
           JRELEASER_PROJECT_VERSION: ${{ needs.precheck.outputs.VERSION }}
           JRELEASER_GITHUB_TOKEN: ${{ secrets.GIT_ACCESS_TOKEN }}
@@ -119,9 +115,9 @@ jobs:
         uses: actions/upload-artifact@v2
         with:
           retention-days: 10
-          name: 'jreleaser-full-release-maven-${{ matrix.job.os }}-${{ matrix.job.sign }}'
+          name: 'jreleaser-full-release-ant-${{ matrix.job.os }}-${{ matrix.job.sign }}'
           path: |
-            target/jreleaser/trace.log
-            target/jreleaser/output.properties
-            target/jreleaser/release/CHANGELOG.md
-            target/jreleaser/prepare
+            build/jreleaser/trace.log
+            build/jreleaser/output.properties
+            build/jreleaser/release/CHANGELOG.md
+            build/jreleaser/prepare
