@@ -6,6 +6,7 @@
     </path>
 
     <property name="jreleaser.dry.run" value="true"/>
+    <property name="jreleaser.config.file" value="jreleaser.yml"/>
 
     <import>
         <javaresource name="org/jreleaser/ant/targets.xml"
