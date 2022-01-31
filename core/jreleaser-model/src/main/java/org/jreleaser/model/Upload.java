@@ -125,7 +125,7 @@ public class Upload implements Domain, EnabledAware {
     }
 
     public void addArtifactory(Artifactory artifactory) {
-        this.artifactory.put(artifactory.getType(), artifactory);
+        this.artifactory.put(artifactory.getName(), artifactory);
     }
 
     public List<Http> getActiveHttps() {
@@ -144,7 +144,7 @@ public class Upload implements Domain, EnabledAware {
     }
 
     public void addHttp(Http http) {
-        this.http.put(http.getType(), http);
+        this.http.put(http.getName(), http);
     }
 
     public List<S3> getActiveS3s() {
@@ -163,7 +163,7 @@ public class Upload implements Domain, EnabledAware {
     }
 
     public void addS3(S3 s3) {
-        this.s3.put(s3.getType(), s3);
+        this.s3.put(s3.getName(), s3);
     }
 
     @Override

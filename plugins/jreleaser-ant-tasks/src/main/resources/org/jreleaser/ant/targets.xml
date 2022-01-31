@@ -138,7 +138,7 @@
                                 excludedPackagers="${jreleaser.excluded.packagers}"
                                 uploaderTypes="${jreleaser.uploader.types}"
                                 excludedUploaderTypes="${jreleaser.excluded.uploader.names}"
-                                uploderNames="${jreleaser.uploader.types}"
+                                uploaderNames="${jreleaser.uploader.types}"
                                 excludedUploaderNames="${jreleaser.excluded.uploader.names}"/>
     </target>
 
@@ -225,7 +225,7 @@
                           excludedDistributions="${jreleaser.excluded.distributions}"
                           uploaderTypes="${jreleaser.uploader.types}"
                           excludedUploaderTypes="${jreleaser.excluded.uploader.names}"
-                          uploderNames="${jreleaser.uploader.types}"
+                          uploaderNames="${jreleaser.uploader.types}"
                           excludedUploaderNames="${jreleaser.excluded.uploader.names}"/>
     </target>
 </project>
