@@ -99,7 +99,7 @@ jobs:
 
       - name: Full Release
         run: |
-          mvn -B jreleaser:full-release -Djreleaser.dry.run=true ${{ matrix.job.args }}
+          mvn -B -Djreleaser.dry.run=true ${{ matrix.job.args }} jreleaser:full-release
         env:
           JRELEASER_PROJECT_VERSION: ${{ needs.precheck.outputs.VERSION }}
           JRELEASER_GITHUB_TOKEN: ${{ secrets.GIT_ACCESS_TOKEN }}
