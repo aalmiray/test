@@ -32,7 +32,6 @@ import org.kordamp.gradle.util.ConfigureUtil
 import javax.inject.Inject
 
 import static org.jreleaser.util.StringUtils.isNotBlank
-import static org.jreleaser.util.StringUtils.isNotBlank
 
 /**
  *
