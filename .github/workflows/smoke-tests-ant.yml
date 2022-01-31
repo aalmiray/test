@@ -73,7 +73,7 @@ jobs:
         run: |
           cp .github/test-files/jreleaser-${{ matrix.job.sign }}.yml jreleaser.yml
           cp .github/test-files/build.xml build.xml
-          sed -i -e "s/0.0.0-SNAPSHOT/${VERSION}/g" build.xml
+          sed -i -e "s/0.0.0-SNAPSHOT/${{ needs.precheck.outputs.VERSION }}/g" build.xml
           mkdir lib
           unzip -dlib -qo plugins/jreleaser-ant-tasks/build/distributions/jreleaser-ant-tasks-${{ needs.precheck.outputs.VERSION }}.zip
 
