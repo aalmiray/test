@@ -51,6 +51,14 @@ public class JReleaserFullReleaseTask extends AbstractPackagerAwareJReleaserTask
         this.excludedUploaderNames.addAll(expandAndCollect(excludedUploaderNames));
     }
 
+    public void setAnnouncers(String announcers) {
+        this.announcers.addAll(expandAndCollect(announcers));
+    }
+
+    public void setExcludedAnnouncers(String excludedAnnouncers) {
+        this.excludedAnnouncers.addAll(expandAndCollect(excludedAnnouncers));
+    }
+
     public void setUploaderTypes(List<String> uploaderTypes) {
         if (null != uploaderTypes) {
             this.uploaderTypes.addAll(uploaderTypes);
