@@ -82,6 +82,7 @@ jobs:
           restore-keys: ${{ runner.os }}-m2
 
       - name: Assemble
+        shell: bash
         run: |
           mvn -B jreleaser:assemble
         env:
@@ -99,6 +100,7 @@ jobs:
             target/jreleaser/output.properties
 
       - name: Full Release
+        shell: bash
         run: |
           mvn -B -Djreleaser.dry.run=true ${{ matrix.job.args }} jreleaser:full-release
         env:

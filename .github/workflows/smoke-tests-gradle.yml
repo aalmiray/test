@@ -1,4 +1,4 @@
-name: SmokeTests - Ant
+name: SmokeTests - Gradle
 
 on:
   push:
@@ -32,12 +32,12 @@ jobs:
       fail-fast: false
       matrix:
         job:
-          - { os: macos-latest  , sign: gpg   ,  args: '-Djreleaser.excluded.packagers=docker' }
-          - { os: macos-latest  , sign: cosign,  args: '-Djreleaser.excluded.packagers=docker' }
+          - { os: macos-latest  , sign: gpg   ,  args: '--exclude-packager docker' }
+          - { os: macos-latest  , sign: cosign,  args: '--exclude-packager docker' }
           - { os: ubuntu-latest , sign: gpg   ,  args: '' }
           - { os: ubuntu-latest , sign: cosign,  args: '' }
-          - { os: windows-latest, sign: gpg   ,  args: '-Djreleaser.excluded.packagers=docker' }
-          - { os: windows-latest, sign: cosign,  args: '-Djreleaser.excluded.packagers=docker' }
+          - { os: windows-latest, sign: gpg   ,  args: '--exclude-packager docker' }
+          - { os: windows-latest, sign: cosign,  args: '--exclude-packager docker' }
     runs-on: ${{ matrix.job.os }}
     steps:
       - name: Checkout
@@ -66,21 +66,21 @@ jobs:
             ${{ runner.os }}-gradlew-
 
       - name: Build
-        run: ./gradlew -Prelease=true build -S
+        run: ./gradlew -Prelease=true build publishToMavenLocal -S
 
       - name: Prepare
         shell: bash
         run: |
-          cp .github/test-files/jreleaser-${{ matrix.job.sign }}.yml jreleaser.yml
-          cp .github/test-files/build.xml build.xml
-          sed -i -e "s/0.0.0-SNAPSHOT/${{ needs.precheck.outputs.VERSION }}/g" build.xml
-          mkdir lib
-          unzip -dlib -qo plugins/jreleaser-ant-tasks/build/distributions/jreleaser-ant-tasks-${{ needs.precheck.outputs.VERSION }}.zip
+          cp .github/test-files/gradle.properties gradle.properties
+          cp .github/test-files/settings.gradle settings.gradle
+          cp .github/test-files/build-${{ matrix.job.sign }}.gradle build.gradle
+          sed -i -e "s/0.0.0-SNAPSHOT/${{ needs.precheck.outputs.VERSION }}/g" settings.gradle
+          sed -i -e "s/0.0.0-SNAPSHOT/${{ needs.precheck.outputs.VERSION }}/g" gradle.properties
 
       - name: Assemble
         shell: bash
         run: |
-          ant jreleaser-assemble
+          ./gradlew jreleaserAssemble
         env:
           JRELEASER_PROJECT_VERSION: ${{ needs.precheck.outputs.VERSION }}
           JRELEASER_GITHUB_TOKEN: ${{ secrets.GIT_ACCESS_TOKEN }}
@@ -90,7 +90,7 @@ jobs:
         uses: actions/upload-artifact@v2
         with:
           retention-days: 10
-          name: 'jreleaser-assemble-ant-${{ matrix.job.os }}-${{ matrix.job.sign }}'
+          name: 'jreleaser-assemble-gradle-${{ matrix.job.os }}-${{ matrix.job.sign }}'
           path: |
             build/jreleaser/trace.log
             build/jreleaser/output.properties
@@ -98,7 +98,7 @@ jobs:
       - name: Full Release
         shell: bash
         run: |
-          ant ${{ matrix.job.args }} jreleaser-full-release
+          ./gradlew jreleaserFullRelease ${{ matrix.job.args }}
         env:
           JRELEASER_PROJECT_VERSION: ${{ needs.precheck.outputs.VERSION }}
           JRELEASER_GITHUB_TOKEN: ${{ secrets.GIT_ACCESS_TOKEN }}
@@ -117,7 +117,7 @@ jobs:
         uses: actions/upload-artifact@v2
         with:
           retention-days: 10
-          name: 'jreleaser-full-release-ant-${{ matrix.job.os }}-${{ matrix.job.sign }}'
+          name: 'jreleaser-full-release-gradle-${{ matrix.job.os }}-${{ matrix.job.sign }}'
           path: |
             build/jreleaser/trace.log
             build/jreleaser/output.properties

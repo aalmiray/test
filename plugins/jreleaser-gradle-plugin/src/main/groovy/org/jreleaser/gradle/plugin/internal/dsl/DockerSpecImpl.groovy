@@ -68,6 +68,7 @@ class DockerSpecImpl extends AbstractDockerConfiguration implements DockerSpec {
 
     org.jreleaser.model.DockerSpec toModel() {
         org.jreleaser.model.DockerSpec spec = new org.jreleaser.model.DockerSpec()
+        spec.name = name
         toModel(spec)
         if (matchers.present) spec.matchers.putAll(matchers.get())
         spec
