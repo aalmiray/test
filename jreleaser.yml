@@ -167,33 +167,52 @@ assemble:
         path: 'apps/jreleaser/build/libs/jreleaser-{{projectVersion}}.jar'
       jars:
         - pattern: 'apps/jreleaser/build/dependencies/flat/*.jar'
-  nativeImage:
-    jreleaser-native:
+
+  jpackage:
+    jreleaser-installer:
       active: always
-      java:
-        version: 11
-        mainClass: org.jreleaser.cli.Main
-      imageName: 'jreleaser-{{projectEffectiveVersion}}'
-      executable: jreleaser
-      mainJar:
-        path: 'apps/jreleaser/build/libs/jreleaser-{{projectVersion}}.jar'
-      jars:
-        - pattern: 'apps/jreleaser/build/dependencies/flat/*.jar'
-      #graalJdks:
-      #  - path: '{{jdkPathPrefix}}/graal17Osx/{{graalFilePrefix}}/Contents/Home'
-      #    platform: 'osx-x86_64'
-      #  - path: '{{jdkPathPrefix}}/graal17Linux/{{graalFilePrefix}}'
-      #    platform: 'linux-x86_64'
-      #  - path: '{{jdkPathPrefix}}/graal17Windows/{{graalFilePrefix}}'
-      #    platform: 'windows-x86_64'
-      upx:
-        active: always
-        version: '3.96'
-      args:
-        - '-Duser.language=en'
-        - '-H:IncludeLocales=en,ca,de,es,fr,hi,it,ja,nl,pt_BR,zh_TW,ru'
-        - '-H:Optimize=2'
-        - '-H:+RemoveUnusedSymbols'
+      exported: false
+      jlink: jreleaser-standalone
+      applicationPackage:
+        appName: jreleaser
+        appVersion: 1.0.0
+        vendor: JReleaser
+      osx:
+        types: [dmg,pkg]
+        packageIdentifier: org.jreleaser.cli
+      linux:
+        types: [deb,rpm]
+        maintainer: jreleaser@kordamp.org
+        #packageName: jreleaser
+      windows:
+        types: [msi,exe]
+#  nativeImage:
+#    jreleaser-native:
+#      active: always
+#      java:
+#        version: 11
+#        mainClass: org.jreleaser.cli.Main
+#      imageName: 'jreleaser-{{projectEffectiveVersion}}'
+#      executable: jreleaser
+#      mainJar:
+#        path: 'apps/jreleaser/build/libs/jreleaser-{{projectVersion}}.jar'
+#      jars:
+#        - pattern: 'apps/jreleaser/build/dependencies/flat/*.jar'
+#      #graalJdks:
+#      #  - path: '{{jdkPathPrefix}}/graal17Osx/{{graalFilePrefix}}/Contents/Home'
+#      #    platform: 'osx-x86_64'
+#      #  - path: '{{jdkPathPrefix}}/graal17Linux/{{graalFilePrefix}}'
+#      #    platform: 'linux-x86_64'
+#      #  - path: '{{jdkPathPrefix}}/graal17Windows/{{graalFilePrefix}}'
+#      #    platform: 'windows-x86_64'
+#      upx:
+#        active: always
+#        version: '3.96'
+#      args:
+#        - '-Duser.language=en'
+#        - '-H:IncludeLocales=en,ca,de,es,fr,hi,it,ja,nl,pt_BR,zh_TW,ru'
+#        - '-H:Optimize=2'
+#        - '-H:+RemoveUnusedSymbols'
 
 distributions:
   jreleaser:

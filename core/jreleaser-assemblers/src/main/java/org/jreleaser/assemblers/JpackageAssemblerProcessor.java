@@ -215,7 +215,7 @@ public class JpackageAssemblerProcessor extends AbstractJavaAssemblerProcessor<J
             .arg("--copyright")
             .arg(maybeQuote(copyright))
             .arg("--description")
-            .arg(context.getModel().getProject().getDescription());
+            .arg(maybeQuote(context.getModel().getProject().getDescription()));
 
         // Launcher
         for (String argument : assembler.getLauncher().getArguments()) {
