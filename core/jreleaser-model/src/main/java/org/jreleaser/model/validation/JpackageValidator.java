@@ -246,9 +246,6 @@ public abstract class JpackageValidator extends Validator {
     }
 
     private static void validateLinux(JReleaserContext context, Jpackage jpackage, Jpackage.Linux packager, Errors errors) {
-        if (isBlank(packager.getPackageName())) {
-            packager.setPackageName(jpackage.getApplicationPackage().getAppName());
-        }
         if (isBlank(packager.getLicense())) {
             packager.setLicense(context.getModel().getProject().getLicense());
         }

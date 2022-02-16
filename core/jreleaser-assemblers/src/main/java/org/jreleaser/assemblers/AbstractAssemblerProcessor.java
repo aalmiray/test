@@ -48,6 +48,7 @@ import static org.jreleaser.util.StringUtils.isNotBlank;
  * @author Andres Almiray
  * @since 0.2.0
  */
+@org.jreleaser.infra.nativeimage.annotations.NativeImage
 abstract class AbstractAssemblerProcessor<A extends Assembler> implements AssemblerProcessor<A> {
     protected final JReleaserContext context;
     protected A assembler;
