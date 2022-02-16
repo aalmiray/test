@@ -15,38 +15,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.jreleaser.gradle.plugin.dsl
+package org.jreleaser.test;
 
-import groovy.transform.CompileStatic
-import org.gradle.api.Action
-import org.gradle.api.provider.Property
+import org.junit.jupiter.api.extension.ExtendWith;
+
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
 
 /**
- *
  * @author Andres Almiray
- * @since 0.1.0
+ * @since 1.0.0
  */
-@CompileStatic
-interface Chocolatey extends RepositoryPackager {
-    Property<String> getPackageName()
+@Retention(RetentionPolicy.RUNTIME)
+@ExtendWith(PlatformCondition.class)
+public @interface Platform {
+    boolean match() default true;
 
-    Property<String> getPackageVersion()
-
-    Property<String> getUsername()
-
-    Property<String> getApiKey()
-
-    Property<String> getTitle()
-
-    Property<String> getIconUrl()
-
-    Property<String> getSource()
-
-    Property<Boolean> getRemoteBuild()
-
-    Tap getBucket()
-
-    void bucket(Action<? super Tap> action)
-
-    void bucket(@DelegatesTo(strategy = Closure.DELEGATE_FIRST, value = Tap) Closure<Void> action)
+    String platform() default "";
 }

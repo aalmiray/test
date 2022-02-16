@@ -32,6 +32,8 @@ import org.gradle.api.provider.Property
 interface Jpackage extends JavaAssembler {
     Property<String> getJlink()
 
+    Property<Boolean> getAttachPlatform()
+
     void runtimeImage(Action<? super Artifact> action)
 
     void applicationPackage(Action<? super ApplicationPackage> action)
@@ -67,8 +69,6 @@ interface Jpackage extends JavaAssembler {
         Property<String> getCopyright()
 
         Property<String> getLicenseFile()
-
-        Property<String> getResourceDir()
     }
 
     @CompileStatic
@@ -87,6 +87,8 @@ interface Jpackage extends JavaAssembler {
         ListProperty<String> getTypes()
 
         Property<String> getInstallDir()
+
+        Property<String> getResourceDir()
 
         void jdk(Action<? super Artifact> action)
 

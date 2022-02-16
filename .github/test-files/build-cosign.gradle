@@ -238,6 +238,30 @@ jreleaser {
                 }
             }
         }
+        
+        jpackage {
+            'jreleaser-installer' {
+                active = 'always'
+                exported = false
+                jlink = 'jreleaser-standalone'
+                applicationPackage {
+                    appName = 'JReleaser'
+                    appVersion = '1.0.0'
+                    vendor = 'JReleaser'
+                }    
+                osx {
+                    types = ['dmg', 'pkg']
+                    packageIdentifier = 'org.jreleaser.cli'
+                }
+                linux {
+                    types = ['deb', 'rpm']
+                    maintainer = 'jreleaser@kordamp.org'
+                }
+                windows {
+                    types = ['msi', 'exe']
+                }
+            }
+        }
     }
 
     distributions {

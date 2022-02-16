@@ -47,6 +47,7 @@ public class Jpackage extends AbstractJavaAssembler {
     private final Osx osx = new Osx();
 
     private String jlink;
+    private Boolean attachPlatform;
 
     public Jpackage() {
         super(TYPE);
@@ -60,6 +61,7 @@ public class Jpackage extends AbstractJavaAssembler {
     void setAll(Jpackage jpackage) {
         super.setAll(jpackage);
         this.jlink = jpackage.jlink;
+        this.attachPlatform = jpackage.attachPlatform;
         setRuntimeImages(jpackage.runtimeImages);
         setApplicationPackage(jpackage.applicationPackage);
         setLauncher(jpackage.launcher);
@@ -74,6 +76,18 @@ public class Jpackage extends AbstractJavaAssembler {
 
     public void setJlink(String jlink) {
         this.jlink = jlink;
+    }
+
+    public boolean isAttachPlatformSet() {
+        return attachPlatform != null;
+    }
+
+    public boolean isAttachPlatform() {
+        return attachPlatform != null && attachPlatform;
+    }
+
+    public void setAttachPlatform(Boolean attachPlatform) {
+        this.attachPlatform = attachPlatform;
     }
 
     public Set<Artifact> getRuntimeImages() {
@@ -145,6 +159,7 @@ public class Jpackage extends AbstractJavaAssembler {
     protected void asMap(boolean full, Map<String, Object> props) {
         super.asMap(full, props);
         props.put("jlink", jlink);
+        props.put("attachPlatform", isAttachPlatform());
         Map<String, Map<String, Object>> mapped = new LinkedHashMap<>();
         int i = 0;
         for (Artifact runtimeImage : getRuntimeImages()) {
@@ -198,6 +213,10 @@ public class Jpackage extends AbstractJavaAssembler {
         String getInstallDir();
 
         void setInstallDir(String installDir);
+
+        String getResourceDir();
+
+        void setResourceDir(String resourceDir);
     }
 
     public static class ApplicationPackage implements Domain {
@@ -207,14 +226,12 @@ public class Jpackage extends AbstractJavaAssembler {
         private String vendor;
         private String copyright;
         private String licenseFile;
-        private String resourceDir;
 
         void setAll(ApplicationPackage applicationPackage) {
             this.appVersion = applicationPackage.appVersion;
             this.vendor = applicationPackage.vendor;
             this.copyright = applicationPackage.copyright;
             this.licenseFile = applicationPackage.licenseFile;
-            this.resourceDir = applicationPackage.resourceDir;
             setFileAssociations(applicationPackage.fileAssociations);
         }
 
@@ -259,14 +276,6 @@ public class Jpackage extends AbstractJavaAssembler {
             this.licenseFile = licenseFile;
         }
 
-        public String getResourceDir() {
-            return resourceDir;
-        }
-
-        public void setResourceDir(String resourceDir) {
-            this.resourceDir = resourceDir;
-        }
-
         @Override
         public Map<String, Object> asMap(boolean full) {
             Map<String, Object> props = new LinkedHashMap<>();
@@ -274,7 +283,6 @@ public class Jpackage extends AbstractJavaAssembler {
             props.put("copyright", copyright);
             props.put("vendor", vendor);
             props.put("licenseFile", licenseFile);
-            props.put("resourceDir", resourceDir);
             props.put("fileAssociations", fileAssociations);
             return props;
         }
@@ -356,6 +364,7 @@ public class Jpackage extends AbstractJavaAssembler {
         private boolean enabled;
         private String icon;
         private String installDir;
+        private String resourceDir;
 
         protected AbstractPlatformPackager(String platform, List<String> validTypes) {
             this.platform = platform;
@@ -366,6 +375,7 @@ public class Jpackage extends AbstractJavaAssembler {
             this.icon = packager.icon;
             this.enabled = packager.enabled;
             this.installDir = packager.installDir;
+            this.resourceDir = packager.resourceDir;
             setJdk(packager.jdk);
             setTypes(packager.types);
         }
@@ -388,6 +398,16 @@ public class Jpackage extends AbstractJavaAssembler {
         @Override
         public String getPlatform() {
             return platform;
+        }
+
+        @Override
+        public String getResourceDir() {
+            return resourceDir;
+        }
+
+        @Override
+        public void setResourceDir(String resourceDir) {
+            this.resourceDir = resourceDir;
         }
 
         @Override
@@ -443,6 +463,7 @@ public class Jpackage extends AbstractJavaAssembler {
             Map<String, Object> props = new LinkedHashMap<>();
             props.put("enabled", isEnabled());
             props.put("icon", icon);
+            props.put("resourceDir", resourceDir);
             props.put("types", types);
             props.put("jdk", jdk.asMap(full));
             props.put("installDir", installDir);

@@ -62,7 +62,10 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.stream.Stream;
 import java.util.zip.ZipOutputStream;
 
 import static java.nio.file.FileVisitResult.CONTINUE;
@@ -102,6 +105,18 @@ public final class FileUtils {
 
     private FileUtils() {
         //noop
+    }
+
+    public static void listFilesAndConsume(Path path, Consumer<Stream<Path>> consumer) throws IOException {
+        try (Stream<Path> files = Files.list(path)) {
+            consumer.accept(files);
+        }
+    }
+
+    public static <T> T listFilesAndProcess(Path path, Function<Stream<Path>, T> function) throws IOException {
+        try (Stream<Path> files = Files.list(path)) {
+            return function.apply(files);
+        }
     }
 
     public static Optional<Path> findLicenseFile(Path basedir) {
@@ -315,7 +330,7 @@ public final class FileUtils {
                     try (OutputStream o = Files.newOutputStream(file.toPath())) {
                         IOUtils.copy(in, o);
                         Files.setLastModifiedTime(file.toPath(), FileTime.from(entry.getLastModifiedDate().toInstant()));
-                        chmod(file, getEntryMode(entry));
+                        chmod(file, getEntryMode(entry, file));
                     }
                 }
             }
@@ -343,18 +358,22 @@ public final class FileUtils {
         return "";
     }
 
-    private static int getEntryMode(ArchiveEntry entry) {
+    private static int getEntryMode(ArchiveEntry entry, File file) {
         if (entry instanceof TarArchiveEntry) {
-            return getEntryMode(entry, ((TarArchiveEntry) entry).getMode());
+            return getEntryMode(entry, ((TarArchiveEntry) entry).getMode(), file);
         }
-        return getEntryMode(entry, ((ZipArchiveEntry) entry).getUnixMode());
+        return getEntryMode(entry, ((ZipArchiveEntry) entry).getUnixMode(), file);
     }
 
-    private static int getEntryMode(ArchiveEntry entry, int mode) {
+    private static int getEntryMode(ArchiveEntry entry, int mode, File file) {
         int unixMode = mode & 0777;
         if (unixMode == 0) {
             if (entry.isDirectory()) {
                 unixMode = 0755;
+            } else if ("bin".equalsIgnoreCase(file.getParentFile().getName())) {
+                // zipEntry.unixMode returns 0 most times even if the entry is executable
+                // force executable bit only if parent dir == 'bin'
+                unixMode = 0777;
             } else {
                 unixMode = 0644;
             }

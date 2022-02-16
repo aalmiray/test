@@ -28,19 +28,23 @@ import org.jreleaser.model.packager.spi.PackagerProcessingException;
 import org.jreleaser.util.PlatformUtils;
 import org.jreleaser.util.command.Command;
 
+import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Map;
+import java.util.Optional;
 
 import static org.jreleaser.templates.TemplateUtils.trimTplExtension;
 import static org.jreleaser.util.Constants.KEY_CHOCOLATEY_BUCKET_REPO_CLONE_URL;
 import static org.jreleaser.util.Constants.KEY_CHOCOLATEY_BUCKET_REPO_URL;
 import static org.jreleaser.util.Constants.KEY_CHOCOLATEY_ICON_URL;
 import static org.jreleaser.util.Constants.KEY_CHOCOLATEY_PACKAGE_NAME;
+import static org.jreleaser.util.Constants.KEY_CHOCOLATEY_PACKAGE_VERSION;
 import static org.jreleaser.util.Constants.KEY_CHOCOLATEY_SOURCE;
 import static org.jreleaser.util.Constants.KEY_CHOCOLATEY_TITLE;
 import static org.jreleaser.util.Constants.KEY_CHOCOLATEY_USERNAME;
 import static org.jreleaser.util.Constants.KEY_DISTRIBUTION_PACKAGE_DIRECTORY;
 import static org.jreleaser.util.Constants.KEY_PROJECT_LICENSE_URL;
+import static org.jreleaser.util.FileUtils.listFilesAndProcess;
 import static org.jreleaser.util.StringUtils.isBlank;
 import static org.jreleaser.util.Templates.resolveTemplate;
 
@@ -73,9 +77,13 @@ public class ChocolateyPackagerProcessor extends AbstractRepositoryPackagerProce
 
     @Override
     protected void doPublishDistribution(Distribution distribution, Map<String, Object> props) throws PackagerProcessingException {
-        super.doPublishDistribution(distribution, props);
-
         if (packager.isRemoteBuild()) {
+            super.doPublishDistribution(distribution, props);
+            return;
+        }
+
+        if (context.isDryrun()) {
+            context.getLogger().error(RB.$("dryrun.set"));
             return;
         }
 
@@ -102,6 +110,7 @@ public class ChocolateyPackagerProcessor extends AbstractRepositoryPackagerProce
             gitService.getResolvedRepoCloneUrl(context.getModel(), packager.getBucket().getOwner(), packager.getBucket().getResolvedName()));
 
         props.put(KEY_CHOCOLATEY_PACKAGE_NAME, getPackager().getPackageName());
+        props.put(KEY_CHOCOLATEY_PACKAGE_VERSION, getPackager().getPackageVersion());
         props.put(KEY_CHOCOLATEY_USERNAME, getPackager().getUsername());
         props.put(KEY_CHOCOLATEY_TITLE, getPackager().getTitle());
         props.put(KEY_CHOCOLATEY_ICON_URL, resolveTemplate(getPackager().getIconUrl(), props));
@@ -137,8 +146,9 @@ public class ChocolateyPackagerProcessor extends AbstractRepositoryPackagerProce
 
         Command cmd = new Command("choco")
             .arg("pack")
-            .arg(packager.getPackageName().concat(".nuspec"));
+            .arg(packager.getPackageName() + ".nuspec");
 
+        context.getLogger().debug(String.join(" ", cmd.getArgs()));
         executeCommand(execDirectory, cmd);
     }
 
@@ -154,12 +164,28 @@ public class ChocolateyPackagerProcessor extends AbstractRepositoryPackagerProce
             .arg(packager.getSource());
         executeCommand(execDirectory, cmd);
 
-        cmd = new Command("choco")
-            .arg("push")
-            .arg("$(ls *.nupkg | % {$_.FullName})")
-            .arg("-s")
-            .arg(packager.getSource());
+        try {
+            Optional<String> nuget = listFilesAndProcess(execDirectory, files ->
+                files.map(Path::getFileName)
+                    .map(Path::toString)
+                    .filter(s -> s.endsWith(".nupkg"))
+                    .findFirst());
 
-        executeCommand(execDirectory, cmd);
+            if (nuget.isPresent()) {
+                cmd = new Command("choco")
+                    .arg("push")
+                    .arg(nuget.get())
+                    .arg("-s")
+                    .arg(packager.getSource());
+
+                context.getLogger().debug(String.join(" ", cmd.getArgs()));
+                executeCommand(execDirectory, cmd);
+            } else {
+                throw new PackagerProcessingException(RB.$("ERROR_chocolatey_nuget_not_found",
+                    context.relativizeToBasedir(execDirectory)));
+            }
+        } catch (IOException e) {
+            throw new PackagerProcessingException(RB.$("ERROR_unexpected_error"), e);
+        }
     }
 }

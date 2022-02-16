@@ -319,6 +319,29 @@
                                     </jars>
                                 </jreleaser-standalone>
                             </jlink>
+                            <jpackage>
+                                <jreleaser-installer>
+                                    <active>ALWAYS</active>
+                                    <exported>false</exported>
+                                    <jlink>jreleaser-standalone</jlink>
+                                    <applicationPackage>
+                                        <appName>JReleaser</appName>
+                                        <appVersion>1.0.0</appVersion>
+                                        <vendor>JReleaser</vendor>
+                                    </applicationPackage>
+                                    <osx>
+                                        <types>dmg,pkg</types>
+                                        <packageIdentifier>org.jreleaser.cli</packageIdentifier>
+                                    </osx>
+                                    <linux>
+                                        <types>deb,rpm</types>
+                                        <maintainer>jreleaser@kordamp.org</maintainer>
+                                    </linux>
+                                    <windows>
+                                        <types>msi,exe</types>
+                                    </windows>
+                                </jreleaser-installer>
+                            </jpackage>
                         </assemble>
                         <distributions>
                             <jreleaser>

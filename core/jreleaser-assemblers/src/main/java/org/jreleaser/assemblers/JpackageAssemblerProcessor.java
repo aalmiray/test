@@ -44,6 +44,7 @@ import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 import static org.jreleaser.assemblers.AssemblerUtils.copyJars;
 import static org.jreleaser.assemblers.AssemblerUtils.readJavaVersion;
 import static org.jreleaser.templates.TemplateUtils.trimTplExtension;
+import static org.jreleaser.util.FileUtils.listFilesAndProcess;
 import static org.jreleaser.util.StringUtils.isNotBlank;
 import static org.jreleaser.util.Templates.resolveTemplate;
 
@@ -116,7 +117,7 @@ public class JpackageAssemblerProcessor extends AbstractJavaAssemblerProcessor<J
         try {
             if (isNotBlank(icon) && Files.exists(context.getBasedir().resolve(icon)) && icon.endsWith(ext)) {
                 Path iconPath = context.getBasedir().resolve(icon);
-                Files.copy(iconPath, inputsDirectory.resolve(assembler.getName() + ext));
+                Files.copy(iconPath, inputsDirectory.resolve(assembler.getName() + ext), REPLACE_EXISTING);
             } else {
                 String iconResource = "META-INF/jreleaser/icons/" + p + "/duke" + ext;
                 try (InputStream in = TemplateUtils.resolveResource(context.getLogger(), iconResource)) {
@@ -228,15 +229,6 @@ public class JpackageAssemblerProcessor extends AbstractJavaAssemblerProcessor<J
             }
         }
 
-        String resourceDir = resolveTemplate(assembler.getApplicationPackage().getResourceDir(), props);
-        if (isNotBlank(resourceDir)) {
-            Path resourceDirPath = context.getBasedir().resolve(resourceDir);
-            if (Files.exists(resourceDirPath)) {
-                cmd.arg("--resource-dir")
-                    .arg(resourceDirPath.toAbsolutePath().toString());
-            }
-        }
-
         if (!assembler.getApplicationPackage().getFileAssociations().isEmpty()) {
             for (String filename : assembler.getApplicationPackage().getFileAssociations()) {
                 Path path = context.getBasedir().resolve(resolveTemplate(filename, props));
@@ -254,11 +246,11 @@ public class JpackageAssemblerProcessor extends AbstractJavaAssemblerProcessor<J
         executeCommandCapturing(cmd, out);
 
         // replace only if not linux
-        if (!PlatformUtils.isLinux(platform)) {
+        if (!PlatformUtils.isLinux(platform) && assembler.isAttachPlatform()) {
             try {
-                Optional<Path> artifact = Files.list(assembleDirectory)
-                    .filter(path -> path.getFileName().toString().endsWith(type))
-                    .findFirst();
+                Optional<Path> artifact = listFilesAndProcess(assembleDirectory, files ->
+                    files.filter(path -> path.getFileName().toString().endsWith(type))
+                        .findFirst());
 
                 if (artifact.isPresent()) {
                     String dest = artifact.get().getFileName().toString()
@@ -278,6 +270,15 @@ public class JpackageAssemblerProcessor extends AbstractJavaAssemblerProcessor<J
         if (isNotBlank(installDir)) {
             cmd.arg("--install-dir")
                 .arg(installDir);
+        }
+
+        String resourceDir = resolveTemplate(packager.getResourceDir(), props);
+        if (isNotBlank(resourceDir)) {
+            Path resourceDirPath = context.getBasedir().resolve(resourceDir);
+            if (Files.exists(resourceDirPath)) {
+                cmd.arg("--resource-dir")
+                    .arg(resourceDirPath.toAbsolutePath().toString());
+            }
         }
 
         if (packager instanceof Jpackage.Osx) {

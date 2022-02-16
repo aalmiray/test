@@ -854,6 +854,7 @@ public final class JReleaserModelConverter {
         org.jreleaser.model.Jpackage a = new org.jreleaser.model.Jpackage();
         convertJavaAssembler(jpackage, a);
         a.setJlink(tr(jpackage.getJlink()));
+        if (jpackage.isAttachPlatformSet()) a.setAttachPlatform(jpackage.isAttachPlatform());
         a.setRuntimeImages(convertArtifacts(jpackage.getRuntimeImages()));
         a.setApplicationPackage(convertApplicationPackage(jpackage.getApplicationPackage()));
         a.setLauncher(convertLauncher(jpackage.getLauncher()));
@@ -870,7 +871,6 @@ public final class JReleaserModelConverter {
         a.setVendor(tr(applicationPackage.getVendor()));
         a.setCopyright(tr(applicationPackage.getCopyright()));
         a.setLicenseFile(tr(applicationPackage.getLicenseFile()));
-        a.setResourceDir(tr(applicationPackage.getResourceDir()));
         return a;
     }
 
@@ -887,6 +887,7 @@ public final class JReleaserModelConverter {
         into.setJdk(convertArtifact(from.getJdk()));
         into.setTypes(tr(from.getTypes()));
         into.setInstallDir(tr(from.getInstallDir()));
+        into.setResourceDir(tr(from.getResourceDir()));
     }
 
     private static org.jreleaser.model.Jpackage.Linux convertLinux(Jpackage.Linux linux) {
@@ -932,6 +933,8 @@ public final class JReleaserModelConverter {
         org.jreleaser.model.Jlink.Jdeps j = new org.jreleaser.model.Jlink.Jdeps();
         j.setMultiRelease(jdeps.getMultiRelease());
         if (jdeps.isIgnoreMissingDepsSet()) j.setIgnoreMissingDeps(jdeps.isIgnoreMissingDeps());
+        if (jdeps.isUseWildcardInPathSet()) j.setUseWildcardInPath(jdeps.isUseWildcardInPath());
+        j.setTargets(tr(jdeps.getTargets()));
         return j;
     }
 
@@ -1159,6 +1162,7 @@ public final class JReleaserModelConverter {
         org.jreleaser.model.Chocolatey t = new org.jreleaser.model.Chocolatey();
         convertPackager(packager, t);
         t.setPackageName(tr(packager.getPackageName()));
+        t.setPackageVersion(tr(packager.getPackageVersion()));
         t.setUsername(tr(packager.getUsername()));
         t.setApiKey(tr(packager.getApiKey()));
         t.setTitle(tr(packager.getTitle()));

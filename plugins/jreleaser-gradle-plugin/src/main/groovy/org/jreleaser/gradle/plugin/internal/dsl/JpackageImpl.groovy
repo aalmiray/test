@@ -45,6 +45,7 @@ import static org.jreleaser.util.StringUtils.isNotBlank
 class JpackageImpl extends AbstractJavaAssembler implements Jpackage {
     String name
     final Property<String> jlink
+    final Property<Boolean> attachPlatform
     final JavaImpl java
     final PlatformImpl platform
 
@@ -60,6 +61,7 @@ class JpackageImpl extends AbstractJavaAssembler implements Jpackage {
         super(objects)
 
         jlink = objects.property(String).convention(Providers.notDefined())
+        attachPlatform = objects.property(Boolean).convention(Providers.notDefined())
         java = objects.newInstance(JavaImpl, objects)
         platform = objects.newInstance(PlatformImpl, objects)
         applicationPackage = objects.newInstance(ApplicationPackageImpl, objects)
@@ -82,6 +84,7 @@ class JpackageImpl extends AbstractJavaAssembler implements Jpackage {
     boolean isSet() {
         super.isSet() ||
             jlink.present ||
+            attachPlatform.present ||
             java.isSet() ||
             platform.isSet() ||
             applicationPackage.isSet() ||
@@ -171,6 +174,7 @@ class JpackageImpl extends AbstractJavaAssembler implements Jpackage {
         if (windows.isSet()) jpackage.windows = windows.toModel()
         if (osx.isSet()) jpackage.osx = osx.toModel()
         if (jlink.present) jpackage.jlink = jlink.get()
+        if (attachPlatform.present) jpackage.attachPlatform = attachPlatform.get()
         for (ArtifactImpl artifact : runtimeImages) {
             jpackage.addRuntimeImage(artifact.toModel())
         }
@@ -185,7 +189,6 @@ class JpackageImpl extends AbstractJavaAssembler implements Jpackage {
         final Property<String> vendor
         final Property<String> copyright
         final Property<String> licenseFile
-        final Property<String> resourceDir
 
         @Inject
         ApplicationPackageImpl(ObjectFactory objects) {
@@ -193,7 +196,6 @@ class JpackageImpl extends AbstractJavaAssembler implements Jpackage {
             vendor = objects.property(String).convention(Providers.notDefined())
             copyright = objects.property(String).convention(Providers.notDefined())
             licenseFile = objects.property(String).convention(Providers.notDefined())
-            resourceDir = objects.property(String).convention(Providers.notDefined())
             fileAssociations = objects.listProperty(String).convention(Providers.notDefined())
         }
 
@@ -203,7 +205,6 @@ class JpackageImpl extends AbstractJavaAssembler implements Jpackage {
                 vendor.present ||
                 copyright.present ||
                 licenseFile.present ||
-                resourceDir.present ||
                 fileAssociations.present
         }
 
@@ -213,7 +214,6 @@ class JpackageImpl extends AbstractJavaAssembler implements Jpackage {
             a.vendor = vendor.orNull
             a.copyright = copyright.orNull
             a.licenseFile = licenseFile.orNull
-            a.resourceDir = resourceDir.orNull
             a.fileAssociations = (List<String>) fileAssociations.getOrElse([] as List<String>)
             a
         }
@@ -254,12 +254,14 @@ class JpackageImpl extends AbstractJavaAssembler implements Jpackage {
         final RegularFileProperty icon
         final ListProperty<String> types
         final Property<String> installDir
+        final Property<String> resourceDir
 
         @Inject
         AbstractPlatformPackager(ObjectFactory objects) {
             icon = objects.fileProperty().convention(Providers.notDefined())
             types = objects.listProperty(String).convention(Providers.notDefined())
             installDir = objects.property(String).convention(Providers.notDefined())
+            resourceDir = objects.property(String).convention(Providers.notDefined())
         }
 
         @Internal
@@ -267,7 +269,8 @@ class JpackageImpl extends AbstractJavaAssembler implements Jpackage {
             icon.present ||
                 types.present ||
                 jdk.isSet() ||
-                installDir.present
+                installDir.present ||
+                resourceDir.present
         }
 
         protected abstract ArtifactImpl getJdk()
@@ -286,6 +289,7 @@ class JpackageImpl extends AbstractJavaAssembler implements Jpackage {
             p.icon = icon.orNull
             p.types = (List<String>) types.getOrElse([] as List<String>)
             p.installDir = installDir.orNull
+            p.resourceDir = resourceDir.orNull
             if (jdk.isSet()) p.jdk = jdk.toModel()
         }
     }
