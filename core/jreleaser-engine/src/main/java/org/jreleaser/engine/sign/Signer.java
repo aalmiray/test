@@ -56,7 +56,6 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.security.Provider;
 import java.security.Security;
 import java.util.ArrayList;
 import java.util.List;
@@ -74,10 +73,9 @@ import static org.jreleaser.util.StringUtils.isNotBlank;
 public class Signer {
     static {
         // replace BC provider with our version
-        Provider bcProvider = Security.getProvider("BC");
-        Security.removeProvider("BC");
+        Security.removeProvider(BouncyCastleProvider.PROVIDER_NAME);
         Security.setProperty("crypto.policy", "unlimited");
-        Security.addProvider(bcProvider != null ? bcProvider : new BouncyCastleProvider());
+        Security.addProvider(new BouncyCastleProvider());
     }
 
     public static void sign(JReleaserContext context) throws SigningException {

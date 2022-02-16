@@ -32,7 +32,6 @@ import java.util.List;
  * @author Andres Almiray
  * @since 0.1.0
  */
-@org.jreleaser.infra.nativeimage.annotations.NativeImage
 public class ContextCreator {
     public static JReleaserContext create(JReleaserLogger logger,
                                           JReleaserContext.Configurer configurer,

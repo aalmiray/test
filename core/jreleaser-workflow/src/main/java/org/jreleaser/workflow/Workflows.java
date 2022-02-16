@@ -27,7 +27,6 @@ import static java.util.Collections.singletonList;
  * @author Andres Almiray
  * @since 0.1.0
  */
-@org.jreleaser.infra.nativeimage.annotations.NativeImage
 public class Workflows {
     public static Workflow assemble(JReleaserContext context) {
         context.setCommand(JReleaserCommand.ASSEMBLE);
