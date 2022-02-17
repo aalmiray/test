@@ -29,7 +29,7 @@ jobs:
           echo ::set-output name=VERSION::$(cat VERSION)
 
   assemble:
-    needs: [precheck]
+    needs: precheck
     if: endsWith(${{ needs.precheck.outputs.VERSION }}, '-SNAPSHOT')
     name: 'Assemble on ${{ matrix.os }}'
     strategy:
@@ -95,7 +95,7 @@ jobs:
             out/jreleaser/assemble/jreleaser-installer/jpackage/*.rpm
 
   release:
-    needs: [precheck,assemble]
+    needs: [precheck, assemble]
     if: endsWith(${{ needs.precheck.outputs.VERSION }}, '-SNAPSHOT')
     runs-on: ubuntu-latest
     steps:
@@ -106,9 +106,6 @@ jobs:
 
       - name: Download artifacts
         uses: actions/download-artifact@v2
-        with:
-          name: artifacts
-          path: artifacts
 
       - name: Setup Java
         uses: actions/setup-java@v2
