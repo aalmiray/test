@@ -180,6 +180,7 @@ assemble:
         vendor: JReleaser
       osx:
         types: [pkg]
+        packageName: JReleaser
         packageIdentifier: org.jreleaser.cli
         icon: 'src/media/jreleaser.icns'
       linux:

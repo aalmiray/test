@@ -32,7 +32,7 @@ jobs:
     needs: [precheck]
     name: 'Assemble on ${{ matrix.os }}'
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, macOS-latest, windows-latest]
     runs-on: ${{ matrix.os }}
@@ -72,6 +72,15 @@ jobs:
           JRELEASER_PROJECT_VERSION: ${{ needs.precheck.outputs.VERSION }}
           JRELEASER_GITHUB_TOKEN: ${{ secrets.GIT_ACCESS_TOKEN }}
 
+      - name: JReleaser assemble output
+        if: always()
+        uses: actions/upload-artifact@v2
+        with:
+          name: jreleaser-assemble-${{ runner.os }}
+          path: |
+            out/jreleaser/trace.log
+            out/jreleaser/output.properties
+
       - name: Upload installers
         uses: actions/upload-artifact@v2
         with:
@@ -82,15 +91,6 @@ jobs:
             out/jreleaser/assemble/jreleaser-installer/jpackage/*.exe
             out/jreleaser/assemble/jreleaser-installer/jpackage/*.deb
             out/jreleaser/assemble/jreleaser-installer/jpackage/*.rpm
-
-      - name: JReleaser assemble output
-        if: always()
-        uses: actions/upload-artifact@v2
-        with:
-          name: jreleaser-assemble-${{ runner.os }}
-          path: |
-            out/jreleaser/trace.log
-            out/jreleaser/output.properties
 
   earlyaccess:
     needs: [precheck,jpackage]
