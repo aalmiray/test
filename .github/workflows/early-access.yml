@@ -10,7 +10,6 @@ env:
 
 jobs:
   precheck:
-    name: Precheck
     if: startsWith(github.event.head_commit.message, 'Releasing version') != true
     runs-on: ubuntu-latest
     outputs:
@@ -29,11 +28,15 @@ jobs:
         run: |
           echo ::set-output name=VERSION::$(cat VERSION)
 
-  build:
-    name: Build
+  assemble:
     needs: [precheck]
     if: endsWith(${{ needs.precheck.outputs.VERSION }}, '-SNAPSHOT')
-    runs-on: ubuntu-latest
+    name: 'Assemble on ${{ matrix.os }}'
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macOS-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
         uses: actions/checkout@v2
@@ -59,39 +62,7 @@ jobs:
             ${{ runner.os }}-gradlew-
 
       - name: Build
-        run: ./gradlew -Prelease=true build -S
-
-      - name: Upload
-        uses: actions/upload-artifact@v2
-        with:
-          retention-days: 1
-          name: work
-          path: .
-
-  assemble:
-    needs: [precheck, build]
-    if: endsWith(${{ needs.precheck.outputs.VERSION }}, '-SNAPSHOT')
-    name: 'Assemble on ${{ matrix.os }}'
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macOS-latest, windows-latest]
-    runs-on: ${{ matrix.os }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v2
-
-      - name: Download build
-        uses: actions/download-artifact@v2
-        with:
-          name: work
-          path: .
-
-      - name: Setup Java
-        uses: actions/setup-java@v2
-        with:
-          java-version: ${{ env.JAVA_VERSION }}
-          distribution: ${{ env.JAVA_DISTRO }}
+        run: ./gradlew -Prelease=true assemble -S
 
       - name: Assemble
         uses: jreleaser/release-action@v1
@@ -124,8 +95,7 @@ jobs:
             out/jreleaser/assemble/jreleaser-installer/jpackage/*.rpm
 
   release:
-    name: Release
-    needs: [precheck, build, assemble]
+    needs: [precheck,assemble]
     if: endsWith(${{ needs.precheck.outputs.VERSION }}, '-SNAPSHOT')
     runs-on: ubuntu-latest
     steps:
@@ -134,13 +104,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Download build
-        uses: actions/download-artifact@v2
-        with:
-          name: work
-          path: .
-          
-      - name: Download artifacts
+      - name: Download all build artifacts
         uses: actions/download-artifact@v2
 
       - name: Setup Java
@@ -148,6 +112,23 @@ jobs:
         with:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: ${{ env.JAVA_DISTRO }}
+
+      - uses: actions/cache@v2
+        with:
+          path: ~/.gradle/caches
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle') }}-${{ hashFiles('**/gradle.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+
+      - uses: actions/cache@v2
+        with:
+          path: ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradlew-${{ hashFiles('**/gradlew') }}
+          restore-keys: |
+            ${{ runner.os }}-gradlew-
+
+      - name: Build
+        run: ./gradlew -Prelease=true build -S
 
       - name: Assemble
         uses: jreleaser/release-action@v1
