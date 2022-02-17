@@ -4,6 +4,8 @@ environment:
     jdkFilePrefix: 'zulu17.30.15-ca-jdk17.0.1'
     graalFilePrefix: 'graalvm-ce-java17-21.3.0'
     artifactsDir: out/jreleaser/assemble/jreleaser-native/native-image
+    jpackageDir: out/jreleaser/assemble/jreleaser-installer/jpackage
+    skipJpackageResolver: true
     skipNativeImageResolver: true
 
 project:
@@ -171,21 +173,23 @@ assemble:
   jpackage:
     jreleaser-installer:
       active: always
-      exported: false
       jlink: jreleaser-standalone
       applicationPackage:
         appName: jreleaser
-        appVersion: 1.0.0
+        appVersion: '{{projectVersionNumber}}'
         vendor: JReleaser
       osx:
-        types: [dmg,pkg]
+        types: [pkg]
         packageIdentifier: org.jreleaser.cli
+        icon: 'src/media/jreleaser.icns'
       linux:
         types: [deb,rpm]
         maintainer: jreleaser@kordamp.org
-        #packageName: jreleaser
+        icon: 'src/media/icon_256x256.png'
       windows:
         types: [msi,exe]
+        icon: 'src/media/jreleaser.ico'
+
 #  nativeImage:
 #    jreleaser-native:
 #      active: always
@@ -296,9 +300,9 @@ distributions:
         active: release
         commitMessage: 'jreleaser {{tagName}}'
     docker:
-      active: always
+      active: never
       repository:
-        active: always
+        active: never
         commitMessage: 'jreleaser {{tagName}}'
       registries:
         - serverName: DEFAULT
@@ -331,17 +335,36 @@ distributions:
         active: release
         commitMessage: 'jreleaser {{tagName}}'
 
-  jreleaser-native:
-    executable:
-      windowsExtension: exe
+  jreleaser-installer:
+    type: NATIVE_PACKAGE
     artifacts:
-      - path: '{{artifactsDir}}/jreleaser-{{projectEffectiveVersion}}-osx_x86_64.zip'
-        platform: osx-x86_64
-      - path: '{{artifactsDir}}/jreleaser-{{projectEffectiveVersion}}-linux_x86_64.zip'
-        platform: linux-x86_64
-      - path: '{{artifactsDir}}/jreleaser-{{projectEffectiveVersion}}-windows_x86_64.zip'
-        platform: windows-x86_64
-
+      - path: '{{jpackageDir}}/jreleaser-{{projectVersionNumber}}.pkg'
+        transform: '{{distributionName}}/{{distributionName}}-{{projectVersionNumber}}.pkg'
+        platform: 'osx-x86_64'
+      - path: '{{jpackageDir}}/jreleaser_{{projectVersionNumber}}-1_amd64.deb'
+        transform: '{{distributionName}}/{{distributionName}}_{{projectVersionNumber}}-1_amd64.deb'
+        platform: 'linux-x86_64'
+      - path: '{{jpackageDir}}/jreleaser-{{projectVersionNumber}}-1.x86_64.rpm'
+        transform: '{{distributionName}}/{{distributionName}}-{{projectVersionNumber}}-1.x86_64.rpm'
+        platform: 'linux-x86_64'
+      - path: '{{jpackageDir}}/jreleaser-{{projectVersionNumber}}.msi'
+        transform: '{{distributionName}}/{{distributionName}}-{{projectVersionNumber}}.msi'
+        platform: 'windows-x86_64'
+      - path: '{{jpackageDir}}/jreleaser-{{projectVersionNumber}}.exe'
+        transform: '{{distributionName}}/{{distributionName}}-{{projectVersionNumber}}.exe'
+        platform: 'windows-x86_64'
+        
+#  jreleaser-native:
+#    executable:
+#      windowsExtension: exe
+#    artifacts:
+#      - path: '{{artifactsDir}}/jreleaser-{{projectEffectiveVersion}}-osx_x86_64.zip'
+#        platform: osx-x86_64
+#      - path: '{{artifactsDir}}/jreleaser-{{projectEffectiveVersion}}-linux_x86_64.zip'
+#        platform: linux-x86_64
+#      - path: '{{artifactsDir}}/jreleaser-{{projectEffectiveVersion}}-windows_x86_64.zip'
+#        platform: windows-x86_64
+#
 files:
   artifacts:
     - path: VERSION

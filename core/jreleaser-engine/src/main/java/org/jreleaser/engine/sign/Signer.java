@@ -173,7 +173,7 @@ public class Signer {
         }
 
         if (!cosign.checkPassword(privateKeyFile, password)) {
-            context.getLogger().warn(RB.$("cosign_unavailable"));
+            context.getLogger().warn(RB.$("WARN_cosign_password_does_not_match", "cosign"));
             return;
         }
 
