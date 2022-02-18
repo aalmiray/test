@@ -319,7 +319,7 @@
                                     </jars>
                                 </jreleaser-standalone>
                             </jlink>
-                            <!--jpackage>
+                            <jpackage>
                                 <jreleaser-installer>
                                     <active>ALWAYS</active>
                                     <jlink>jreleaser-standalone</jlink>
@@ -330,6 +330,7 @@
                                     </applicationPackage>
                                     <osx>
                                         <types>pkg</types>
+                                        <packageName>JReleaser</packageName>
                                         <packageIdentifier>org.jreleaser.cli</packageIdentifier>
                                         <icon>src/media/jreleaser.icns</icon>
                                     </osx>
@@ -340,10 +341,12 @@
                                     </linux>
                                     <windows>
                                         <types>msi,exe</types>
+                                        <console>true</console>
+                                        <dirChooser>true</dirChooser>
                                         <icon>src/media/jreleaser.ico</icon>
                                     </windows>
                                 </jreleaser-installer>
-                            </jpackage-->
+                            </jpackage>
                         </assemble>
                         <distributions>
                             <jreleaser>
@@ -450,9 +453,14 @@
                                     </artifact>
                                 </artifacts>
                             </jreleaser-tool-provider>
-                            <!--jreleaser-installer>
+                            <jreleaser-installer>
                                 <type>NATIVE_PACKAGE</type>
                                 <artifacts>
+                                    <artifact>
+                                        <path>{{jpackageDir}}/jreleaser-{{projectVersionNumber}}.dmg</path>
+                                        <transform>{{distributionName}}/{{distributionName}}-{{projectVersionNumber}}.dmg</transform>
+                                        <platform>osx-x86_64</platform>
+                                    </artifact>
                                     <artifact>
                                         <path>{{jpackageDir}}/jreleaser-{{projectVersionNumber}}.pkg</path>
                                         <transform>{{distributionName}}/{{distributionName}}-{{projectVersionNumber}}.pkg</transform>
@@ -479,7 +487,7 @@
                                         <platform>windows-x86_64</platform>
                                     </artifact>
                                 </artifacts>
-                            </jreleaser-installer-->
+                            </jreleaser-installer>
                             <jreleaser-standalone>
                                 <brew>
                                     <active>ALWAYS</active>
