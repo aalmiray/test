@@ -97,8 +97,7 @@ jobs:
           retention-days: 1
           name: jlink
           path: |
-            out/jreleaser/assemble/jreleaser-standalone/jlink/inputs
-            out/jreleaser/assemble/jreleaser-standalone/jlink/work-*
+            out/jreleaser/assemble/jreleaser-standalone/jlink/
 
   jpackage:
     name: 'JPackage on ${{ matrix.os }}'
