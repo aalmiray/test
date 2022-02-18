@@ -85,8 +85,9 @@ jobs:
           retention-days: 1
           name: artifacts
           path: |
-            apps/jreleaser/build/distributions/*.zip
-            apps/jreleaser/build/distributions/*.tar
+            apps/jreleaser/build/libs/
+            apps/jreleaser/build/dependencies/
+            apps/jreleaser/build/distributions/
             apps/jreleaser-tool-provider/build/libs/*.jar
             plugins/jreleaser-ant-tasks/build/distributions/*.zip
 
