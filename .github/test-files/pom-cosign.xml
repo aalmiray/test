@@ -322,6 +322,7 @@
                             <jpackage>
                                 <jreleaser-installer>
                                     <active>ALWAYS</active>
+                                    <exported>false</exported>
                                     <jlink>jreleaser-standalone</jlink>
                                     <applicationPackage>
                                         <appName>jreleaser</appName>
@@ -453,7 +454,7 @@
                                     </artifact>
                                 </artifacts>
                             </jreleaser-tool-provider>
-                            <jreleaser-installer>
+                            <!--jreleaser-installer>
                                 <type>NATIVE_PACKAGE</type>
                                 <artifacts>
                                     <artifact>
@@ -487,7 +488,7 @@
                                         <platform>windows-x86_64</platform>
                                     </artifact>
                                 </artifacts>
-                            </jreleaser-installer>
+                            </jreleaser-installer-->
                             <jreleaser-standalone>
                                 <brew>
                                     <active>ALWAYS</active>

@@ -240,6 +240,7 @@ jreleaser {
         jpackage {
             'jreleaser-installer' {
                 active = 'always'
+                exported = false
                 jlink = 'jreleaser-standalone'
                 applicationPackage {
                     appName = 'jreleaser'
@@ -354,39 +355,39 @@ jreleaser {
             }
         }
         
-        'jreleaser-installer' {
-            distributionType = 'NATIVE_PACKAGE'
-            artifact {
-                path = '{{jpackageDir}}/jreleaser-{{projectVersionNumber}}.dmg'
-                transform = '{{distributionName}}/{{distributionName}}-{{projectVersionNumber}}.dmg'
-                platform = 'osx-x86_64'
-            }
-            artifact {
-                path = '{{jpackageDir}}/jreleaser-{{projectVersionNumber}}.pkg'
-                transform = '{{distributionName}}/{{distributionName}}-{{projectVersionNumber}}.pkg'
-                platform = 'osx-x86_64'
-            }
-            artifact {
-                path = '{{jpackageDir}}/jreleaser_{{projectVersionNumber}}-1_amd64.deb'
-                transform = '{{distributionName}}/{{distributionName}}_{{projectVersionNumber}}-1_amd64.deb'
-                platform = 'linux-x86_64'
-            }
-            artifact {
-                path = '{{jpackageDir}}/jreleaser-{{projectVersionNumber}}-1.x86_64.rpm'
-                transform = '{{distributionName}}/{{distributionName}}-{{projectVersionNumber}}-1.x86_64.rpm'
-                platform = 'linux-x86_64'
-            }
-            artifact {
-                path = '{{jpackageDir}}/jreleaser-{{projectVersionNumber}}.msi'
-                transform = '{{distributionName}}/{{distributionName}}-{{projectVersionNumber}}.msi'
-                platform = 'windows-x86_64'
-            }
-            artifact {
-                path = '{{jpackageDir}}/jreleaser-{{projectVersionNumber}}.exe'
-                transform = '{{distributionName}}/{{distributionName}}-{{projectVersionNumber}}.exe'
-                platform = 'windows-x86_64'
-            }
-        }
+//        'jreleaser-installer' {
+//            distributionType = 'NATIVE_PACKAGE'
+//            artifact {
+//                path = '{{jpackageDir}}/jreleaser-{{projectVersionNumber}}.dmg'
+//                transform = '{{distributionName}}/{{distributionName}}-{{projectVersionNumber}}.dmg'
+//                platform = 'osx-x86_64'
+//            }
+//            artifact {
+//                path = '{{jpackageDir}}/jreleaser-{{projectVersionNumber}}.pkg'
+//                transform = '{{distributionName}}/{{distributionName}}-{{projectVersionNumber}}.pkg'
+//                platform = 'osx-x86_64'
+//            }
+//            artifact {
+//                path = '{{jpackageDir}}/jreleaser_{{projectVersionNumber}}-1_amd64.deb'
+//                transform = '{{distributionName}}/{{distributionName}}_{{projectVersionNumber}}-1_amd64.deb'
+//                platform = 'linux-x86_64'
+//            }
+//            artifact {
+//                path = '{{jpackageDir}}/jreleaser-{{projectVersionNumber}}-1.x86_64.rpm'
+//                transform = '{{distributionName}}/{{distributionName}}-{{projectVersionNumber}}-1.x86_64.rpm'
+//                platform = 'linux-x86_64'
+//            }
+//            artifact {
+//                path = '{{jpackageDir}}/jreleaser-{{projectVersionNumber}}.msi'
+//                transform = '{{distributionName}}/{{distributionName}}-{{projectVersionNumber}}.msi'
+//                platform = 'windows-x86_64'
+//            }
+//            artifact {
+//                path = '{{jpackageDir}}/jreleaser-{{projectVersionNumber}}.exe'
+//                transform = '{{distributionName}}/{{distributionName}}-{{projectVersionNumber}}.exe'
+//                platform = 'windows-x86_64'
+//            }
+//        }
 
         'jreleaser-standalone' {
             brew {
