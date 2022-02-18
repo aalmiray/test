@@ -251,18 +251,18 @@ jreleaser {
                     types = ['dmg', 'pkg']
                     packageName = 'JReleaser'
                     packageIdentifier = 'org.jreleaser.cli'
-                    icon = file('src/media/jreleaser.icns')
+                    icon.set(file('src/media/jreleaser.icns'))
                 }
                 linux {
                     types = ['deb', 'rpm']
                     maintainer = 'jreleaser@kordamp.org'
-                    icon = file('src/media/icon_256x256.png')
+                    icon.set(file('src/media/icon_256x256.png'))
                 }
                 windows {
                     types = ['msi', 'exe']
                     console = true
                     dirChooser = true
-                    icon = file('src/media/jreleaser.ico')
+                    icon.set(file('src/media/jreleaser.ico'))
                 }
             }
         }
