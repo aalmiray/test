@@ -122,10 +122,10 @@ signing:
 checksum:
   files: false
 
-announce:
-  twitter:
-    active: release
-    status: 🚀 JReleaser {{projectVersion}} has been released! {{releaseNotesUrl}}
+#announce:
+#  twitter:
+#    active: release
+#    status: 🚀 JReleaser {{projectVersion}} has been released! {{releaseNotesUrl}}
 
 assemble:
   jlink:
@@ -225,56 +225,56 @@ distributions:
   jreleaser:
     java:
       mainClass: org.jreleaser.cli.Main
-    chocolatey:
-      active: always
-      remoteBuild: true
-      title: JReleaser
-      iconUrl: 'https://rawcdn.githack.com/jreleaser/jreleaser/0934fa1fa3f0bd09c0c8c39fbdeb5df2ce507457/src/media/icon_128x128.png'
-      bucket:
-        active: release
-    jbang:
-      active: always
-    macports:
-      active: always
-      categories:
-        - devel
-        - java
-      maintainers:
-        - '@aalmiray'
-      repository:
-        active: release
-        name: jreleaser-macports
-    scoop:
-      active: always
-      bucket:
-        active: release
-    sdkman:
-      active: release
-    snap:
-      active: always
-      remoteBuild: true
-      base: core18
-      architectures:
-        - buildOn: [ amd64, arm64 ]
-      plugs:
-        - name: dot-config-files
-          attributes:
-            interface: personal-files
-          writes:
-            - $HOME/.jreleaser
-          reads:
-            - $HOME/.gnupg
-            - $HOME/.gitconfig
-            - $HOME/.config/jgit
-      localPlugs:
-        - network
-        - home
-        - dot-config-files
-    spec:
-      active: always
-      repository:
-        active: release
-        name: jreleaser-copr
+    #chocolatey:
+    #  active: always
+    #  remoteBuild: true
+    #  title: JReleaser
+    #  iconUrl: 'https://rawcdn.githack.com/jreleaser/jreleaser/0934fa1fa3f0bd09c0c8c39fbdeb5df2ce507457/src/media/icon_128x128.png'
+    #  bucket:
+    #    active: release
+    #jbang:
+    #  active: always
+    #macports:
+    #  active: always
+    #  categories:
+    #    - devel
+    #    - java
+    #  maintainers:
+    #    - '@aalmiray'
+    #  repository:
+    #    active: release
+    #    name: jreleaser-macports
+    #scoop:
+    #  active: always
+    #  bucket:
+    #    active: release
+    #sdkman:
+    #  active: release
+    #snap:
+    #  active: always
+    #  remoteBuild: true
+    #  base: core18
+    #  architectures:
+    #    - buildOn: [ amd64, arm64 ]
+    #  plugs:
+    #    - name: dot-config-files
+    #      attributes:
+    #        interface: personal-files
+    #      writes:
+    #        - $HOME/.jreleaser
+    #      reads:
+    #        - $HOME/.gnupg
+    #        - $HOME/.gitconfig
+    #        - $HOME/.config/jgit
+    #  localPlugs:
+    #    - network
+    #    - home
+    #    - dot-config-files
+    #spec:
+    #  active: always
+    #  repository:
+    #    active: release
+    #    name: jreleaser-copr
     artifacts:
       - path: apps/{{distributionName}}/build/distributions/{{distributionName}}-{{projectVersion}}.zip
         transform: '{{distributionName}}/{{distributionName}}-{{projectEffectiveVersion}}.zip'
@@ -294,49 +294,49 @@ distributions:
       - path: apps/{{distributionName}}/build/libs/{{distributionName}}-{{projectVersion}}.jar
         transform: '{{distributionName}}/{{distributionName}}-{{projectEffectiveVersion}}.jar'
 
-  jreleaser-standalone:
-    brew:
-      active: always
-      formulaName: jreleaser
-      multiPlatform: true
-      tap:
-        active: release
-        commitMessage: 'jreleaser {{tagName}}'
-    docker:
-      active: never
-      repository:
-        active: never
-        commitMessage: 'jreleaser {{tagName}}'
-      registries:
-        - serverName: DEFAULT
-          username: jreleaser
-      labels:
-        'org.opencontainers.image.title': 'jreleaser'
-      postCommands:
-        - 'VOLUME /workspace'
-      specs:
-        slim:
-          imageNames:
-            - 'jreleaser/jreleaser-{{dockerSpecName}}:{{tagName}}'
-            - 'jreleaser/jreleaser-{{dockerSpecName}}:latest'
-          matchers:
-            platform: 'linux-x86_64'
-          preCommands:
-            - 'RUN apt-get update -y'
-            - 'RUN apt-get install unzip'
-        alpine:
-          imageNames:
-            - 'jreleaser/jreleaser-{{dockerSpecName}}:{{tagName}}'
-            - 'jreleaser/jreleaser-{{dockerSpecName}}:latest'
-          matchers:
-            platform: 'linux_musl-x86_64'
-          preCommands:
-            - 'RUN apk add unzip'
-    gofish:
-      active: always
-      repository:
-        active: release
-        commitMessage: 'jreleaser {{tagName}}'
+  #jreleaser-standalone:
+  #  brew:
+  #    active: always
+  #    formulaName: jreleaser
+  #    multiPlatform: true
+  #    tap:
+  #      active: release
+  #      commitMessage: 'jreleaser {{tagName}}'
+  #  docker:
+  #    active: never
+  #    repository:
+  #      active: never
+  #      commitMessage: 'jreleaser {{tagName}}'
+  #    registries:
+  #      - serverName: DEFAULT
+  #        username: jreleaser
+  #    labels:
+  #      'org.opencontainers.image.title': 'jreleaser'
+  #    postCommands:
+  #      - 'VOLUME /workspace'
+  #    specs:
+  #      slim:
+  #        imageNames:
+  #          - 'jreleaser/jreleaser-{{dockerSpecName}}:{{tagName}}'
+  #          - 'jreleaser/jreleaser-{{dockerSpecName}}:latest'
+  #        matchers:
+  #          platform: 'linux-x86_64'
+  #        preCommands:
+  #          - 'RUN apt-get update -y'
+  #          - 'RUN apt-get install unzip'
+  #      alpine:
+  #        imageNames:
+  #          - 'jreleaser/jreleaser-{{dockerSpecName}}:{{tagName}}'
+  #          - 'jreleaser/jreleaser-{{dockerSpecName}}:latest'
+  #        matchers:
+  #          platform: 'linux_musl-x86_64'
+  #        preCommands:
+  #          - 'RUN apk add unzip'
+  #  gofish:
+  #    active: always
+  #    repository:
+  #      active: release
+  #      commitMessage: 'jreleaser {{tagName}}'
 
   jreleaser-installer:
     type: NATIVE_PACKAGE
