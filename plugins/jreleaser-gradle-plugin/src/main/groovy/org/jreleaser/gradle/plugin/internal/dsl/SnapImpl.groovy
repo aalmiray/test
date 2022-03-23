@@ -103,10 +103,8 @@ class SnapImpl extends AbstractRepositoryPackager implements Snap {
     }
 
     @Override
-    @Deprecated
-    void addLocalPlug(String plug) {
-        println('snap.addLocalPlug() has been deprecated since 1.0.0-M2 and will be removed in the future. Use snap.localPlug() instead')
-        localPlug(plug)
+    void setExportedLogin(String exportedLogin) {
+        this.exportedLogin.set(new File(exportedLogin))
     }
 
     @Override
@@ -114,13 +112,6 @@ class SnapImpl extends AbstractRepositoryPackager implements Snap {
         if (isNotBlank(plug)) {
             localPlugs.add(plug.trim())
         }
-    }
-
-    @Override
-    @Deprecated
-    void addLocalSlot(String slot) {
-        println('snap.addLocalSlot() has been deprecated since 1.0.0-M2 and will be removed in the future. Use snap.localSlot() instead')
-        localSlot(slot)
     }
 
     @Override
@@ -246,27 +237,6 @@ class SnapImpl extends AbstractRepositoryPackager implements Snap {
         }
 
         @Override
-        @Deprecated
-        void addAttribute(String key, String value) {
-            println('plug.addAttribute() has been deprecated since 1.0.0-M2 and will be removed in the future. Use plug.attribute() instead')
-            attribute(key, value)
-        }
-
-        @Override
-        @Deprecated
-        void addRead(String read) {
-            println('plug.addRead() has been deprecated since 1.0.0-M2 and will be removed in the future. Use plug.read() instead')
-            this.read(read)
-        }
-
-        @Override
-        @Deprecated
-        void addWrite(String write) {
-            println('plug.addWrite() has been deprecated since 1.0.0-M2 and will be removed in the future. Use plug.write() instead')
-            this.write(write)
-        }
-
-        @Override
         void attribute(String key, String value) {
             if (isNotBlank(key) && isNotBlank(value)) {
                 attributes.put(key.trim(), value.trim())
@@ -316,27 +286,6 @@ class SnapImpl extends AbstractRepositoryPackager implements Snap {
         }
 
         @Override
-        @Deprecated
-        void addAttribute(String key, String value) {
-            println('slot.addAttribute() has been deprecated since 1.0.0-M2 and will be removed in the future. Use slot.attribute() instead')
-            attribute(key, value)
-        }
-
-        @Override
-        @Deprecated
-        void addRead(String read) {
-            println('slot.addRead() has been deprecated since 1.0.0-M2 and will be removed in the future. Use slot.read() instead')
-            this.read(read)
-        }
-
-        @Override
-        @Deprecated
-        void addWrite(String write) {
-            println('slot.addWrite() has been deprecated since 1.0.0-M2 and will be removed in the future. Use slot.write() instead')
-            this.write(write)
-        }
-
-        @Override
         void attribute(String key, String value) {
             if (isNotBlank(key) && isNotBlank(value)) {
                 attributes.put(key.trim(), value.trim())
@@ -379,20 +328,6 @@ class SnapImpl extends AbstractRepositoryPackager implements Snap {
             buildOn = objects.listProperty(String).convention(Providers.notDefined())
             runOn = objects.listProperty(String).convention(Providers.notDefined())
             ignoreError = objects.property(Boolean).convention(Providers.notDefined())
-        }
-
-        @Override
-        @Deprecated
-        void addRunOn(String str) {
-            println('architecture.addRunOn() has been deprecated since 1.0.0-M2 and will be removed in the future. Use architecture.runOn() instead')
-            runOn(str)
-        }
-
-        @Override
-        @Deprecated
-        void addBuildOn(String str) {
-            println('architecture.addBuildOn() has been deprecated since 1.0.0-M2 and will be removed in the future. Use architecture.buildOn() instead')
-            buildOn(str)
         }
 
         @Override

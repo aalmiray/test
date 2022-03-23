@@ -35,6 +35,8 @@ import org.gradle.api.provider.SetProperty
 interface DockerConfiguration extends Activatable, ExtraProperties {
     DirectoryProperty getTemplateDirectory()
 
+    void setTemplateDirectory(String templateDirectory)
+
     ListProperty<String> getSkipTemplates()
 
     void skipTemplate(String template)
@@ -52,21 +54,6 @@ interface DockerConfiguration extends Activatable, ExtraProperties {
     ListProperty<String> getPostCommands()
 
     MapProperty<String, String> getLabels()
-
-    @Deprecated
-    void addImageName(String imageName)
-
-    @Deprecated
-    void addBuildArg(String buildArg)
-
-    @Deprecated
-    void addPreCommand(String command)
-
-    @Deprecated
-    void addPostCommand(String command)
-
-    @Deprecated
-    void addLabel(String key, String value)
 
     void imageName(String imageName)
 

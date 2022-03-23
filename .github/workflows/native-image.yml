@@ -6,6 +6,7 @@ on:
 jobs:
   build:
     name: 'Build with Graal on ${{ matrix.os }}'
+    if: github.repository == 'jreleaser/jreleaser'
     strategy:
       fail-fast: true
       matrix:
@@ -38,24 +39,14 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gradlew-
 
-      - uses: actions/cache@v2
-        with:
-          path: ~/.jreleaser/caches
-          key: ${{ runner.os }}-jreleaser-${{ hashFiles('jreleaser.yml') }}
-          restore-keys: |
-            ${{ runner.os }}-jreleaser-
-
       - name: Build
         run: ./gradlew -Prelease=true :jreleaser:assemble -S
 
-      #- name: Add Developer Command Prompt for Microsoft Visual C++
-      #  uses: ilammy/msvc-dev-cmd@v1.10.0
-
-      - name: Setup GraalVM
+      - name: 'Set up Graal'
         uses: graalvm/setup-graalvm@v1
         with:
-          version: 22.0.0.2
-          java-version: 17
+          version: '21.3.0'
+          java-version: '17 '
           components: 'native-image'
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -74,7 +65,7 @@ jobs:
         uses: jreleaser/release-action@v1
         with:
           version: early-access
-          arguments: assemble -s native-image
+          arguments: assemble -a native-image
         env:
           JRELEASER_PROJECT_VERSION: ${{ steps.vars.outputs.content }}
           JRELEASER_GITHUB_TOKEN: ${{ secrets.GIT_ACCESS_TOKEN }}
@@ -149,7 +140,7 @@ jobs:
         uses: jreleaser/release-action@v2
         with:
           version: early-access
-          arguments: release -PartifactsDir=artifacts -d jreleaser-native
+          arguments: release -PartifactsDir=artifacts
         env:
           JRELEASER_PROJECT_VERSION: ${{ steps.vars.outputs.version }}
           JRELEASER_GITHUB_TOKEN: ${{ secrets.GIT_ACCESS_TOKEN }}

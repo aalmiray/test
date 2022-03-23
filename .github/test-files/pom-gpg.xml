@@ -77,7 +77,7 @@
                         <environment>
                             <properties>
                                 <jdkPathPrefix>apps/jreleaser/build/jdks</jdkPathPrefix>
-                                <jdkFilePrefix>zulu17.30.15-ca-jdk17.0.1</jdkFilePrefix>
+                                <jdkFilePrefix>zulu17.32.13-ca-jdk17.0.2</jdkFilePrefix>
                             </properties>
                         </environment>
                         <project>
@@ -315,35 +315,6 @@
                                     </jars>
                                 </jreleaser-standalone>
                             </jlink>
-                            <jpackage>
-                                <jreleaser-installer>
-                                    <active>ALWAYS</active>
-                                    <exported>false</exported>
-                                    <jlink>jreleaser-standalone</jlink>
-                                    <applicationPackage>
-                                        <appName>jreleaser</appName>
-                                        <appVersion>{{projectVersionNumber}}</appVersion>
-                                        <vendor>JReleaser</vendor>
-                                    </applicationPackage>
-                                    <osx>
-                                        <types>pkg</types>
-                                        <packageName>JReleaser</packageName>
-                                        <packageIdentifier>org.jreleaser.cli</packageIdentifier>
-                                        <icon>src/media/jreleaser.icns</icon>
-                                    </osx>
-                                    <linux>
-                                        <types>deb,rpm</types>
-                                        <maintainer>jreleaser@kordamp.org</maintainer>
-                                        <icon>src/media/icon_256x256.png</icon>
-                                    </linux>
-                                    <windows>
-                                        <types>msi,exe</types>
-                                        <console>true</console>
-                                        <dirChooser>true</dirChooser>
-                                        <icon>src/media/jreleaser.ico</icon>
-                                    </windows>
-                                </jreleaser-installer>
-                            </jpackage>
                         </assemble>
                         <distributions>
                             <jreleaser>
@@ -450,41 +421,6 @@
                                     </artifact>
                                 </artifacts>
                             </jreleaser-tool-provider>
-                            <!--jreleaser-installer>
-                                <type>NATIVE_PACKAGE</type>
-                                <artifacts>
-                                    <artifact>
-                                        <path>{{jpackageDir}}/jreleaser-{{projectVersionNumber}}.dmg</path>
-                                        <transform>{{distributionName}}/{{distributionName}}-{{projectVersionNumber}}.dmg</transform>
-                                        <platform>osx-x86_64</platform>
-                                    </artifact>
-                                    <artifact>
-                                        <path>{{jpackageDir}}/jreleaser-{{projectVersionNumber}}.pkg</path>
-                                        <transform>{{distributionName}}/{{distributionName}}-{{projectVersionNumber}}.pkg</transform>
-                                        <platform>osx-x86_64</platform>
-                                    </artifact>
-                                    <artifact>
-                                        <path>{{jpackageDir}}/jreleaser_{{projectVersionNumber}}-1_amd64.deb</path>
-                                        <transform>{{distributionName}}/{{distributionName}}_{{projectVersionNumber}}-1_amd64.deb</transform>
-                                        <platform>linux-x86_64</platform>
-                                    </artifact>
-                                    <artifact>
-                                        <path>{{jpackageDir}}/jreleaser-{{projectVersionNumber}}-1.x86_64.rpm</path>
-                                        <transform>{{distributionName}}/{{distributionName}}-{{projectVersionNumber}}-1.x86_64.rpm</transform>
-                                        <platform>linux-x86_64</platform>
-                                    </artifact>
-                                    <artifact>
-                                        <path>{{jpackageDir}}/jreleaser-{{projectVersionNumber}}.msi</path>
-                                        <transform>{{distributionName}}/{{distributionName}}-{{projectVersionNumber}}.msi</transform>
-                                        <platform>windows-x86_64</platform>
-                                    </artifact>
-                                    <artifact>
-                                        <path>{{jpackageDir}}/jreleaser-{{projectVersionNumber}}.exe</path>
-                                        <transform>{{distributionName}}/{{distributionName}}-{{projectVersionNumber}}.exe</transform>
-                                        <platform>windows-x86_64</platform>
-                                    </artifact>
-                                </artifacts>
-                            </jreleaser-installer-->
                             <jreleaser-standalone>
                                 <brew>
                                     <active>ALWAYS</active>
@@ -571,4 +507,18 @@
             </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <profile>
+            <id>os.mac</id>
+            <activation>
+                <os>
+                    <family>mac</family>
+                </os>
+            </activation>
+            <properties>
+                <jreleaser.excluded.packagers>docker</jreleaser.excluded.packagers>
+            </properties>
+        </profile>
+    </profiles>
 </project>

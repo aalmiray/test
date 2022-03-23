@@ -9,9 +9,7 @@ jreleaser {
 
     environment {
         properties.put('jdkPathPrefix', 'apps/jreleaser/build/jdks')
-        properties.put('jdkFilePrefix', 'zulu17.30.15-ca-jdk17.0.1')
-        properties.put('jpackageDir', 'out/jreleaser/assemble/jreleaser-installer/jpackage')
-        properties.put('skipJpackageResolver', 'true')
+        properties.put('jdkFilePrefix', 'zulu17.32.13-ca-jdk17.0.2')
     }
 
     project {
@@ -240,36 +238,6 @@ jreleaser {
                 }
             }
         }
-        
-        jpackage {
-            'jreleaser-installer' {
-                active = 'always'
-                exported = false
-                jlink = 'jreleaser-standalone'
-                applicationPackage {
-                    appName = 'jreleaser'
-                    appVersion = '{{projectVersionNumber}}'
-                    vendor = 'JReleaser'
-                }
-                osx {
-                    types = ['dmg', 'pkg']
-                    packageName = 'JReleaser'
-                    packageIdentifier = 'org.jreleaser.cli'
-                    icon.set(file('src/media/jreleaser.icns'))
-                }
-                linux {
-                    types = ['deb', 'rpm']
-                    maintainer = 'jreleaser@kordamp.org'
-                    icon.set(file('src/media/icon_256x256.png'))
-                }
-                windows {
-                    types = ['msi', 'exe']
-                    console = true
-                    dirChooser = true
-                    icon.set(file('src/media/jreleaser.ico'))
-                }
-            }
-        }
     }
 
     distributions {
@@ -359,40 +327,6 @@ jreleaser {
             }
         }
 
-//        'jreleaser-installer' {
-//            distributionType = 'NATIVE_PACKAGE'
-//            artifact {
-//                path = '{{jpackageDir}}/jreleaser-{{projectVersionNumber}}.dmg'
-//                transform = '{{distributionName}}/{{distributionName}}-{{projectVersionNumber}}.dmg'
-//                platform = 'osx-x86_64'
-//            }
-//            artifact {
-//                path = '{{jpackageDir}}/jreleaser-{{projectVersionNumber}}.pkg'
-//                transform = '{{distributionName}}/{{distributionName}}-{{projectVersionNumber}}.pkg'
-//                platform = 'osx-x86_64'
-//            }
-//            artifact {
-//                path = '{{jpackageDir}}/jreleaser_{{projectVersionNumber}}-1_amd64.deb'
-//                transform = '{{distributionName}}/{{distributionName}}_{{projectVersionNumber}}-1_amd64.deb'
-//                platform = 'linux-x86_64'
-//            }
-//            artifact {
-//                path = '{{jpackageDir}}/jreleaser-{{projectVersionNumber}}-1.x86_64.rpm'
-//                transform = '{{distributionName}}/{{distributionName}}-{{projectVersionNumber}}-1.x86_64.rpm'
-//                platform = 'linux-x86_64'
-//            }
-//            artifact {
-//                path = '{{jpackageDir}}/jreleaser-{{projectVersionNumber}}.msi'
-//                transform = '{{distributionName}}/{{distributionName}}-{{projectVersionNumber}}.msi'
-//                platform = 'windows-x86_64'
-//            }
-//            artifact {
-//                path = '{{jpackageDir}}/jreleaser-{{projectVersionNumber}}.exe'
-//                transform = '{{distributionName}}/{{distributionName}}-{{projectVersionNumber}}.exe'
-//                platform = 'windows-x86_64'
-//            }
-//        }
-        
         'jreleaser-standalone' {
             brew {
                 active = 'ALWAYS'

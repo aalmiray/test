@@ -46,7 +46,6 @@ class ChangelogImpl implements Changelog {
     final Property<org.jreleaser.model.Changelog.Sort> sort
     final RegularFileProperty external
     final Property<Active> formatted
-    final Property<String> change
     final Property<String> format
     final Property<String> preset
     final Property<String> content
@@ -70,7 +69,6 @@ class ChangelogImpl implements Changelog {
         sort = objects.property(org.jreleaser.model.Changelog.Sort).convention(Providers.notDefined())
         external = objects.fileProperty().convention(Providers.notDefined())
         formatted = objects.property(Active).convention(Providers.notDefined())
-        change = objects.property(String).convention(Providers.notDefined())
         format = objects.property(String).convention(Providers.notDefined())
         preset = objects.property(String).convention(Providers.notDefined())
         content = objects.property(String).convention(Providers.notDefined())
@@ -88,6 +86,16 @@ class ChangelogImpl implements Changelog {
         }
     }
 
+    @Override
+    void setExternal(String external) {
+        this.external.set(new File(external))
+    }
+
+    @Override
+    void setContentTemplate(String contentTemplate) {
+        this.contentTemplate.set(new File(contentTemplate))
+    }
+
     @Internal
     boolean isSet() {
             links.present ||
@@ -95,7 +103,6 @@ class ChangelogImpl implements Changelog {
             external.present ||
             sort.present ||
             formatted.present ||
-            change.present ||
             format.present ||
             preset.present ||
             content.present ||
@@ -195,14 +202,16 @@ class ChangelogImpl implements Changelog {
         if (enabled.present) {
             changelog.enabled = enabled.get()
         } else {
-            changelog.enabled = isSet()
+            changelog.enabled = true
         }
+
+        if (!changelog.enabled) return changelog
+
         if (links.present) changelog.links = links.get()
         if (hideUncategorized.present) hide.uncategorized.set(hideUncategorized.get())
         if (sort.present) changelog.sort = sort.get()
         if (external.present) changelog.external = external.getAsFile().get().toPath()
         if (formatted.present) changelog.formatted = formatted.get()
-        if (change.present) changelog.change = change.get()
         if (format.present) changelog.format = format.get()
         if (preset.present) changelog.preset = preset.get()
         if (content.present) changelog.content = content.get()

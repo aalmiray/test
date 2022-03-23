@@ -44,7 +44,6 @@ public class Jlink extends AbstractJavaAssembler {
 
     private String imageName;
     private String imageNameTransform;
-    private String moduleName;
     private Boolean copyJars;
 
     public Jlink() {
@@ -60,7 +59,6 @@ public class Jlink extends AbstractJavaAssembler {
         super.setAll(jlink);
         this.imageName = jlink.imageName;
         this.imageNameTransform = jlink.imageNameTransform;
-        this.moduleName = jlink.moduleName;
         this.copyJars = jlink.copyJars;
         setJdeps(jlink.jdeps);
         setJdk(jlink.jdk);
@@ -115,13 +113,6 @@ public class Jlink extends AbstractJavaAssembler {
         this.imageNameTransform = imageNameTransform;
     }
 
-    public String getModuleName() {
-        return moduleName;
-    }
-
-    public void setModuleName(String moduleName) {
-        this.moduleName = moduleName;
-    }
 
     public Set<Artifact> getTargetJdks() {
         return Artifact.sortArtifacts(targetJdks);
@@ -234,7 +225,6 @@ public class Jlink extends AbstractJavaAssembler {
         super.asMap(full, props);
         props.put("imageName", imageName);
         props.put("imageNameTransform", imageNameTransform);
-        props.put("moduleName", moduleName);
         props.put("moduleNames", moduleNames);
         props.put("additionalModuleNames", additionalModuleNames);
         props.put("args", args);

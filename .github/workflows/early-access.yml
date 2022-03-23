@@ -11,7 +11,7 @@ env:
 jobs:
   precheck:
     name: Precheck
-    if: startsWith(github.event.head_commit.message, 'Releasing version') != true
+    if: github.repository == 'jreleaser/jreleaser' && startsWith(github.event.head_commit.message, 'Releasing version') != true
     runs-on: ubuntu-latest
     outputs:
       VERSION: ${{ steps.vars.outputs.VERSION }}
@@ -115,7 +115,7 @@ jobs:
         uses: actions/download-artifact@v2
         with:
           name: artifacts
-          
+
       - name: Download jlink
         uses: actions/download-artifact@v2
         with:
@@ -144,7 +144,7 @@ jobs:
 
       - name: Build
         run: ./gradlew :jreleaser:copyJdksFromCache :jreleaser:setupJdks
-        
+
       - name: Jpackage
         uses: jreleaser/release-action@v1
         with:
@@ -175,9 +175,85 @@ jobs:
             out/jreleaser/assemble/jreleaser-installer/jpackage/*.deb
             out/jreleaser/assemble/jreleaser-installer/jpackage/*.rpm
 
+  native-image:
+    name: 'NativeImage on ${{ matrix.os }}'
+    needs: [precheck, jlink]
+    strategy:
+      fail-fast: true
+      matrix:
+        os: [ubuntu-latest, macOS-latest, windows-latest]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v2
+        with:
+          name: artifacts
+
+      - name: Download jlink
+        uses: actions/download-artifact@v2
+        with:
+          name: jlink
+          path: out/jreleaser/assemble/jreleaser-standalone/jlink
+
+      - name: Setup Java
+        uses: actions/setup-java@v2
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: ${{ env.JAVA_DISTRO }}
+
+      - uses: actions/cache@v2
+        with:
+          path: ~/.gradle/caches
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle') }}-${{ hashFiles('**/gradle.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+
+      - uses: actions/cache@v2
+        with:
+          path: ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradlew-${{ hashFiles('**/gradlew') }}
+          restore-keys: |
+            ${{ runner.os }}-gradlew-
+
+      - name: Build
+        run: ./gradlew :jreleaser:copyJdksFromCache :jreleaser:setupJdks
+
+      - name: Install upx
+        run: brew install upx
+        if: ${{ runner.os == 'macOS' }}
+
+      - name: NativeImage
+        uses: jreleaser/release-action@v1
+        with:
+          version: early-access
+          arguments: assemble -s native-image -scp
+        env:
+          JRELEASER_PROJECT_VERSION: ${{ needs.precheck.outputs.VERSION }}
+          JRELEASER_GITHUB_TOKEN: ${{ secrets.GIT_ACCESS_TOKEN }}
+
+      - name: JReleaser output
+        if: always()
+        uses: actions/upload-artifact@v2
+        with:
+          name: jreleaser-native-image-${{ runner.os }}
+          path: |
+            out/jreleaser/trace.log
+            out/jreleaser/output.properties
+
+      - name: Upload native-image
+        uses: actions/upload-artifact@v2
+        with:
+          retention-days: 1
+          name: native-image
+          path: |
+            out/jreleaser/assemble/jreleaser-native/native-image/*.zip
+
   release:
     name: Release
-    needs: [precheck, jlink, jpackage]
+    needs: [precheck, jlink, jpackage, native-image]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -202,6 +278,12 @@ jobs:
           name: jpackage
           path: out/jreleaser/assemble/jreleaser-installer/jpackage
 
+      - name: Download native-image
+        uses: actions/download-artifact@v2
+        with:
+          name: jpackage
+          path: out/jreleaser/assemble/jreleaser-native/native-image
+
       - name: Setup Java
         uses: actions/setup-java@v2
         with:
@@ -219,7 +301,7 @@ jobs:
           JRELEASER_GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
           JRELEASER_GPG_PUBLIC_KEY: ${{ secrets.GPG_PUBLIC_KEY }}
           JRELEASER_GPG_SECRET_KEY: ${{ secrets.GPG_SECRET_KEY }}
-          JRELEASER_DOCKER_DEFAULT_PASSWORD: ${{ secrets.JRELEASER_DOCKER_PASSWORD }}
+          #JRELEASER_DOCKER_DEFAULT_PASSWORD: ${{ secrets.JRELEASER_DOCKER_PASSWORD }}
 
       - name: JReleaser output
         if: always()

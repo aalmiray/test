@@ -62,7 +62,7 @@ jobs:
       - name: Version
         run: |
           echo ${{ needs.precheck.outputs.VERSION }} > VERSION
-          
+
       - name: Build
         run: ./gradlew -Prelease=true build -S
 
@@ -120,7 +120,7 @@ jobs:
         uses: actions/download-artifact@v2
         with:
           name: artifacts
-          
+
       - name: Download jlink
         uses: actions/download-artifact@v2
         with:
@@ -153,7 +153,7 @@ jobs:
 
       - name: Build
         run: ./gradlew :jreleaser:copyJdksFromCache :jreleaser:setupJdks
-        
+
       - name: Jpackage
         uses: jreleaser/release-action@v1
         with:
@@ -230,35 +230,31 @@ jobs:
           key: ${{ runner.os }}-gradlew-${{ hashFiles('**/gradlew') }}
           restore-keys: |
             ${{ runner.os }}-gradlew-
-            
+
       - name: Version
         run: |
           echo ${{ needs.precheck.outputs.VERSION }} > VERSION
 
-      - name: Build
+      - name: Deploy
+        env:
+          GPG_KEY_ID: ${{ secrets.GPG_KEY_ID }}
+          GPG_SECRET_KEY: ${{ secrets.GPG_SECRET_KEY }}
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+          GRADLE_PUBLISH_KEY: ${{ secrets.GRADLE_PUBLISH_KEY }}
+          GRADLE_PUBLISH_SECRET: ${{ secrets.GRADLE_PUBLISH_SECRET }}
         run: |
-          ./gradlew -Prelease=true build -S
-
-      #- name: Deploy
-      #  env:
-      #    GPG_KEY_ID: ${{ secrets.GPG_KEY_ID }}
-      #    GPG_SECRET_KEY: ${{ secrets.GPG_SECRET_KEY }}
-      #    GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
-      #    GRADLE_PUBLISH_KEY: ${{ secrets.GRADLE_PUBLISH_KEY }}
-      #    GRADLE_PUBLISH_SECRET: ${{ secrets.GRADLE_PUBLISH_SECRET }}
-      #  run: |
-      #    ./gradlew -Prelease=true -Pfull-release=true \
-      #    -PsonatypeUsername=${{ secrets.SONATYPE_USERNAME }} \
-      #    -PsonatypePassword=${{ secrets.SONATYPE_PASSWORD }} \
-      #    publishToSonatype publishPlugins -S
+          ./gradlew -Prelease=true -Pfull-release=true \
+          -PsonatypeUsername=${{ secrets.SONATYPE_USERNAME }} \
+          -PsonatypePassword=${{ secrets.SONATYPE_PASSWORD }} \
+          build publishToSonatype publishPlugins -S
 
       - name: Commit version
         run: |
           git add VERSION
-          sed -i -e "s/^\:project-version\:\ .*/:project-version: ${VERSION}/g" README.adoc
+          sed -i -e "s/^\:project-version\:\ .*/:project-version: ${{ needs.precheck.outputs.VERSION }}/g" README.adoc
           git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git config --global user.name "GitHub Action"
-          git commit -a -m "Releasing version $VERSION"
+          git commit -a -m "Releasing version ${{ needs.precheck.outputs.VERSION }}"
           git push origin main
 
       - name: Release
@@ -289,23 +285,23 @@ jobs:
             out/jreleaser/trace.log
             out/jreleaser/output.properties
 
-  #update:
-  #  needs: [precheck, release]
-  #  runs-on: ubuntu-latest
-  #  steps:
-  #    - name: Checkout
-  #      uses: actions/checkout@v2
-  #      with:
-  #        repository: jreleaser/jreleaser.github.io
-  #        ref: 'main'
-  #        token: ${{ secrets.GIT_ACCESS_TOKEN }}
-  #
-  #    - name: Commit
-  #      run: |
-  #        VERSION=${{ needs.precheck.outputs.VERSION }}
-  #        echo $VERSION > VERSION
-  #        git add VERSION
-  #        git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
-  #        git config --global user.name "GitHub Action"
-  #        git commit -a -m "Releasing version $VERSION"
-  #        git push origin main
+  update:
+    needs: [precheck, release]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          repository: jreleaser/jreleaser.github.io
+          ref: 'main'
+          token: ${{ secrets.GIT_ACCESS_TOKEN }}
+
+      - name: Commit
+        run: |
+          VERSION=${{ needs.precheck.outputs.VERSION }}
+          echo ${{ needs.precheck.outputs.VERSION }} > VERSION
+          git add VERSION
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config --global user.name "GitHub Action"
+          git commit -a -m "Releasing version ${{ needs.precheck.outputs.VERSION }}"
+          git push origin main

@@ -118,6 +118,9 @@ public class NativeImageAssemblerProcessor extends AbstractJavaAssemblerProcesso
         String finalImageName = imageName + "-" + platformReplaced;
 
         String executable = assembler.getExecutable();
+        if (PlatformUtils.isWindows()) {
+            executable += ".exe";
+        }
         context.getLogger().info("- {}", finalImageName);
 
         Path image = assembleDirectory.resolve(executable).toAbsolutePath();
@@ -140,18 +143,23 @@ public class NativeImageAssemblerProcessor extends AbstractJavaAssemblerProcesso
             .toAbsolutePath();
 
         Command cmd = new Command(nativeImageExecutable.toString(), true)
-            .args(assembler.getArgs())
-            .arg("-jar")
-            .arg(assembler.getMainJar().getEffectivePath(context, assembler).toAbsolutePath().toString());
+            .args(assembler.getArgs());
+
+        NativeImage.PlatformCustomizer customizer = assembler.getResolvedPlatformCustomizer();
+        cmd.args(customizer.getArgs());
+
+        cmd.arg("-jar")
+            .arg(maybeQuote(assembler.getMainJar().getEffectivePath(context, assembler).toAbsolutePath().toString()));
 
         if (!jars.isEmpty()) {
             cmd.arg("-cp")
                 .arg(jars.stream()
                     .map(Path::toAbsolutePath)
                     .map(Path::toString)
+                    .map(this::maybeQuote)
                     .collect(Collectors.joining(File.pathSeparator)));
         }
-        cmd.arg("-H:Name=" + image.getFileName().toString());
+        cmd.arg("-H:Name=" + assembler.getExecutable());
         context.getLogger().debug(String.join(" ", cmd.getArgs()));
         executeCommand(image.getParent(), cmd);
 

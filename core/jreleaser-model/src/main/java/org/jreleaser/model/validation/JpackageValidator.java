@@ -218,6 +218,10 @@ public abstract class JpackageValidator extends Validator {
             validateTemplate(context, jpackage, errors);
         }
 
+        if (isBlank(packager.getAppName())) {
+            packager.setAppName(jpackage.getApplicationPackage().getAppName());
+        }
+
         if (packager instanceof Jpackage.Linux) {
             validateLinux(context, jpackage, (Jpackage.Linux) packager, errors);
         }
@@ -238,7 +242,7 @@ public abstract class JpackageValidator extends Validator {
         }
 
         if (isBlank(packager.getPackageName())) {
-            packager.setPackageName(jpackage.getApplicationPackage().getAppName());
+            packager.setPackageName(packager.getAppName());
         }
         if (isNotBlank(packager.getPackageName()) && packager.getPackageName().length() > 16) {
             errors.configuration(RB.$("validation_jpackage_invalid_mac_package_name",
@@ -277,12 +281,19 @@ public abstract class JpackageValidator extends Validator {
         if (isBlank(jpackage.getJava().getVersion())) {
             jpackage.getJava().setVersion(project.getJava().getVersion());
         }
+        if (isBlank(jpackage.getJava().getMainModule())) {
+            jpackage.getJava().setMainModule(project.getJava().getMainModule());
+        }
         if (isBlank(jpackage.getJava().getMainClass())) {
             jpackage.getJava().setMainClass(project.getJava().getMainClass());
         }
 
         if (isBlank(jpackage.getJava().getGroupId())) {
             errors.configuration(RB.$("validation_must_not_be_blank", "jpackage." + jpackage.getName() + ".java.groupId"));
+        }
+
+        if (isBlank(jpackage.getJava().getMainClass())) {
+            errors.configuration(RB.$("validation_must_not_be_blank", "jpackage." + jpackage.getName() + ".java.mainClass"));
         }
 
         return true;

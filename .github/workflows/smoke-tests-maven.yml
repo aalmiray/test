@@ -6,6 +6,7 @@ on:
 
 jobs:
   precheck:
+    if: startsWith(github.event.head_commit.message, 'Releasing version') != true
     runs-on: ubuntu-latest
     outputs:
       VERSION: ${{ steps.vars.outputs.VERSION }}
@@ -66,7 +67,7 @@ jobs:
             ${{ runner.os }}-gradlew-
 
       - name: Build
-        run: ./gradlew -Prelease=true --no-build-cache build publishToMavenLocal -S
+        run: ./gradlew -Prelease=true build publishToMavenLocal -S
 
       - name: Prepare
         shell: bash
@@ -94,7 +95,7 @@ jobs:
         uses: actions/upload-artifact@v2
         with:
           retention-days: 10
-          name: 'jreleaser-assemble-maven-${{ matrix.job.os }}-${{ matrix.job.sign }}'
+          name: 'jreleaser-assemble-maven-${{ runner.os }}-${{ matrix.job.sign }}'
           path: |
             target/jreleaser/trace.log
             target/jreleaser/output.properties
@@ -121,7 +122,7 @@ jobs:
         uses: actions/upload-artifact@v2
         with:
           retention-days: 10
-          name: 'jreleaser-full-release-maven-${{ matrix.job.os }}-${{ matrix.job.sign }}'
+          name: 'jreleaser-full-release-maven-${{ runner.os }}-${{ matrix.job.sign }}'
           path: |
             target/jreleaser/trace.log
             target/jreleaser/output.properties

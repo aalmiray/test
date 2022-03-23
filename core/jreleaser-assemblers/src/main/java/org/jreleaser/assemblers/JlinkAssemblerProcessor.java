@@ -39,6 +39,7 @@ import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.stream.Stream;
 
 import static java.util.stream.Collectors.joining;
@@ -104,14 +105,14 @@ public class JlinkAssemblerProcessor extends AbstractJavaAssemblerProcessor<Jlin
             jars.addAll(copyJars(context, assembler, platformJarsDirectory, platform));
 
             // resolve module names
-            Set<String> moduleNames = resolveModuleNames(context, jdkPath, jarsDirectory, platform, props);
+            Set<String> moduleNames = new TreeSet<>(resolveModuleNames(context, jdkPath, jarsDirectory, platform, props));
             context.getLogger().debug(RB.$("assembler.resolved.module.names"), moduleNames);
             if (moduleNames.isEmpty()) {
                 throw new AssemblerProcessingException(RB.$("ERROR_assembler_no_module_names"));
             }
             moduleNames.addAll(assembler.getAdditionalModuleNames());
-            if (isNotBlank(assembler.getModuleName())) {
-                moduleNames.add(assembler.getModuleName());
+            if (isNotBlank(assembler.getJava().getMainModule())) {
+                moduleNames.add(assembler.getJava().getMainModule());
             }
             context.getLogger().debug(RB.$("assembler.module.names"), moduleNames);
 
@@ -141,16 +142,17 @@ public class JlinkAssemblerProcessor extends AbstractJavaAssemblerProcessor<Jlin
         }
 
         // jlink it
-        String modulePath = targetJdk.getEffectivePath(context, assembler).resolve("jmods").toAbsolutePath().toString();
-        if (isNotBlank(assembler.getModuleName()) || assembler.isCopyJars()) {
-            modulePath += File.pathSeparator + jarsDirectory
+        String moduleName = assembler.getJava().getMainModule();
+        String modulePath = maybeQuote(targetJdk.getEffectivePath(context, assembler).resolve("jmods").toAbsolutePath().toString());
+        if (isNotBlank(moduleName) || assembler.isCopyJars()) {
+            modulePath += File.pathSeparator + maybeQuote(jarsDirectory
                 .resolve("universal")
-                .toAbsolutePath();
+                .toAbsolutePath().toString());
 
             try {
                 Path platformJarsDirectory = jarsDirectory.resolve(platform).toAbsolutePath();
                 if (listFilesAndProcess(platformJarsDirectory, Stream::count) > 1) {
-                    modulePath += File.pathSeparator + platformJarsDirectory;
+                    modulePath += File.pathSeparator + maybeQuote(platformJarsDirectory.toString());
                 }
             } catch (IOException e) {
                 throw new AssemblerProcessingException(RB.$("ERROR_unexpected_error", e));
@@ -168,18 +170,18 @@ public class JlinkAssemblerProcessor extends AbstractJavaAssemblerProcessor<Jlin
             .arg(modulePath)
             .arg("--add-modules")
             .arg(String.join(",", moduleNames));
-        if (isNotBlank(assembler.getModuleName())) {
+        if (isNotBlank(moduleName)) {
             cmd.arg("--launcher")
-                .arg(assembler.getExecutable() + "=" + assembler.getModuleName() + "/" + assembler.getJava().getMainClass());
+                .arg(assembler.getExecutable() + "=" + moduleName + "/" + assembler.getJava().getMainClass());
         }
         cmd.arg("--output")
-            .arg(imageDirectory.toString());
+            .arg(maybeQuote(imageDirectory.toString()));
 
         context.getLogger().debug(String.join(" ", cmd.getArgs()));
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         executeCommandCapturing(cmd, out);
 
-        if (isBlank(assembler.getModuleName())) {
+        if (isBlank(moduleName)) {
             // non modular
             // copy jars & launcher
 
@@ -272,20 +274,20 @@ public class JlinkAssemblerProcessor extends AbstractJavaAssemblerProcessor<Jlin
         }
         cmd.arg("--print-module-deps");
 
-        if (isNotBlank(assembler.getModuleName())) {
+        String moduleName = assembler.getJava().getMainModule();
+        if (isNotBlank(moduleName)) {
             cmd.arg("--module")
-                .arg(assembler.getModuleName())
+                .arg(moduleName)
                 .arg("--module-path");
-            calculateJarPath(jarsDirectory, platform, cmd, false);
+            calculateJarPath(jarsDirectory, platform, cmd, true);
         } else if (!assembler.getJdeps().getTargets().isEmpty()) {
             cmd.arg("--class-path");
             if (assembler.getJdeps().isUseWildcardInPath()) {
-                cmd.arg(
-                    jarsDirectory.resolve("universal").toAbsolutePath() +
-                        File.separator + "*" +
-                        File.pathSeparator +
-                        jarsDirectory.resolve(platform) +
-                        File.separator + "*");
+                cmd.arg("universal" +
+                    File.separator + "*" +
+                    File.pathSeparator +
+                    platform +
+                    File.separator + "*");
             } else {
                 calculateJarPath(jarsDirectory, platform, cmd, true);
             }
@@ -293,6 +295,7 @@ public class JlinkAssemblerProcessor extends AbstractJavaAssemblerProcessor<Jlin
             assembler.getJdeps().getTargets().stream()
                 .map(target -> resolveTemplate(target, props))
                 .filter(StringUtils::isNotBlank)
+                .map(AssemblerUtils::maybeAdjust)
                 .forEach(cmd::arg);
         } else {
             calculateJarPath(jarsDirectory, platform, cmd, false);
@@ -300,7 +303,7 @@ public class JlinkAssemblerProcessor extends AbstractJavaAssemblerProcessor<Jlin
 
         context.getLogger().debug(String.join(" ", cmd.getArgs()));
         ByteArrayOutputStream out = new ByteArrayOutputStream();
-        executeCommandCapturing(cmd, out);
+        executeCommandCapturing(jarsDirectory, cmd, out);
 
         String output = out.toString().trim();
         long lineCount = Arrays.stream(output.split(System.lineSeparator()))
@@ -320,13 +323,13 @@ public class JlinkAssemblerProcessor extends AbstractJavaAssemblerProcessor<Jlin
                 StringBuilder pathBuilder = new StringBuilder();
 
                 String s = listFilesAndProcess(jarsDirectory.resolve("universal"), files ->
-                    files.map(Path::toAbsolutePath)
+                    files.map(jarsDirectory::relativize)
                         .map(Object::toString)
                         .collect(joining(File.pathSeparator)));
                 pathBuilder.append(s);
 
                 String platformSpecific = listFilesAndProcess(jarsDirectory.resolve(platform), files ->
-                    files.map(Path::toAbsolutePath)
+                    files.map(jarsDirectory::relativize)
                         .map(Object::toString)
                         .collect(joining(File.pathSeparator)));
 
@@ -338,12 +341,12 @@ public class JlinkAssemblerProcessor extends AbstractJavaAssemblerProcessor<Jlin
                 cmd.arg(pathBuilder.toString());
             } else {
                 listFilesAndConsume(jarsDirectory.resolve("universal"), files ->
-                    files.map(Path::toAbsolutePath)
+                    files.map(jarsDirectory::relativize)
                         .map(Object::toString)
                         .forEach(cmd::arg));
 
                 listFilesAndConsume(jarsDirectory.resolve(platform), files ->
-                    files.map(Path::toAbsolutePath)
+                    files.map(jarsDirectory::relativize)
                         .map(Object::toString)
                         .forEach(cmd::arg));
             }

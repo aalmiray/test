@@ -38,6 +38,13 @@ import static org.jreleaser.util.StringUtils.isNotBlank;
  */
 public class ChangelogProvider {
     public static String getChangelog(JReleaserContext context) throws IOException {
+        Changelog changelog = context.getModel().getRelease().getGitService().getChangelog();
+
+        if (!changelog.isEnabled()) {
+            context.getLogger().info(RB.$("changelog.disabled"));
+            return "";
+        }
+
         String content = resolveChangelog(context);
 
         Path changelogFile = context.getOutputDirectory()
@@ -55,11 +62,6 @@ public class ChangelogProvider {
 
     private static String resolveChangelog(JReleaserContext context) throws IOException {
         Changelog changelog = context.getModel().getRelease().getGitService().getChangelog();
-
-        if (!changelog.isEnabled()) {
-            return "";
-        }
-
         String externalChangelog = changelog.getExternal();
 
         if (isNotBlank(externalChangelog)) {

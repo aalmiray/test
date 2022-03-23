@@ -34,9 +34,5 @@ interface Glob {
 
     DirectoryProperty getDirectory()
 
-    Property<String> getInclude()
-
-    Property<String> getExclude()
-
-    Property<Boolean> getRecursive()
+    void setDirectory(String directory)
 }

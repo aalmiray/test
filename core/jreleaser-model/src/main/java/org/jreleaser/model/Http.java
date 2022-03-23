@@ -84,18 +84,6 @@ public class Http extends AbstractHttpUploader {
         this.password = password;
     }
 
-    @Deprecated
-    public String getTarget() {
-        System.out.println("http.target has been deprecated since 0.6.0 and will be removed in the future. Use http.uploadUrl instead");
-        return getUploadUrl();
-    }
-
-    @Deprecated
-    public void setTarget(String target) {
-        System.out.println("http.target has been deprecated since 0.6.0 and will be removed in the future. Use http.uploadUrl instead");
-        setUploadUrl(target);
-    }
-
     public Authorization getAuthorization() {
         return authorization;
     }

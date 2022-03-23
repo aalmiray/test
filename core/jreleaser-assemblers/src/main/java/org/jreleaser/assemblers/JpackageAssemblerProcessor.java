@@ -47,7 +47,6 @@ import static org.jreleaser.templates.TemplateUtils.trimTplExtension;
 import static org.jreleaser.util.FileUtils.listFilesAndProcess;
 import static org.jreleaser.util.PlatformUtils.isWindows;
 import static org.jreleaser.util.StringUtils.isNotBlank;
-import static org.jreleaser.util.StringUtils.quote;
 import static org.jreleaser.util.Templates.resolveTemplate;
 
 /**
@@ -157,10 +156,6 @@ public class JpackageAssemblerProcessor extends AbstractJavaAssemblerProcessor<J
         runtimeImageByPlatform.get().setPath(adjustedImage.toAbsolutePath().toString());
     }
 
-    private String maybeQuote(String str) {
-        return isWindows() ? quote(str) : str;
-    }
-
     private void jpackage(JReleaserContext context, String type, Path workDirectory, Map<String, Object> props) throws AssemblerProcessingException {
         Jpackage.PlatformPackager packager = assembler.getResolvedPlatformPackager();
         Path jdkPath = packager.getJdk().getEffectivePath(context, assembler);
@@ -183,7 +178,8 @@ public class JpackageAssemblerProcessor extends AbstractJavaAssemblerProcessor<J
             throw new AssemblerProcessingException(RB.$("ERROR_jpackage_runtime_image_not_found", platform));
         }
 
-        String appName = assembler.getApplicationPackage().getResolvedAppName(context, assembler);
+        String moduleName = assembler.getJava().getMainModule();
+        String appName = packager.getResolvedAppName(context, assembler);
         String appVersion = assembler.getApplicationPackage().getResolvedAppVersion(context, assembler);
         String vendor = assembler.getApplicationPackage().getVendor();
         String copyright = assembler.getApplicationPackage().getCopyright();
@@ -202,12 +198,8 @@ public class JpackageAssemblerProcessor extends AbstractJavaAssemblerProcessor<J
             .arg(inputsDirectory.resolve("files").toAbsolutePath().toString())
             .arg("--name")
             .arg(maybeQuote(appName))
-            .arg("--main-class")
-            .arg(assembler.getJava().getMainClass())
-            .arg("--main-jar")
-            .arg(assembler.getMainJar().getResolvedPath().getFileName().toString())
             .arg("--runtime-image")
-            .arg(runtimeImageByPlatform.get().getEffectivePath(context, assembler).toAbsolutePath().toString())
+            .arg(maybeQuote(runtimeImageByPlatform.get().getEffectivePath(context, assembler).toAbsolutePath().toString()))
             .arg("--app-version")
             .arg(appVersion)
             .arg("--vendor")
@@ -217,10 +209,24 @@ public class JpackageAssemblerProcessor extends AbstractJavaAssemblerProcessor<J
             .arg("--description")
             .arg(maybeQuote(context.getModel().getProject().getDescription()));
 
+        if (assembler.isVerbose()) {
+            cmd.arg("--verbose");
+        }
+
+        if (isNotBlank(moduleName)) {
+            cmd.arg("--module")
+                .arg(moduleName + "/" + assembler.getJava().getMainClass());
+        } else {
+            cmd.arg("--main-class")
+                .arg(assembler.getJava().getMainClass())
+                .arg("--main-jar")
+                .arg(maybeQuote(assembler.getMainJar().getResolvedPath().getFileName().toString()));
+        }
+
         // Launcher
         for (String argument : assembler.getLauncher().getArguments()) {
             cmd.arg("--arguments")
-                .arg(argument);
+                .arg(maybeQuote(argument));
         }
         for (String javaOption : assembler.getLauncher().getJavaOptions()) {
             cmd.arg("--java-options")
@@ -233,7 +239,7 @@ public class JpackageAssemblerProcessor extends AbstractJavaAssemblerProcessor<J
             Path licenseFilePath = context.getBasedir().resolve(licenseFile);
             if (Files.exists(licenseFilePath)) {
                 cmd.arg("--license-file")
-                    .arg(licenseFilePath.toAbsolutePath().toString());
+                    .arg(maybeQuote(licenseFilePath.toAbsolutePath().toString()));
             }
         }
 
@@ -242,7 +248,7 @@ public class JpackageAssemblerProcessor extends AbstractJavaAssemblerProcessor<J
                 Path path = context.getBasedir().resolve(resolveTemplate(filename, props));
                 if (Files.exists(path)) {
                     cmd.arg("--file-associations")
-                        .arg(path.toAbsolutePath().toString());
+                        .arg(maybeQuote(path.toAbsolutePath().toString()));
                 }
             }
         }
@@ -252,6 +258,9 @@ public class JpackageAssemblerProcessor extends AbstractJavaAssemblerProcessor<J
         context.getLogger().debug(String.join(" ", cmd.getArgs()));
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         executeCommandCapturing(cmd, out);
+        if (assembler.isVerbose()) {
+            context.getLogger().debug(out.toString());
+        }
 
         // replace only if not linux
         if (!PlatformUtils.isLinux(platform) && assembler.isAttachPlatform()) {
@@ -277,7 +286,7 @@ public class JpackageAssemblerProcessor extends AbstractJavaAssemblerProcessor<J
         String installDir = resolveTemplate(packager.getInstallDir(), props);
         if (isNotBlank(installDir)) {
             cmd.arg("--install-dir")
-                .arg(installDir);
+                .arg(maybeQuote(installDir));
         }
 
         String resourceDir = resolveTemplate(packager.getResourceDir(), props);
@@ -285,7 +294,7 @@ public class JpackageAssemblerProcessor extends AbstractJavaAssemblerProcessor<J
             Path resourceDirPath = context.getBasedir().resolve(resourceDir);
             if (Files.exists(resourceDirPath)) {
                 cmd.arg("--resource-dir")
-                    .arg(resourceDirPath.toAbsolutePath().toString());
+                    .arg(maybeQuote(resourceDirPath.toAbsolutePath().toString()));
             }
         }
 
@@ -370,6 +379,9 @@ public class JpackageAssemblerProcessor extends AbstractJavaAssemblerProcessor<J
     }
 
     private void customizeWindows(String type, Jpackage.Windows packager, Path inputsDirectory, Command cmd, Map<String, Object> props) {
+        if (packager.isConsole()) {
+            cmd.arg("--win-console");
+        }
         if (packager.isDirChooser()) {
             cmd.arg("--win-dir-chooser");
         }
@@ -392,7 +404,7 @@ public class JpackageAssemblerProcessor extends AbstractJavaAssemblerProcessor<J
         }
 
         cmd.arg("--icon")
-            .arg(inputsDirectory.resolve(assembler.getName() + ".ico").toAbsolutePath().toString());
+            .arg(maybeQuote(inputsDirectory.resolve(assembler.getName() + ".ico").toAbsolutePath().toString()));
     }
 
     @Override

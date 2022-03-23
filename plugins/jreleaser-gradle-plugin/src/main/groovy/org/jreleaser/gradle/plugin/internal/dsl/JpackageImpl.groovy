@@ -46,6 +46,7 @@ class JpackageImpl extends AbstractJavaAssembler implements Jpackage {
     String name
     final Property<String> jlink
     final Property<Boolean> attachPlatform
+    final Property<Boolean> verbose
     final JavaImpl java
     final PlatformImpl platform
 
@@ -62,6 +63,7 @@ class JpackageImpl extends AbstractJavaAssembler implements Jpackage {
 
         jlink = objects.property(String).convention(Providers.notDefined())
         attachPlatform = objects.property(Boolean).convention(Providers.notDefined())
+        verbose = objects.property(Boolean).convention(Providers.notDefined())
         java = objects.newInstance(JavaImpl, objects)
         platform = objects.newInstance(PlatformImpl, objects)
         applicationPackage = objects.newInstance(ApplicationPackageImpl, objects)
@@ -85,6 +87,7 @@ class JpackageImpl extends AbstractJavaAssembler implements Jpackage {
         super.isSet() ||
             jlink.present ||
             attachPlatform.present ||
+            verbose.present ||
             java.isSet() ||
             platform.isSet() ||
             applicationPackage.isSet() ||
@@ -175,6 +178,7 @@ class JpackageImpl extends AbstractJavaAssembler implements Jpackage {
         if (osx.isSet()) jpackage.osx = osx.toModel()
         if (jlink.present) jpackage.jlink = jlink.get()
         if (attachPlatform.present) jpackage.attachPlatform = attachPlatform.get()
+        if (verbose.present) jpackage.verbose = verbose.get()
         for (ArtifactImpl artifact : runtimeImages) {
             jpackage.addRuntimeImage(artifact.toModel())
         }
@@ -255,6 +259,7 @@ class JpackageImpl extends AbstractJavaAssembler implements Jpackage {
 
     @CompileStatic
     private static abstract class AbstractPlatformPackager implements PlatformPackager {
+        final Property<String> appName
         final RegularFileProperty icon
         final ListProperty<String> types
         final Property<String> installDir
@@ -262,15 +267,22 @@ class JpackageImpl extends AbstractJavaAssembler implements Jpackage {
 
         @Inject
         AbstractPlatformPackager(ObjectFactory objects) {
+            appName = objects.property(String).convention(Providers.notDefined())
             icon = objects.fileProperty().convention(Providers.notDefined())
             types = objects.listProperty(String).convention(Providers.notDefined())
             installDir = objects.property(String).convention(Providers.notDefined())
             resourceDir = objects.property(String).convention(Providers.notDefined())
         }
 
+        @Override
+        void setIcon(String icon) {
+            this.icon.set(new File(icon))
+        }
+
         @Internal
         boolean isSet() {
-            icon.present ||
+            appName.present ||
+                icon.present ||
                 types.present ||
                 jdk.isSet() ||
                 installDir.present ||
@@ -290,6 +302,7 @@ class JpackageImpl extends AbstractJavaAssembler implements Jpackage {
         }
 
         void fillProperties(org.jreleaser.model.Jpackage.PlatformPackager p) {
+            p.appName = appName.orNull
             p.icon = icon.orNull
             p.types = (List<String>) types.getOrElse([] as List<String>)
             p.installDir = installDir.orNull

@@ -210,17 +210,6 @@ public class Changelog implements Domain, EnabledAware {
         this.labelers.addAll(labelers);
     }
 
-    @Deprecated
-    public String getChange() {
-        return this.format;
-    }
-
-    @Deprecated
-    public void setChange(String change) {
-        System.out.println("changelog.change has been deprecated since 0.6.0 and will be removed in the future. Use changelog.format instead");
-        this.format = change;
-    }
-
     public String getFormat() {
         return format;
     }
@@ -267,12 +256,6 @@ public class Changelog implements Domain, EnabledAware {
 
     public void setContributors(Contributors contributors) {
         this.contributors.setAll(contributors);
-    }
-
-    @Deprecated
-    public void setHideUncategorized(boolean hideUncategorized) {
-        System.out.println("changelog.hideUncategorized has been deprecated since 0.6.0 and will be removed in the future. Use changelog.hide.uncategorized instead");
-        this.hide.uncategorized = hideUncategorized;
     }
 
     @Override
@@ -328,13 +311,6 @@ public class Changelog implements Domain, EnabledAware {
             if (null == o2.getOrder()) return -1;
             return o1.getOrder().compareTo(o2.getOrder());
         };
-
-        public static Set<Category> sort(Set<Category> categories) {
-            TreeSet<Category> tmp = new TreeSet<>(ORDER);
-            tmp.addAll(categories);
-            return tmp;
-        }
-
         private final Set<String> labels = new LinkedHashSet<>();
         private String key;
         private String title;
@@ -419,6 +395,12 @@ public class Changelog implements Domain, EnabledAware {
         @Override
         public int hashCode() {
             return Objects.hash(title);
+        }
+
+        public static Set<Category> sort(Set<Category> categories) {
+            TreeSet<Category> tmp = new TreeSet<>(ORDER);
+            tmp.addAll(categories);
+            return tmp;
         }
 
         public static Category of(String key, String title, String format, String... labels) {

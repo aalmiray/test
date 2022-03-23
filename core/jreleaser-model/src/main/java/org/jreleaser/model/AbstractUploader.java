@@ -28,6 +28,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static org.jreleaser.util.Constants.KEY_UPLOADER_NAME;
 import static org.jreleaser.util.StringUtils.capitalize;
 import static org.jreleaser.util.StringUtils.getClassNameForLowerCaseHyphenSeparatedName;
 
@@ -70,7 +71,7 @@ abstract class AbstractUploader implements Uploader {
 
     @Override
     public String getPrefix() {
-        return name;
+        return type;
     }
 
     @Override
@@ -263,11 +264,12 @@ abstract class AbstractUploader implements Uploader {
 
     @Override
     public Map<String, Object> artifactProps(JReleaserContext context, Artifact artifact) {
-        return artifactProps(context.props(), artifact);
+        return artifactProps(context.fullProps(), artifact);
     }
 
     @Override
     public Map<String, Object> artifactProps(Map<String, Object> props, Artifact artifact) {
+        props.put(KEY_UPLOADER_NAME, getName());
         Artifacts.artifactProps(artifact, props);
 
         Set<String> keys = new LinkedHashSet<>(props.keySet());

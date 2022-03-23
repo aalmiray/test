@@ -42,7 +42,9 @@ import static java.nio.file.StandardOpenOption.TRUNCATE_EXISTING;
 import static java.nio.file.StandardOpenOption.WRITE;
 import static org.jreleaser.util.FileUtils.createDirectoriesWithFullAccess;
 import static org.jreleaser.util.FileUtils.grantFullAccess;
+import static org.jreleaser.util.PlatformUtils.isWindows;
 import static org.jreleaser.util.StringUtils.isNotBlank;
+import static org.jreleaser.util.StringUtils.quote;
 
 /**
  * @author Andres Almiray
@@ -154,6 +156,19 @@ abstract class AbstractAssemblerProcessor<A extends Assembler> implements Assemb
         }
     }
 
+    protected void executeCommandCapturing(Path directory, Command command, OutputStream out) throws AssemblerProcessingException {
+        try {
+            int exitValue = new CommandExecutor(context.getLogger())
+                .executeCommandCapturing(directory, command, out);
+            if (exitValue != 0) {
+                context.getLogger().error(out.toString().trim());
+                throw new CommandException(RB.$("ERROR_command_execution_exit_value", exitValue));
+            }
+        } catch (CommandException e) {
+            throw new AssemblerProcessingException(RB.$("ERROR_unexpected_error"), e);
+        }
+    }
+
     protected void copyFileSets(JReleaserContext context, Path destination) throws AssemblerProcessingException {
         try {
             for (FileSet fileSet : assembler.getFileSets()) {
@@ -171,5 +186,9 @@ abstract class AbstractAssemblerProcessor<A extends Assembler> implements Assemb
         } catch (IOException e) {
             throw new AssemblerProcessingException(RB.$("ERROR_assembler_copying_files"), e);
         }
+    }
+
+    protected String maybeQuote(String str) {
+        return isWindows() ? quote(str) : str;
     }
 }

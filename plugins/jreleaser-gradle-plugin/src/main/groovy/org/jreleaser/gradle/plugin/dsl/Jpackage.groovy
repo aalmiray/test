@@ -34,6 +34,8 @@ interface Jpackage extends JavaAssembler {
 
     Property<Boolean> getAttachPlatform()
 
+    Property<Boolean> getVerbose()
+
     void runtimeImage(Action<? super Artifact> action)
 
     void applicationPackage(Action<? super ApplicationPackage> action)
@@ -84,7 +86,11 @@ interface Jpackage extends JavaAssembler {
 
     @CompileStatic
     interface PlatformPackager {
+        Property<String> getAppName()
+
         RegularFileProperty getIcon()
+
+        void setIcon(String icon)
 
         ListProperty<String> getTypes()
 

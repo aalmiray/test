@@ -38,6 +38,7 @@ import static org.jreleaser.util.Constants.KEY_CHOCOLATEY_BUCKET_REPO_CLONE_URL;
 import static org.jreleaser.util.Constants.KEY_CHOCOLATEY_BUCKET_REPO_URL;
 import static org.jreleaser.util.Constants.KEY_CHOCOLATEY_ICON_URL;
 import static org.jreleaser.util.Constants.KEY_CHOCOLATEY_PACKAGE_NAME;
+import static org.jreleaser.util.Constants.KEY_CHOCOLATEY_PACKAGE_SOURCE_URL;
 import static org.jreleaser.util.Constants.KEY_CHOCOLATEY_PACKAGE_VERSION;
 import static org.jreleaser.util.Constants.KEY_CHOCOLATEY_SOURCE;
 import static org.jreleaser.util.Constants.KEY_CHOCOLATEY_TITLE;
@@ -104,16 +105,19 @@ public class ChocolateyPackagerProcessor extends AbstractRepositoryPackagerProce
             context.getLogger().warn(RB.$("ERROR_project_no_license_url"));
         }
 
-        props.put(KEY_CHOCOLATEY_BUCKET_REPO_URL,
-            gitService.getResolvedRepoUrl(context.getModel(), packager.getBucket().getOwner(), packager.getBucket().getResolvedName()));
+        String repoUrl = gitService.getResolvedRepoUrl(context.getModel());
+        String bucketRepoUrl = gitService.getResolvedRepoUrl(context.getModel(), packager.getBucket().getOwner(), packager.getBucket().getResolvedName());
+
+        props.put(KEY_CHOCOLATEY_PACKAGE_SOURCE_URL,  packager.isRemoteBuild()? bucketRepoUrl : repoUrl);
+        props.put(KEY_CHOCOLATEY_BUCKET_REPO_URL,  bucketRepoUrl);
         props.put(KEY_CHOCOLATEY_BUCKET_REPO_CLONE_URL,
             gitService.getResolvedRepoCloneUrl(context.getModel(), packager.getBucket().getOwner(), packager.getBucket().getResolvedName()));
 
-        props.put(KEY_CHOCOLATEY_PACKAGE_NAME, getPackager().getPackageName());
-        props.put(KEY_CHOCOLATEY_PACKAGE_VERSION, getPackager().getPackageVersion());
-        props.put(KEY_CHOCOLATEY_USERNAME, getPackager().getUsername());
-        props.put(KEY_CHOCOLATEY_TITLE, getPackager().getTitle());
-        props.put(KEY_CHOCOLATEY_ICON_URL, resolveTemplate(getPackager().getIconUrl(), props));
+        props.put(KEY_CHOCOLATEY_PACKAGE_NAME, packager.getPackageName());
+        props.put(KEY_CHOCOLATEY_PACKAGE_VERSION, resolveTemplate(packager.getPackageVersion(), props));
+        props.put(KEY_CHOCOLATEY_USERNAME, packager.getUsername());
+        props.put(KEY_CHOCOLATEY_TITLE, packager.getTitle());
+        props.put(KEY_CHOCOLATEY_ICON_URL, resolveTemplate(packager.getIconUrl(), props));
         props.put(KEY_CHOCOLATEY_SOURCE, packager.getSource());
     }
 

@@ -6,6 +6,7 @@ on:
 
 jobs:
   precheck:
+    if: startsWith(github.event.head_commit.message, 'Releasing version') != true
     runs-on: ubuntu-latest
     outputs:
       VERSION: ${{ steps.vars.outputs.VERSION }}
@@ -90,7 +91,7 @@ jobs:
         uses: actions/upload-artifact@v2
         with:
           retention-days: 10
-          name: 'jreleaser-assemble-gradle-${{ matrix.job.os }}-${{ matrix.job.sign }}'
+          name: 'jreleaser-assemble-gradle-${{ runner.os }}-${{ matrix.job.sign }}'
           path: |
             build/jreleaser/trace.log
             build/jreleaser/output.properties
@@ -117,7 +118,7 @@ jobs:
         uses: actions/upload-artifact@v2
         with:
           retention-days: 10
-          name: 'jreleaser-full-release-gradle-${{ matrix.job.os }}-${{ matrix.job.sign }}'
+          name: 'jreleaser-full-release-gradle-${{ runner.os }}-${{ matrix.job.sign }}'
           path: |
             build/jreleaser/trace.log
             build/jreleaser/output.properties

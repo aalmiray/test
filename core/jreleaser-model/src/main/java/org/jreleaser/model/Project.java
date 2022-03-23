@@ -163,16 +163,6 @@ public class Project implements Domain, ExtraProperties {
         this.snapshot.setAll(snapshot);
     }
 
-    @Deprecated
-    public String getSnapshotPattern() {
-        return this.snapshot.getPattern();
-    }
-
-    @Deprecated
-    public void setSnapshotPattern(String snapshotPattern) {
-        System.out.println("project.snapshotPattern has been deprecated since 0.6.0 and will be removed in the future. Use project.snapshot.pattern instead");
-        this.snapshot.setPattern(snapshotPattern);
-    }
 
     public String getDescription() {
         return description;
