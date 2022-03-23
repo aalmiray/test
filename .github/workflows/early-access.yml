@@ -281,7 +281,7 @@ jobs:
       - name: Download native-image
         uses: actions/download-artifact@v2
         with:
-          name: jpackage
+          name: native-image
           path: out/jreleaser/assemble/jreleaser-native/native-image
 
       - name: Setup Java
@@ -294,7 +294,7 @@ jobs:
         uses: jreleaser/release-action@v1
         with:
           version: early-access
-          arguments: full-release
+          arguments: release
         env:
           JRELEASER_PROJECT_VERSION: ${{ needs.precheck.outputs.VERSION }}
           JRELEASER_GITHUB_TOKEN: ${{ secrets.GIT_ACCESS_TOKEN }}
