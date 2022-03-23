@@ -103,7 +103,7 @@ jobs:
     name: 'JPackage on ${{ matrix.os }}'
     needs: [precheck, jlink]
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, macOS-latest, windows-latest]
     runs-on: ${{ matrix.os }}
@@ -179,7 +179,7 @@ jobs:
     name: 'NativeImage on ${{ matrix.os }}'
     needs: [precheck, jlink]
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, macOS-latest, windows-latest]
     runs-on: ${{ matrix.os }}
@@ -197,6 +197,14 @@ jobs:
         with:
           name: jlink
           path: out/jreleaser/assemble/jreleaser-standalone/jlink
+
+      - name: Setup Graal
+        uses: graalvm/setup-graalvm@v1
+        with:
+          version: '22.0.0.2'
+          java-version: ${{ env.JAVA_VERSION }}
+          components: 'native-image'
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup Java
         uses: actions/setup-java@v2
