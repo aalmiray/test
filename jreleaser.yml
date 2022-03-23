@@ -239,7 +239,7 @@ distributions:
       title: JReleaser
       iconUrl: 'https://rawcdn.githack.com/jreleaser/jreleaser/0934fa1fa3f0bd09c0c8c39fbdeb5df2ce507457/src/media/icon_128x128.png'
       bucket:
-        active: release
+        active: never
     jbang:
       active: never
     macports:
@@ -250,12 +250,12 @@ distributions:
       maintainers:
         - '@aalmiray'
       repository:
-        active: release
+        active: never
         name: jreleaser-macports
     scoop:
       active: never
       bucket:
-        active: release
+        active: never
     sdkman:
       active: never
     snap:
@@ -281,7 +281,7 @@ distributions:
     spec:
       active: never
       repository:
-        active: release
+        active: never
         name: jreleaser-copr
     artifacts:
       - path: apps/{{distributionName}}/build/distributions/{{distributionName}}-{{projectVersion}}.zip
@@ -308,12 +308,12 @@ distributions:
       formulaName: jreleaser
       multiPlatform: true
       tap:
-        active: release
+        active: never
         commitMessage: 'jreleaser {{tagName}}'
     docker:
       active: never
       repository:
-        active: always
+        active: never
         commitMessage: 'jreleaser {{tagName}}'
       registries:
         - serverName: DEFAULT
@@ -344,7 +344,7 @@ distributions:
     gofish:
       active: never
       repository:
-        active: release
+        active: never
         commitMessage: 'jreleaser {{tagName}}'
 
   jreleaser-installer:
@@ -373,8 +373,8 @@ distributions:
         platform: 'osx-x86_64'
       - path: '{{artifactsDir}}/jreleaser-{{projectEffectiveVersion}}-linux_x86_64.zip'
         platform: 'linux-x86_64'
-      - path: '{{artifactsDir}}/jreleaser-{{projectEffectiveVersion}}-windows_x86_64.zip'
-        platform: 'windows-x86_64'
+      #- path: '{{artifactsDir}}/jreleaser-{{projectEffectiveVersion}}-windows_x86_64.zip'
+      #  platform: 'windows-x86_64'
 
 files:
   artifacts:

@@ -181,7 +181,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macOS-latest, windows-latest]
+        os: [ubuntu-latest, macOS-latest] #, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
@@ -198,13 +198,13 @@ jobs:
           name: jlink
           path: out/jreleaser/assemble/jreleaser-standalone/jlink
 
-      - name: Setup Graal
-        uses: graalvm/setup-graalvm@v1
-        with:
-          version: '22.0.0.2'
-          java-version: ${{ env.JAVA_VERSION }}
-          components: 'native-image'
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+      #- name: Setup Graal
+      #  uses: graalvm/setup-graalvm@v1
+      #  with:
+      #    version: '22.0.0.2'
+      #    java-version: ${{ env.JAVA_VERSION }}
+      #    components: 'native-image'
+      #    github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup Java
         uses: actions/setup-java@v2
