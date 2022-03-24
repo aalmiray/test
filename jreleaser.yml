@@ -369,11 +369,11 @@ distributions:
     executable:
       windowsExtension: exe
     artifacts:
-      - path: '{{artifactsDir}}/jreleaser-{{projectEffectiveVersion}}-osx_x86_64.zip'
+      - path: '{{artifactsDir}}/{{distributionName}}-{{projectEffectiveVersion}}-osx_x86_64.zip'
         platform: 'osx-x86_64'
-      - path: '{{artifactsDir}}/jreleaser-{{projectEffectiveVersion}}-linux_x86_64.zip'
+      - path: '{{artifactsDir}}/{{distributionName}}-{{projectEffectiveVersion}}-linux_x86_64.zip'
         platform: 'linux-x86_64'
-      #- path: '{{artifactsDir}}/jreleaser-{{projectEffectiveVersion}}-windows_x86_64.zip'
+      #- path: '{{artifactsDir}}/{{distributionName}}-{{projectEffectiveVersion}}-windows_x86_64.zip'
       #  platform: 'windows-x86_64'
 
 files:
