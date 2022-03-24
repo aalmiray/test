@@ -292,6 +292,9 @@ jobs:
           name: native-image
           path: out/jreleaser/assemble/jreleaser-native/native-image
 
+      - name: Display structure of downloaded files
+        run: ls -R out/jreleaser/assemble/jreleaser-native
+        
       - name: Setup Java
         uses: actions/setup-java@v2
         with:

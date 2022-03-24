@@ -3,7 +3,7 @@ environment:
     jdkPathPrefix: 'apps/jreleaser/build/jdks'
     jdkFilePrefix: 'zulu17.32.13-ca-jdk17.0.2'
     graalFilePrefix: 'graalvm-ce-java17-22.0.0.2'
-    artifactsDir: out/jreleaser/assemble/jreleaser-native/native-image
+    nativeImageDir: out/jreleaser/assemble/jreleaser-native/native-image
     jpackageDir: out/jreleaser/assemble/jreleaser-installer/jpackage
     skipJpackageResolver: true
     skipNativeImageResolver: true
@@ -366,14 +366,15 @@ distributions:
         platform: 'windows-x86_64'
 
   jreleaser-native:
+    type: NATIVE_IMAGE
     executable:
       windowsExtension: exe
     artifacts:
-      - path: '{{artifactsDir}}/{{distributionName}}-{{projectEffectiveVersion}}-osx_x86_64.zip'
+      - path: '{{nativeImageDir}}/{{distributionName}}-{{projectEffectiveVersion}}-osx_x86_64.zip'
         platform: 'osx-x86_64'
-      - path: '{{artifactsDir}}/{{distributionName}}-{{projectEffectiveVersion}}-linux_x86_64.zip'
+      - path: '{{nativeImageDir}}/{{distributionName}}-{{projectEffectiveVersion}}-linux_x86_64.zip'
         platform: 'linux-x86_64'
-      #- path: '{{artifactsDir}}/{{distributionName}}-{{projectEffectiveVersion}}-windows_x86_64.zip'
+      #- path: '{{nativeImageDir}}/{{distributionName}}-{{projectEffectiveVersion}}-windows_x86_64.zip'
       #  platform: 'windows-x86_64'
 
 files:
