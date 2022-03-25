@@ -228,7 +228,6 @@ assemble:
         - '-H:IncludeLocales=en,ca,de,es,fr,hi,it,ja,nl,pt_BR,zh_TW,ru'
         - '-H:Optimize=2'
         - '-H:+RemoveUnusedSymbols'
-        - '-H:-CheckToolchain'
 
 distributions:
   jreleaser:
