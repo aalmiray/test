@@ -297,7 +297,7 @@ jobs:
         uses: uraimo/run-on-arch-action@v2
         with:
           arch: aarch64
-          distro: ubuntu18.04
+          distro: ubuntu20.04
           githubToken: ${{ secrets.GITHUB_TOKEN }}
           dockerRunArgs: |
             --volume "${PWD}:/workspace"
@@ -312,7 +312,7 @@ jobs:
             export JAVA_HOME=/home/zulu17.32.13-ca-jdk17.0.2-linux_aarch64
             export PATH=$JAVA_HOME/bin:$PATH
             cd /home && curl -sL https://git.io/get-jreleaser > get_jreleaser.java
-            java get_jreleaser.java
+            java get_jreleaser.java early-access
             cd /workspace && java -jar /home/jreleaser-cli.jar -Djdk.lang.Process.launchMechanism=vfork assemble -s native-image
 
       - name: JReleaser output
