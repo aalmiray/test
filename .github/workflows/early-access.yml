@@ -305,7 +305,7 @@ jobs:
             JRELEASER_PROJECT_VERSION: ${{ needs.precheck.outputs.VERSION }}
           shell: /bin/sh
           install: |
-             apt-get update -q -y && apt-get install -q -y git build-essential libz-dev curl unzip
+             apt-get update -q -y && apt-get install -q -y git gcc build-essential libz-dev curl unzip
              cd /home && curl -L https://cdn.azul.com/zulu/bin/zulu17.32.13-ca-jdk17.0.2-linux_aarch64.tar.gz --output zulu17.32.13-ca-jdk17.0.2-linux_aarch64.tar.gz
              tar xfz zulu17.32.13-ca-jdk17.0.2-linux_aarch64.tar.gz
           run: |
