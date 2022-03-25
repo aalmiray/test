@@ -175,82 +175,6 @@ jobs:
             out/jreleaser/assemble/jreleaser-installer/jpackage/*.deb
             out/jreleaser/assemble/jreleaser-installer/jpackage/*.rpm
 
-  native-image:
-    name: 'NativeImage on ${{ matrix.os }}'
-    needs: [precheck, jlink]
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macOS-latest] #, windows-latest]
-    runs-on: ${{ matrix.os }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v2
-
-      - name: Download artifacts
-        uses: actions/download-artifact@v2
-        with:
-          name: artifacts
-
-      - name: Download jlink
-        uses: actions/download-artifact@v2
-        with:
-          name: jlink
-          path: out/jreleaser/assemble/jreleaser-standalone/jlink
-
-      - name: Setup Java
-        uses: actions/setup-java@v2
-        with:
-          java-version: ${{ env.JAVA_VERSION }}
-          distribution: ${{ env.JAVA_DISTRO }}
-
-      - uses: actions/cache@v2
-        with:
-          path: ~/.gradle/caches
-          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle') }}-${{ hashFiles('**/gradle.properties') }}
-          restore-keys: |
-            ${{ runner.os }}-gradle-
-
-      - uses: actions/cache@v2
-        with:
-          path: ~/.gradle/wrapper
-          key: ${{ runner.os }}-gradlew-${{ hashFiles('**/gradlew') }}
-          restore-keys: |
-            ${{ runner.os }}-gradlew-
-
-      - name: Build
-        run: ./gradlew :jreleaser:copyJdksFromCache :jreleaser:setupJdks
-
-      - name: Install upx
-        run: brew install upx
-        if: ${{ runner.os == 'macOS' }}
-
-      - name: NativeImage
-        uses: jreleaser/release-action@v1
-        with:
-          version: early-access
-          arguments: assemble -s native-image -scp
-        env:
-          JRELEASER_PROJECT_VERSION: ${{ needs.precheck.outputs.VERSION }}
-          JRELEASER_GITHUB_TOKEN: ${{ secrets.GIT_ACCESS_TOKEN }}
-
-      - name: JReleaser output
-        if: always()
-        uses: actions/upload-artifact@v2
-        with:
-          name: jreleaser-native-image-${{ runner.os }}
-          path: |
-            out/jreleaser/trace.log
-            out/jreleaser/output.properties
-
-      - name: Upload native-image
-        uses: actions/upload-artifact@v2
-        with:
-          retention-days: 1
-          name: native-image
-          path: |
-            out/jreleaser/assemble/jreleaser-native/native-image/*.zip
-
   native-image-arm:
     name: 'NativeImage on linux-arm'
     needs: [precheck, jlink]
@@ -320,6 +244,82 @@ jobs:
         uses: actions/upload-artifact@v2
         with:
           name: jreleaser-native-image-linux-arm
+          path: |
+            out/jreleaser/trace.log
+            out/jreleaser/output.properties
+
+      - name: Upload native-image
+        uses: actions/upload-artifact@v2
+        with:
+          retention-days: 1
+          name: native-image
+          path: |
+            out/jreleaser/assemble/jreleaser-native/native-image/*.zip
+
+  native-image:
+    name: 'NativeImage on ${{ matrix.os }}'
+    needs: [precheck, jlink]
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macOS-latest] #, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v2
+        with:
+          name: artifacts
+
+      - name: Download jlink
+        uses: actions/download-artifact@v2
+        with:
+          name: jlink
+          path: out/jreleaser/assemble/jreleaser-standalone/jlink
+
+      - name: Setup Java
+        uses: actions/setup-java@v2
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: ${{ env.JAVA_DISTRO }}
+
+      - uses: actions/cache@v2
+        with:
+          path: ~/.gradle/caches
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle') }}-${{ hashFiles('**/gradle.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+
+      - uses: actions/cache@v2
+        with:
+          path: ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradlew-${{ hashFiles('**/gradlew') }}
+          restore-keys: |
+            ${{ runner.os }}-gradlew-
+
+      - name: Build
+        run: ./gradlew :jreleaser:copyJdksFromCache :jreleaser:setupJdks
+
+      - name: Install upx
+        run: brew install upx
+        if: ${{ runner.os == 'macOS' }}
+
+      - name: NativeImage
+        uses: jreleaser/release-action@v1
+        with:
+          version: early-access
+          arguments: assemble -s native-image -scp
+        env:
+          JRELEASER_PROJECT_VERSION: ${{ needs.precheck.outputs.VERSION }}
+          JRELEASER_GITHUB_TOKEN: ${{ secrets.GIT_ACCESS_TOKEN }}
+
+      - name: JReleaser output
+        if: always()
+        uses: actions/upload-artifact@v2
+        with:
+          name: jreleaser-native-image-${{ runner.os }}
           path: |
             out/jreleaser/trace.log
             out/jreleaser/output.properties
