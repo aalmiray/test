@@ -175,7 +175,7 @@ jobs:
             out/jreleaser/assemble/jreleaser-installer/jpackage/*.deb
             out/jreleaser/assemble/jreleaser-installer/jpackage/*.rpm
 
-  native-image-arm:
+  arm:
     name: 'NativeImage on linux-arm'
     needs: [precheck, jlink]
     runs-on: ubuntu-latest
@@ -334,7 +334,7 @@ jobs:
 
   release:
     name: Release
-    needs: [precheck, jlink, jpackage, native-image, native-image-arm]
+    needs: [precheck, jlink, jpackage, native-image, arm]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
