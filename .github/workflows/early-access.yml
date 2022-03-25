@@ -315,7 +315,7 @@ jobs:
             java get_jreleaser.java
             cd /workspace && java -jar /home/jreleaser-cli.jar -Djdk.lang.Process.launchMechanism=vfork assemble -s native-image
 
-     - name: JReleaser output
+      - name: JReleaser output
         if: always()
         uses: actions/upload-artifact@v2
         with:
@@ -323,7 +323,7 @@ jobs:
           path: |
             out/jreleaser/trace.log
             out/jreleaser/output.properties
-
+      
       - name: Upload native-image
         uses: actions/upload-artifact@v2
         with:
