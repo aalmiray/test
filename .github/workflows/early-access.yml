@@ -198,14 +198,6 @@ jobs:
           name: jlink
           path: out/jreleaser/assemble/jreleaser-standalone/jlink
 
-      #- name: Setup Graal
-      #  uses: graalvm/setup-graalvm@v1
-      #  with:
-      #    version: '22.0.0.2'
-      #    java-version: ${{ env.JAVA_VERSION }}
-      #    components: 'native-image'
-      #    github-token: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Setup Java
         uses: actions/setup-java@v2
         with:
@@ -301,8 +293,8 @@ jobs:
       - name: Build
         run: ./gradlew :jreleaser:copyJdksFromCache :jreleaser:setupJdks
 
-      - uses: uraimo/run-on-arch-action@v2
-        name: NativeImage
+      - name: NativeImage
+        uses: uraimo/run-on-arch-action@v2
         with:
           arch: aarch64
           distro: ubuntu18.04
