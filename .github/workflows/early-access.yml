@@ -251,7 +251,7 @@ jobs:
           path: |
             out/jreleaser/assemble/jreleaser-native/native-image/*.zip
 
-  arm:
+  native-image-arm:
     name: 'NativeImage on linux-arm'
     needs: [precheck, jlink]
     runs-on: ubuntu-latest
@@ -293,27 +293,27 @@ jobs:
       - name: Build
         run: ./gradlew :jreleaser:copyJdksFromCache :jreleaser:setupJdks
 
-      #- name: NativeImage
-      #  uses: uraimo/run-on-arch-action@v2
-      #  with:
-      #    arch: aarch64
-      #    distro: ubuntu18.04
-      #    githubToken: ${{ secrets.GITHUB_TOKEN }}
-      #    dockerRunArgs: |
-      #      --volume "${PWD}:/workspace"
-      #    env: |
-      #      JRELEASER_PROJECT_VERSION: ${{ needs.precheck.outputs.VERSION }}
-      #    shell: /bin/sh
-      #    install: |
-      #       apt-get update -q -y && apt-get install -q -y git build-essential libz-dev curl unzip
-      #       cd /home && curl -L https://cdn.azul.com/zulu/bin/zulu17.32.13-ca-jdk17.0.2-linux_aarch64.tar.gz --output zulu17.32.13-ca-jdk17.0.2-linux_aarch64.tar.gz
-      #       tar xfz zulu17.32.13-ca-jdk17.0.2-linux_aarch64.tar.gz
-      #    run: |
-      #      export JAVA_HOME=/home/zulu17.32.13-ca-jdk17.0.2-linux_aarch64
-      #      export PATH=$JAVA_HOME/bin:$PATH
-      #      cd /home && curl -sL https://git.io/get-jreleaser > get_jreleaser.java
-      #      java get_jreleaser.java
-      #      cd /workspace && java -jar /home/jreleaser-cli.jar -Djdk.lang.Process.launchMechanism=vfork assemble -s native-image
+      - name: NativeImage
+        uses: uraimo/run-on-arch-action@v2
+        with:
+          arch: aarch64
+          distro: ubuntu18.04
+          githubToken: ${{ secrets.GITHUB_TOKEN }}
+          dockerRunArgs: |
+            --volume "${PWD}:/workspace"
+          env: |
+            JRELEASER_PROJECT_VERSION: ${{ needs.precheck.outputs.VERSION }}
+          shell: /bin/sh
+          install: |
+             apt-get update -q -y && apt-get install -q -y git build-essential libz-dev curl unzip
+             cd /home && curl -L https://cdn.azul.com/zulu/bin/zulu17.32.13-ca-jdk17.0.2-linux_aarch64.tar.gz --output zulu17.32.13-ca-jdk17.0.2-linux_aarch64.tar.gz
+             tar xfz zulu17.32.13-ca-jdk17.0.2-linux_aarch64.tar.gz
+          run: |
+            export JAVA_HOME=/home/zulu17.32.13-ca-jdk17.0.2-linux_aarch64
+            export PATH=$JAVA_HOME/bin:$PATH
+            cd /home && curl -sL https://git.io/get-jreleaser > get_jreleaser.java
+            java get_jreleaser.java
+            cd /workspace && java -jar /home/jreleaser-cli.jar -Djdk.lang.Process.launchMechanism=vfork assemble -s native-image
 
      - name: JReleaser output
         if: always()
@@ -334,7 +334,7 @@ jobs:
 
   release:
     name: Release
-    needs: [precheck, jlink, jpackage, native-image, arm]
+    needs: [precheck, jlink, jpackage, native-image, native-image-arm]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
