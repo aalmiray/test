@@ -259,9 +259,90 @@ jobs:
           path: |
             out/jreleaser/assemble/jreleaser-native/native-image/*.zip
 
+  native-image-arm:
+    name: 'NativeImage on linux-arm'
+    needs: [precheck, jlink]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v2
+        with:
+          name: artifacts
+
+      - name: Download jlink
+        uses: actions/download-artifact@v2
+        with:
+          name: jlink
+          path: out/jreleaser/assemble/jreleaser-standalone/jlink
+
+      - name: Setup Java
+        uses: actions/setup-java@v2
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: ${{ env.JAVA_DISTRO }}
+
+      - uses: actions/cache@v2
+        with:
+          path: ~/.gradle/caches
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle') }}-${{ hashFiles('**/gradle.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+
+      - uses: actions/cache@v2
+        with:
+          path: ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradlew-${{ hashFiles('**/gradlew') }}
+          restore-keys: |
+            ${{ runner.os }}-gradlew-
+
+      - name: Build
+        run: ./gradlew :jreleaser:copyJdksFromCache :jreleaser:setupJdks
+
+      - uses: uraimo/run-on-arch-action@v2
+        name: NativeImage
+        with:
+          arch: aarch64
+          distro: ubuntu18.04
+          githubToken: ${{ secrets.GITHUB_TOKEN }}
+          dockerRunArgs: |
+            --volume "${PWD}:/workspace"
+          env: |
+            JRELEASER_PROJECT_VERSION: ${{ needs.precheck.outputs.VERSION }}
+          shell: /bin/sh
+          install: |
+             apt-get update -q -y && apt-get install -q -y git build-essential libz-dev curl unzip
+             cd /home && curl -L https://cdn.azul.com/zulu/bin/zulu17.32.13-ca-jdk17.0.2-linux_aarch64.tar.gz --output zulu17.32.13-ca-jdk17.0.2-linux_aarch64.tar.gz
+             tar xfz zulu17.32.13-ca-jdk17.0.2-linux_aarch64.tar.gz
+          run: |
+            export JAVA_HOME=/home/zulu17.32.13-ca-jdk17.0.2-linux_aarch64
+            export PATH=$JAVA_HOME/bin:$PATH
+            cd /home && curl -sL https://git.io/get-jreleaser > get_jreleaser.java
+            java get_jreleaser.java
+            cd /workspace && java -jar /home/jreleaser-cli.jar -Djdk.lang.Process.launchMechanism=vfork assemble -s native-image
+
+     - name: JReleaser output
+        if: always()
+        uses: actions/upload-artifact@v2
+        with:
+          name: jreleaser-native-image-linux-arm
+          path: |
+            out/jreleaser/trace.log
+            out/jreleaser/output.properties
+
+      - name: Upload native-image
+        uses: actions/upload-artifact@v2
+        with:
+          retention-days: 1
+          name: native-image
+          path: |
+            out/jreleaser/assemble/jreleaser-native/native-image/*.zip
+
   release:
     name: Release
-    needs: [precheck, jlink, jpackage, native-image]
+    needs: [precheck, jlink, jpackage, native-image, native-image-arm]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
