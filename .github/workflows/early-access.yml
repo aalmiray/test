@@ -34,7 +34,7 @@ jobs:
   jlink:
     needs: [precheck]
     if: endsWith(${{ needs.precheck.outputs.VERSION }}, '-SNAPSHOT')
-    uses: jreleaser/jreleaser/.github/workflows/step-jlink.yml@main
+    uses: aalmiray/test/.github/workflows/step-jlink.yml@main
     with:
       java-version: ${{ needs.precheck.outputs.JAVA_VERSION }}
       java-distro: ${{ needs.precheck.outputs.JAVA_DISTRO }}
@@ -42,7 +42,7 @@ jobs:
 
   jpackage:
     needs: [precheck, jlink]
-    uses: jreleaser/jreleaser/.github/workflows/step-jpackage.yml@main
+    uses: aalmiray/test/.github/workflows/step-jpackage.yml@main
     with:
       java-version: ${{ needs.precheck.outputs.JAVA_VERSION }}
       java-distro: ${{ needs.precheck.outputs.JAVA_DISTRO }}
@@ -50,7 +50,7 @@ jobs:
 
   native-image:
     needs: [precheck, jlink]
-    uses: jreleaser/jreleaser/.github/workflows/step-native-image.yml@main
+    uses: aalmiray/test/.github/workflows/step-native-image.yml@main
     with:
       java-version: ${{ needs.precheck.outputs.JAVA_VERSION }}
       java-distro: ${{ needs.precheck.outputs.JAVA_DISTRO }}
