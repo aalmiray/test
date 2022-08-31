@@ -38,12 +38,20 @@ jobs:
           name: jlink
           path: out/jreleaser/assemble/jreleaser-standalone/jlink
 
-      - name: Setup Java
-        uses: actions/setup-java@v3
-        with:
-          java-version: ${{ inputs.java-version }}
-          distribution: ${{ inputs.java-distro }}
+      #- name: Setup Java
+      #  uses: actions/setup-java@v3
+      #  with:
+      #    java-version: ${{ inputs.java-version }}
+      #    distribution: ${{ inputs.java-distro }}
 
+      - name: 'Set up Graal'
+        uses: graalvm/setup-graalvm@v1
+        with:
+          version: '22.2.0'
+          java-version: '17 '
+          components: 'native-image'
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          
       - uses: actions/cache@v2
         with:
           path: ~/.gradle/caches
@@ -65,7 +73,7 @@ jobs:
 
       - name: Build
         run: ./gradlew :jreleaser:copyJdksFromCache :jreleaser:setupJdks
-
+          
       - name: Install upx
         run: brew install upx
         if: ${{ runner.os == 'macOS' }}
