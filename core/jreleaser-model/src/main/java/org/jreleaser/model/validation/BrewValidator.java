@@ -30,6 +30,7 @@ import org.jreleaser.util.PlatformUtils;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -48,6 +49,7 @@ import static org.jreleaser.util.StringUtils.isTrue;
  */
 public abstract class BrewValidator extends Validator {
     public static void validateBrew(JReleaserContext context, Distribution distribution, Brew packager, Errors errors) {
+        context.getLogger().debug("distribution.{}.brew", distribution.getName());
         JReleaserModel model = context.getModel();
         Brew parentPackager = model.getPackagers().getBrew();
 
@@ -55,18 +57,18 @@ public abstract class BrewValidator extends Validator {
             packager.setActive(parentPackager.getActive());
         }
         if (!packager.resolveEnabled(context.getModel().getProject(), distribution)) {
+            context.getLogger().debug(RB.$("validation.disabled"));
             packager.disable();
             packager.getCask().disable();
             return;
         }
         GitService service = model.getRelease().getGitService();
         if (!service.isReleaseSupported()) {
+            context.getLogger().debug(RB.$("validation.disabled.release"));
             packager.disable();
             packager.getCask().disable();
             return;
         }
-
-        context.getLogger().debug("distribution.{}.brew", distribution.getName());
 
         Brew.Cask cask = preValidateCask(distribution, packager, parentPackager);
 
@@ -87,6 +89,7 @@ public abstract class BrewValidator extends Validator {
         List<Artifact> candidateArtifacts = packager.resolveCandidateArtifacts(context, distribution);
         if (candidateArtifacts.size() == 0) {
             packager.setActive(Active.NEVER);
+            context.getLogger().debug(RB.$("validation.disabled.no.artifacts"));
             packager.disable();
             return;
         }
@@ -132,7 +135,7 @@ public abstract class BrewValidator extends Validator {
     }
 
     private static void validateCask(JReleaserContext context, Distribution distribution, Brew packager, Brew.Cask cask, Errors errors) {
-        if (cask == null || (cask.isEnabledSet() && !cask.isEnabled())) {
+        if (cask == null || cask.isEnabledSet() && !cask.isEnabled()) {
             return;
         }
 
@@ -161,18 +164,22 @@ public abstract class BrewValidator extends Validator {
             return;
         } else if (dmgFound > 1) {
             errors.configuration(RB.$("validation_brew_multiple_artifact", "distribution." + distribution.getName() + ".brew", ".dmg"));
+            context.getLogger().debug(RB.$("validation.disabled.error"));
             cask.disable();
             return;
         } else if (pkgFound > 1) {
             errors.configuration(RB.$("validation_brew_multiple_artifact", "distribution." + distribution.getName() + ".brew", ".pkg"));
+            context.getLogger().debug(RB.$("validation.disabled.error"));
             cask.disable();
             return;
         } else if (zipFound > 1) {
             errors.configuration(RB.$("validation_brew_multiple_artifact", "distribution." + distribution.getName() + ".brew", ".zip"));
+            context.getLogger().debug(RB.$("validation.disabled.error"));
             cask.disable();
             return;
         } else if (dmgFound + pkgFound + zipFound > 1) {
             errors.configuration(RB.$("validation_brew_single_artifact", "distribution." + distribution.getName() + ".brew"));
+            context.getLogger().debug(RB.$("validation.disabled.error"));
             cask.disable();
             return;
         }
@@ -204,7 +211,7 @@ public abstract class BrewValidator extends Validator {
         }
 
         if (isBlank(cask.getName())) {
-            cask.setName(packager.getResolvedFormulaName(context).toLowerCase());
+            cask.setName(packager.getResolvedFormulaName(context).toLowerCase(Locale.ENGLISH));
         }
         if (isBlank(cask.getDisplayName())) {
             cask.setDisplayName(packager.getResolvedFormulaName(context));

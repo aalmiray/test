@@ -22,9 +22,11 @@ import org.jreleaser.util.FileType;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static java.util.Comparator.naturalOrder;
 import static java.util.stream.Collectors.toList;
@@ -33,7 +35,7 @@ import static java.util.stream.Collectors.toList;
  * @author Andres Almiray
  * @since 0.1.0
  */
-public abstract class AbstractPackager implements Packager {
+public abstract class AbstractPackager<S extends AbstractPackager<S>> extends AbstractModelObject<S> implements Packager {
     @JsonIgnore
     protected final String type;
     protected final Map<String, Object> extraProperties = new LinkedHashMap<>();
@@ -49,13 +51,20 @@ public abstract class AbstractPackager implements Packager {
         this.type = type;
     }
 
-    void setAll(AbstractPackager packager) {
-        this.active = packager.active;
-        this.enabled = packager.enabled;
+    @Override
+    public void merge(S packager) {
+        freezeCheck();
+        this.active = merge(this.active, packager.active);
+        this.enabled = merge(this.enabled, packager.enabled);
+        this.continueOnError = merge(this.continueOnError, packager.continueOnError);
+        this.downloadUrl = merge(this.downloadUrl, packager.downloadUrl);
         this.failed = packager.failed;
-        this.continueOnError = packager.continueOnError;
-        this.downloadUrl = packager.downloadUrl;
-        setExtraProperties(packager.extraProperties);
+        setExtraProperties(merge(this.extraProperties, packager.extraProperties));
+    }
+
+    @Override
+    public Set<Stereotype> getSupportedStereotypes() {
+        return EnumSet.allOf(Stereotype.class);
     }
 
     @Override
@@ -79,7 +88,7 @@ public abstract class AbstractPackager implements Packager {
             .filter(artifact -> supportsPlatform(artifact.getPlatform()))
             .filter(this::isNotSkipped)
             .sorted(Artifact.comparatorByPlatform().thenComparingInt(artifact -> {
-                String ext = FileType.getFileNameExtension(artifact.getResolvedPath(context, distribution));
+                String ext = FileType.getExtension(artifact.getResolvedPath(context, distribution));
                 return fileExtensions.indexOf(ext);
             }))
             .collect(toList());
@@ -104,6 +113,7 @@ public abstract class AbstractPackager implements Packager {
 
     @Override
     public void disable() {
+        freezeCheck();
         active = Active.NEVER;
         enabled = false;
     }
@@ -115,6 +125,7 @@ public abstract class AbstractPackager implements Packager {
 
     @Override
     public void setContinueOnError(Boolean continueOnError) {
+        freezeCheck();
         this.continueOnError = continueOnError;
     }
 
@@ -124,6 +135,7 @@ public abstract class AbstractPackager implements Packager {
     }
 
     public boolean resolveEnabled(Project project) {
+        freezeCheck();
         if (null == active) {
             active = Active.NEVER;
         }
@@ -133,6 +145,7 @@ public abstract class AbstractPackager implements Packager {
     }
 
     public boolean resolveEnabled(Project project, Distribution distribution) {
+        freezeCheck();
         if (null == active) {
             active = Active.NEVER;
         }
@@ -150,12 +163,13 @@ public abstract class AbstractPackager implements Packager {
 
     @Override
     public void setActive(Active active) {
+        freezeCheck();
         this.active = active;
     }
 
     @Override
     public void setActive(String str) {
-        this.active = Active.of(str);
+        setActive(Active.of(str));
     }
 
     @Override
@@ -170,17 +184,19 @@ public abstract class AbstractPackager implements Packager {
 
     @Override
     public Map<String, Object> getExtraProperties() {
-        return extraProperties;
+        return freezeWrap(extraProperties);
     }
 
     @Override
     public void setExtraProperties(Map<String, Object> extraProperties) {
+        freezeCheck();
         this.extraProperties.clear();
         this.extraProperties.putAll(extraProperties);
     }
 
     @Override
     public void addExtraProperties(Map<String, Object> extraProperties) {
+        freezeCheck();
         this.extraProperties.putAll(extraProperties);
     }
 
@@ -191,6 +207,7 @@ public abstract class AbstractPackager implements Packager {
 
     @Override
     public void setDownloadUrl(String downloadUrl) {
+        freezeCheck();
         this.downloadUrl = downloadUrl;
     }
 

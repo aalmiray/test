@@ -30,7 +30,7 @@ import static org.jreleaser.model.Distribution.DistributionType.BINARY;
 import static org.jreleaser.model.Distribution.DistributionType.JAVA_BINARY;
 import static org.jreleaser.model.Distribution.DistributionType.JLINK;
 import static org.jreleaser.model.Distribution.DistributionType.NATIVE_IMAGE;
-import static org.jreleaser.util.CollectionUtils.newSet;
+import static org.jreleaser.util.CollectionUtils.setOf;
 import static org.jreleaser.util.FileType.TAR;
 import static org.jreleaser.util.FileType.TAR_BZ2;
 import static org.jreleaser.util.FileType.TAR_GZ;
@@ -46,14 +46,14 @@ import static org.jreleaser.util.StringUtils.isFalse;
  * @author Andres Almiray
  * @since 0.9.1
  */
-public class Spec extends AbstractRepositoryPackager {
+public class Spec extends AbstractRepositoryPackager<Spec> {
     public static final String TYPE = "spec";
     public static final String SKIP_SPEC = "skipSpec";
 
     private static final Map<Distribution.DistributionType, Set<String>> SUPPORTED = new LinkedHashMap<>();
 
     static {
-        Set<String> extensions = newSet(
+        Set<String> extensions = setOf(
             TAR_BZ2.extension(),
             TAR_GZ.extension(),
             TAR_XZ.extension(),
@@ -79,12 +79,20 @@ public class Spec extends AbstractRepositoryPackager {
         super(TYPE);
     }
 
-    void setAll(Spec spec) {
-        super.setAll(spec);
-        this.packageName = spec.packageName;
-        this.release = spec.release;
+    @Override
+    public void freeze() {
+        super.freeze();
+        repository.freeze();
+    }
+
+    @Override
+    public void merge(Spec spec) {
+        freezeCheck();
+        super.merge(spec);
+        this.packageName = merge(this.packageName, spec.packageName);
+        this.release = merge(this.release, spec.release);
         setRepository(spec.repository);
-        setRequires(spec.requires);
+        setRequires(merge(this.requires, spec.requires));
     }
 
     public String getPackageName() {
@@ -92,6 +100,7 @@ public class Spec extends AbstractRepositoryPackager {
     }
 
     public void setPackageName(String packageName) {
+        freezeCheck();
         this.packageName = packageName;
     }
 
@@ -100,6 +109,7 @@ public class Spec extends AbstractRepositoryPackager {
     }
 
     public void setRelease(String release) {
+        freezeCheck();
         this.release = release;
     }
 
@@ -108,14 +118,15 @@ public class Spec extends AbstractRepositoryPackager {
     }
 
     public void setRepository(SpecRepository repository) {
-        this.repository.setAll(repository);
+        this.repository.merge(repository);
     }
 
     public List<String> getRequires() {
-        return requires;
+        return freezeWrap(requires);
     }
 
     public void setRequires(List<String> requires) {
+        freezeCheck();
         this.requires.clear();
         this.requires.addAll(requires);
     }
@@ -137,7 +148,7 @@ public class Spec extends AbstractRepositoryPackager {
     @Override
     public boolean supportsPlatform(String platform) {
         return isBlank(platform) ||
-            (PlatformUtils.isLinux(platform) && PlatformUtils.isIntel(platform) && !PlatformUtils.isAlpineLinux(platform));
+            PlatformUtils.isLinux(platform) && PlatformUtils.isIntel(platform) && !PlatformUtils.isAlpineLinux(platform);
     }
 
     @Override
@@ -147,7 +158,7 @@ public class Spec extends AbstractRepositoryPackager {
 
     @Override
     public Set<String> getSupportedExtensions(Distribution distribution) {
-        return SUPPORTED.getOrDefault(distribution.getType(), Collections.emptySet());
+        return Collections.unmodifiableSet(SUPPORTED.getOrDefault(distribution.getType(), Collections.emptySet()));
     }
 
     @Override
@@ -155,7 +166,7 @@ public class Spec extends AbstractRepositoryPackager {
         return isFalse(artifact.getExtraProperties().get(SKIP_SPEC));
     }
 
-    public static class SpecRepository extends AbstractRepositoryTap {
+    public static class SpecRepository extends AbstractRepositoryTap<SpecRepository> {
         public SpecRepository() {
             super("spec", "spec");
         }

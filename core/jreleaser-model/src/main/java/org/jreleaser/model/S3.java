@@ -33,7 +33,7 @@ import static org.jreleaser.util.Templates.resolveTemplate;
  * @author Andres Almiray
  * @since 0.8.0
  */
-public class S3 extends AbstractUploader {
+public class S3 extends AbstractUploader<S3> {
     public static final String TYPE = "s3";
 
     private final Map<String, String> headers = new LinkedHashMap<>();
@@ -50,17 +50,19 @@ public class S3 extends AbstractUploader {
         super(TYPE);
     }
 
-    void setAll(S3 s3) {
-        super.setAll(s3);
-        this.region = s3.region;
-        this.bucket = s3.bucket;
-        this.path = s3.path;
-        this.downloadUrl = s3.downloadUrl;
-        this.endpoint = s3.endpoint;
-        this.accessKeyId = s3.accessKeyId;
-        this.secretKey = s3.secretKey;
-        this.sessionToken = s3.sessionToken;
-        setHeaders(s3.headers);
+    @Override
+    public void merge(S3 s3) {
+        freezeCheck();
+        super.merge(s3);
+        this.region = merge(this.region, s3.region);
+        this.bucket = merge(this.bucket, s3.bucket);
+        this.path = merge(this.path, s3.path);
+        this.downloadUrl = merge(this.downloadUrl, s3.downloadUrl);
+        this.endpoint = merge(this.endpoint, s3.endpoint);
+        this.accessKeyId = merge(this.accessKeyId, s3.accessKeyId);
+        this.secretKey = merge(this.secretKey, s3.secretKey);
+        this.sessionToken = merge(this.sessionToken, s3.sessionToken);
+        setHeaders(merge(this.headers, s3.headers));
     }
 
     @Override
@@ -104,35 +106,35 @@ public class S3 extends AbstractUploader {
     }
 
     public String getResolvedRegion() {
-        return Env.resolve("S3_" + Env.toVar(name) + "_REGION", region);
+        return Env.env("S3_" + Env.toVar(name) + "_REGION", region);
     }
 
     public String getResolvedBucket() {
-        return Env.resolve("S3_" + Env.toVar(name) + "_BUCKET", bucket);
+        return Env.env("S3_" + Env.toVar(name) + "_BUCKET", bucket);
     }
 
     public String getResolvedAccessKeyId() {
-        return Env.resolve("S3_" + Env.toVar(name) + "_ACCESS_KEY_ID", accessKeyId);
+        return Env.env("S3_" + Env.toVar(name) + "_ACCESS_KEY_ID", accessKeyId);
     }
 
     public String getResolvedSecretKey() {
-        return Env.resolve("S3_" + Env.toVar(name) + "_SECRET_KEY", secretKey);
+        return Env.env("S3_" + Env.toVar(name) + "_SECRET_KEY", secretKey);
     }
 
     public String getResolvedSessionToken() {
-        return Env.resolve("S3_" + Env.toVar(name) + "_SESSION_TOKEN", sessionToken);
+        return Env.env("S3_" + Env.toVar(name) + "_SESSION_TOKEN", sessionToken);
     }
 
     public String getResolvedPath() {
-        return Env.resolve("S3_" + Env.toVar(name) + "_PATH", path);
+        return Env.env("S3_" + Env.toVar(name) + "_PATH", path);
     }
 
     public String getResolvedDownloadUrl() {
-        return Env.resolve("S3_" + Env.toVar(name) + "_DOWNLOAD_URL", downloadUrl);
+        return Env.env("S3_" + Env.toVar(name) + "_DOWNLOAD_URL", downloadUrl);
     }
 
     public String getResolvedEndpoint() {
-        return Env.resolve("S3_" + Env.toVar(name) + "_ENDPOINT", endpoint);
+        return Env.env("S3_" + Env.toVar(name) + "_ENDPOINT", endpoint);
     }
 
     public String getRegion() {
@@ -140,6 +142,7 @@ public class S3 extends AbstractUploader {
     }
 
     public void setRegion(String region) {
+        freezeCheck();
         this.region = region;
     }
 
@@ -148,6 +151,7 @@ public class S3 extends AbstractUploader {
     }
 
     public void setBucket(String bucket) {
+        freezeCheck();
         this.bucket = bucket;
     }
 
@@ -156,6 +160,7 @@ public class S3 extends AbstractUploader {
     }
 
     public void setAccessKeyId(String accessKeyId) {
+        freezeCheck();
         this.accessKeyId = accessKeyId;
     }
 
@@ -164,6 +169,7 @@ public class S3 extends AbstractUploader {
     }
 
     public void setSecretKey(String secretKey) {
+        freezeCheck();
         this.secretKey = secretKey;
     }
 
@@ -172,6 +178,7 @@ public class S3 extends AbstractUploader {
     }
 
     public void setSessionToken(String sessionToken) {
+        freezeCheck();
         this.sessionToken = sessionToken;
     }
 
@@ -180,6 +187,7 @@ public class S3 extends AbstractUploader {
     }
 
     public void setPath(String path) {
+        freezeCheck();
         this.path = path;
     }
 
@@ -188,6 +196,7 @@ public class S3 extends AbstractUploader {
     }
 
     public void setDownloadUrl(String downloadUrl) {
+        freezeCheck();
         this.downloadUrl = downloadUrl;
     }
 
@@ -196,18 +205,16 @@ public class S3 extends AbstractUploader {
     }
 
     public void setEndpoint(String endpoint) {
+        freezeCheck();
         this.endpoint = endpoint;
     }
 
     public Map<String, String> getHeaders() {
-        return headers;
+        return freezeWrap(headers);
     }
 
     public void setHeaders(Map<String, String> headers) {
-        this.headers.putAll(headers);
-    }
-
-    public void addHeaders(Map<String, String> headers) {
+        freezeCheck();
         this.headers.putAll(headers);
     }
 

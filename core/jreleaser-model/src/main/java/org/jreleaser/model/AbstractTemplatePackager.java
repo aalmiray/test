@@ -27,7 +27,7 @@ import static org.jreleaser.util.StringUtils.isNotBlank;
  * @author Andres Almiray
  * @since 0.6.0
  */
-public abstract class AbstractTemplatePackager extends AbstractPackager implements TemplatePackager {
+public abstract class AbstractTemplatePackager<S extends AbstractTemplatePackager<S>> extends AbstractPackager<S> implements TemplatePackager {
     protected final List<String> skipTemplates = new ArrayList<>();
     protected String templateDirectory;
 
@@ -35,10 +35,12 @@ public abstract class AbstractTemplatePackager extends AbstractPackager implemen
         super(type);
     }
 
-    void setAll(AbstractTemplatePackager packager) {
-        super.setAll(packager);
-        this.templateDirectory = packager.templateDirectory;
-        setSkipTemplates(packager.skipTemplates);
+    @Override
+    public void merge(S packager) {
+        freezeCheck();
+        super.merge(packager);
+        this.templateDirectory = merge(this.templateDirectory, packager.templateDirectory);
+        setSkipTemplates(merge(this.skipTemplates, packager.skipTemplates));
     }
 
     @Override
@@ -48,27 +50,31 @@ public abstract class AbstractTemplatePackager extends AbstractPackager implemen
 
     @Override
     public void setTemplateDirectory(String templateDirectory) {
+        freezeCheck();
         this.templateDirectory = templateDirectory;
     }
 
     @Override
     public List<String> getSkipTemplates() {
-        return skipTemplates;
+        return freezeWrap(skipTemplates);
     }
 
     @Override
     public void setSkipTemplates(List<String> skipTemplates) {
+        freezeCheck();
         this.skipTemplates.clear();
         this.skipTemplates.addAll(skipTemplates);
     }
 
     @Override
     public void addSkipTemplates(List<String> templates) {
+        freezeCheck();
         this.skipTemplates.addAll(templates);
     }
 
     @Override
     public void addSkipTemplate(String template) {
+        freezeCheck();
         if (isNotBlank(template)) {
             this.skipTemplates.add(template.trim());
         }

@@ -27,7 +27,7 @@ import static org.jreleaser.util.StringUtils.isNotBlank;
  * @author Andres Almiray
  * @since 0.1.0
  */
-public class Java implements Domain, ExtraProperties, EnabledAware {
+public class Java extends AbstractModelObject<Java> implements Domain, ExtraProperties, EnabledAware {
     private final Map<String, Object> extraProperties = new LinkedHashMap<>();
 
     protected Boolean enabled;
@@ -38,15 +38,17 @@ public class Java implements Domain, ExtraProperties, EnabledAware {
     private String mainClass;
     private Boolean multiProject;
 
-    void setAll(Java java) {
-        this.enabled = java.enabled;
-        this.version = java.version;
-        this.groupId = java.groupId;
-        this.artifactId = java.artifactId;
-        this.mainModule = java.mainModule;
-        this.mainClass = java.mainClass;
-        this.multiProject = java.multiProject;
-        setExtraProperties(java.extraProperties);
+    @Override
+    public void merge(Java java) {
+        freezeCheck();
+        this.enabled = merge(this.enabled, java.enabled);
+        this.version = merge(this.version, java.version);
+        this.groupId = merge(this.groupId, java.groupId);
+        this.artifactId = merge(this.artifactId, java.artifactId);
+        this.mainModule = merge(this.mainModule, java.mainModule);
+        this.mainClass = merge(this.mainClass, java.mainClass);
+        this.multiProject = merge(this.multiProject, java.multiProject);
+        setExtraProperties(merge(this.extraProperties, java.extraProperties));
     }
 
     @Override
@@ -56,6 +58,7 @@ public class Java implements Domain, ExtraProperties, EnabledAware {
 
     @Override
     public void setEnabled(Boolean enabled) {
+        freezeCheck();
         this.enabled = enabled;
     }
 
@@ -74,6 +77,7 @@ public class Java implements Domain, ExtraProperties, EnabledAware {
     }
 
     public void setVersion(String version) {
+        freezeCheck();
         if (isNotBlank(version) && version.startsWith("1.8")) {
             this.version = "8";
         } else {
@@ -86,6 +90,7 @@ public class Java implements Domain, ExtraProperties, EnabledAware {
     }
 
     public void setGroupId(String groupId) {
+        freezeCheck();
         this.groupId = groupId;
     }
 
@@ -94,6 +99,7 @@ public class Java implements Domain, ExtraProperties, EnabledAware {
     }
 
     public void setArtifactId(String artifactId) {
+        freezeCheck();
         this.artifactId = artifactId;
     }
 
@@ -101,7 +107,8 @@ public class Java implements Domain, ExtraProperties, EnabledAware {
         return multiProject != null && multiProject;
     }
 
-    public void setMultiProject(boolean multiProject) {
+    public void setMultiProject(Boolean multiProject) {
+        freezeCheck();
         this.multiProject = multiProject;
     }
 
@@ -110,6 +117,7 @@ public class Java implements Domain, ExtraProperties, EnabledAware {
     }
 
     public void setMainClass(String mainClass) {
+        freezeCheck();
         this.mainClass = mainClass;
     }
 
@@ -118,6 +126,7 @@ public class Java implements Domain, ExtraProperties, EnabledAware {
     }
 
     public void setMainModule(String mainModule) {
+        freezeCheck();
         this.mainModule = mainModule;
     }
 
@@ -127,17 +136,19 @@ public class Java implements Domain, ExtraProperties, EnabledAware {
 
     @Override
     public Map<String, Object> getExtraProperties() {
-        return extraProperties;
+        return freezeWrap(extraProperties);
     }
 
     @Override
     public void setExtraProperties(Map<String, Object> extraProperties) {
+        freezeCheck();
         this.extraProperties.clear();
         this.extraProperties.putAll(extraProperties);
     }
 
     @Override
     public void addExtraProperties(Map<String, Object> extraProperties) {
+        freezeCheck();
         this.extraProperties.putAll(extraProperties);
     }
 

@@ -29,6 +29,7 @@ import org.jreleaser.util.SemVer;
 
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatterBuilder;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -37,7 +38,7 @@ import java.util.stream.Collectors;
 
 import static java.time.format.DateTimeFormatter.ISO_LOCAL_DATE_TIME;
 import static org.jreleaser.util.MustacheUtils.applyTemplates;
-import static org.jreleaser.util.StringUtils.getClassNameForLowerCaseHyphenSeparatedName;
+import static org.jreleaser.util.StringUtils.getCapitalizedName;
 import static org.jreleaser.util.StringUtils.isBlank;
 import static org.jreleaser.util.StringUtils.isNotBlank;
 
@@ -48,11 +49,13 @@ import static org.jreleaser.util.StringUtils.isNotBlank;
 @org.jreleaser.infra.nativeimage.annotations.NativeImage
 public class JReleaserModel implements Domain {
     private final Environment environment = new Environment();
+    private final Hooks hooks = new Hooks();
     private final Project project = new Project();
     private final Platform platform = new Platform();
     private final Release release = new Release();
     private final Packagers packagers = new Packagers();
     private final Announce announce = new Announce();
+    private final Download download = new Download();
     private final Assemble assemble = new Assemble();
     private final Upload upload = new Upload();
     private final Checksum checksum = new Checksum();
@@ -66,6 +69,8 @@ public class JReleaserModel implements Domain {
     private final String timestamp;
     @JsonIgnore
     private Commit commit;
+    @JsonIgnore
+    private boolean frozen;
 
     public JReleaserModel() {
         this.now = ZonedDateTime.now();
@@ -75,6 +80,33 @@ public class JReleaserModel implements Domain {
             .appendOffset("+HH:MM", "Z")
             .optionalEnd()
             .toFormatter());
+    }
+
+    public void freeze() {
+        freezeCheck();
+        frozen = true;
+        environment.freeze();
+        hooks.freeze();
+        project.freeze();
+        platform.freeze();
+        release.freeze();
+        packagers.freeze();
+        announce.freeze();
+        download.freeze();
+        assemble.freeze();
+        upload.freeze();
+        checksum.freeze();
+        signing.freeze();
+        files.freeze();
+        distributions.values().forEach(Distribution::freeze);
+    }
+
+    private void freezeCheck() {
+        if (frozen) throw new UnsupportedOperationException();
+    }
+
+    private <K, V> Map<K, V> freezeWrap(Map<K, V> map) {
+        return frozen ? Collections.unmodifiableMap(map) : map;
     }
 
     public ZonedDateTime getNow() {
@@ -90,6 +122,7 @@ public class JReleaserModel implements Domain {
     }
 
     public void setCommit(Commit commit) {
+        freezeCheck();
         this.commit = commit;
     }
 
@@ -98,7 +131,15 @@ public class JReleaserModel implements Domain {
     }
 
     public void setEnvironment(Environment environment) {
-        this.environment.setAll(environment);
+        this.environment.merge(environment);
+    }
+
+    public Hooks getHooks() {
+        return hooks;
+    }
+
+    public void setHooks(Hooks hooks) {
+        this.hooks.merge(hooks);
     }
 
     public Platform getPlatform() {
@@ -106,7 +147,7 @@ public class JReleaserModel implements Domain {
     }
 
     public void setPlatform(Platform platform) {
-        this.platform.setAll(platform);
+        this.platform.merge(platform);
     }
 
     public Project getProject() {
@@ -114,7 +155,7 @@ public class JReleaserModel implements Domain {
     }
 
     public void setProject(Project project) {
-        this.project.setAll(project);
+        this.project.merge(project);
     }
 
     public Release getRelease() {
@@ -122,7 +163,7 @@ public class JReleaserModel implements Domain {
     }
 
     public void setRelease(Release release) {
-        this.release.setAll(release);
+        this.release.merge(release);
     }
 
     public Packagers getPackagers() {
@@ -130,7 +171,7 @@ public class JReleaserModel implements Domain {
     }
 
     public void setPackagers(Packagers packagers) {
-        this.packagers.setAll(packagers);
+        this.packagers.merge(packagers);
     }
 
     public Announce getAnnounce() {
@@ -138,7 +179,7 @@ public class JReleaserModel implements Domain {
     }
 
     public void setAnnounce(Announce announce) {
-        this.announce.setAll(announce);
+        this.announce.merge(announce);
     }
 
     public Assemble getAssemble() {
@@ -146,7 +187,15 @@ public class JReleaserModel implements Domain {
     }
 
     public void setAssemble(Assemble assemble) {
-        this.assemble.setAll(assemble);
+        this.assemble.merge(assemble);
+    }
+
+    public Download getDownload() {
+        return download;
+    }
+
+    public void setDownload(Download download) {
+        this.download.merge(download);
     }
 
     public Upload getUpload() {
@@ -154,7 +203,7 @@ public class JReleaserModel implements Domain {
     }
 
     public void setUpload(Upload upload) {
-        this.upload.setAll(upload);
+        this.upload.merge(upload);
     }
 
     public Checksum getChecksum() {
@@ -162,7 +211,7 @@ public class JReleaserModel implements Domain {
     }
 
     public void setChecksum(Checksum checksum) {
-        this.checksum.setAll(checksum);
+        this.checksum.merge(checksum);
     }
 
     public Signing getSigning() {
@@ -170,7 +219,7 @@ public class JReleaserModel implements Domain {
     }
 
     public void setSigning(Signing signing) {
-        this.signing.setAll(signing);
+        this.signing.merge(signing);
     }
 
     public Files getFiles() {
@@ -178,7 +227,7 @@ public class JReleaserModel implements Domain {
     }
 
     public void setFiles(Files files) {
-        this.files.setAll(files);
+        this.files.merge(files);
     }
 
     public List<Distribution> getActiveDistributions() {
@@ -188,19 +237,17 @@ public class JReleaserModel implements Domain {
     }
 
     public Map<String, Distribution> getDistributions() {
-        return distributions;
+        return freezeWrap(distributions);
     }
 
     public void setDistributions(Map<String, Distribution> distributions) {
+        freezeCheck();
         this.distributions.clear();
         this.distributions.putAll(distributions);
     }
 
-    public void addDistributions(Map<String, Distribution> distributions) {
-        this.distributions.putAll(distributions);
-    }
-
     public void addDistribution(Distribution distribution) {
+        freezeCheck();
         this.distributions.put(distribution.getName(), distribution);
     }
 
@@ -219,6 +266,7 @@ public class JReleaserModel implements Domain {
     public Map<String, Object> asMap(boolean full) {
         Map<String, Object> map = new LinkedHashMap<>();
         if (full || environment.isSet()) map.put("environment", environment.asMap(full));
+        if (full || hooks.isSet()) map.put("hooks", hooks.asMap(full));
         map.put("project", project.asMap(full));
         if (full || platform.isSet()) map.put("platform", platform.asMap(full));
         map.put("release", release.asMap(full));
@@ -227,6 +275,7 @@ public class JReleaserModel implements Domain {
         if (full || announce.isEnabled()) map.put("announce", announce.asMap(full));
         if (!files.isEmpty()) map.put("files", files.asMap(full));
         if (full || packagers.hasEnabledPackagers()) map.put("packagers", packagers.asMap(full));
+        if (full || download.isEnabled()) map.put("download", download.asMap(full));
         if (full || assemble.isEnabled()) map.put("assemble", assemble.asMap(full));
         if (full || upload.isEnabled()) map.put("upload", upload.asMap(full));
 
@@ -278,8 +327,9 @@ public class JReleaserModel implements Domain {
             props.put(Constants.KEY_COMMIT_FULL_HASH, commit.getFullHash());
         }
         props.put(Constants.KEY_PROJECT_NAME, project.getName());
-        props.put(Constants.KEY_PROJECT_NAME_CAPITALIZED, getClassNameForLowerCaseHyphenSeparatedName(project.getName()));
+        props.put(Constants.KEY_PROJECT_NAME_CAPITALIZED, getCapitalizedName(project.getName()));
         props.put(Constants.KEY_PROJECT_VERSION, project.getVersion());
+        props.put(Constants.KEY_PROJECT_STEREOTYPE, project.getStereotype());
         props.put(Constants.KEY_PROJECT_EFFECTIVE_VERSION, project.getEffectiveVersion());
         props.put(Constants.KEY_PROJECT_SNAPSHOT, String.valueOf(project.isSnapshot()));
         if (isNotBlank(project.getDescription())) {
@@ -288,17 +338,11 @@ public class JReleaserModel implements Domain {
         if (isNotBlank(project.getLongDescription())) {
             props.put(Constants.KEY_PROJECT_LONG_DESCRIPTION, MustacheUtils.passThrough(project.getLongDescription()));
         }
-        if (isNotBlank(project.getWebsite())) {
-            props.put(Constants.KEY_PROJECT_WEBSITE, project.getWebsite());
-        }
         if (isNotBlank(project.getLicense())) {
             props.put(Constants.KEY_PROJECT_LICENSE, project.getLicense());
         }
-        if (isNotBlank(project.getLicense())) {
-            props.put(Constants.KEY_PROJECT_LICENSE_URL, project.getLicenseUrl());
-        }
-        if (isNotBlank(project.getDocsUrl())) {
-            props.put(Constants.KEY_PROJECT_DOCS_URL, project.getDocsUrl());
+        if (null != project.getInceptionYear()) {
+            props.put(Constants.KEY_PROJECT_INCEPTION_YEAR, project.getInceptionYear());
         }
         if (isNotBlank(project.getCopyright())) {
             props.put(Constants.KEY_PROJECT_COPYRIGHT, project.getCopyright());
@@ -306,6 +350,7 @@ public class JReleaserModel implements Domain {
         if (isNotBlank(project.getVendor())) {
             props.put(Constants.KEY_PROJECT_VENDOR, project.getVendor());
         }
+        project.getLinks().fillProps(props);
         props.put(Constants.KEY_PROJECT_AUTHORS_BY_SPACE, String.join(" ", project.getAuthors()));
         props.put(Constants.KEY_PROJECT_AUTHORS_BY_COMMA, String.join(",", project.getAuthors()));
         props.put(Constants.KEY_PROJECT_TAGS_BY_SPACE, String.join(" ", project.getTags()));

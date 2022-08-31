@@ -24,22 +24,13 @@ import org.jreleaser.util.JReleaserException;
 import org.jreleaser.util.PlatformUtils;
 
 import java.io.File;
-import java.io.IOException;
-import java.nio.file.FileSystems;
-import java.nio.file.FileVisitResult;
 import java.nio.file.Path;
-import java.nio.file.PathMatcher;
 import java.nio.file.Paths;
-import java.nio.file.SimpleFileVisitor;
-import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Collections;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 
-import static java.nio.file.FileVisitResult.CONTINUE;
-import static java.nio.file.FileVisitResult.SKIP_SUBTREE;
 import static java.nio.file.Files.exists;
 import static org.jreleaser.util.StringUtils.isBlank;
 import static org.jreleaser.util.StringUtils.isNotBlank;
@@ -48,7 +39,7 @@ import static org.jreleaser.util.StringUtils.isNotBlank;
  * @author Andres Almiray
  * @since 0.1.0
  */
-public class Glob implements Domain, ExtraProperties {
+public class Glob extends AbstractModelObject<Glob> implements Domain, ExtraProperties {
     private static final String GLOB_PREFIX = "glob:";
     private static final String REGEX_PREFIX = "regex:";
 
@@ -60,17 +51,13 @@ public class Glob implements Domain, ExtraProperties {
     private Set<Artifact> artifacts;
 
     private String directory;
-    @JsonIgnore
-    private String include;
-    @JsonIgnore
-    private String exclude;
-    @JsonIgnore
-    private Boolean recursive;
 
-    void setAll(Glob glob) {
-        this.pattern = glob.pattern;
-        this.platform = glob.platform;
-        setExtraProperties(glob.extraProperties);
+    @Override
+    public void merge(Glob glob) {
+        freezeCheck();
+        this.pattern = merge(this.pattern, glob.pattern);
+        this.platform = merge(this.platform, glob.platform);
+        setExtraProperties(merge(this.extraProperties, glob.extraProperties));
     }
 
     @Override
@@ -80,17 +67,19 @@ public class Glob implements Domain, ExtraProperties {
 
     @Override
     public Map<String, Object> getExtraProperties() {
-        return extraProperties;
+        return freezeWrap(extraProperties);
     }
 
     @Override
     public void setExtraProperties(Map<String, Object> extraProperties) {
+        freezeCheck();
         this.extraProperties.clear();
         this.extraProperties.putAll(extraProperties);
     }
 
     @Override
     public void addExtraProperties(Map<String, Object> extraProperties) {
+        freezeCheck();
         this.extraProperties.putAll(extraProperties);
     }
 
@@ -100,8 +89,8 @@ public class Glob implements Domain, ExtraProperties {
 
     public Set<Artifact> getResolvedArtifactsPattern(JReleaserContext context) {
         if (null == artifacts) {
-            setPattern(Artifacts.resolveForGlob(getPattern(), context, this));
-            normalizePattern();
+            mutate(() -> setPattern(Artifacts.resolveForGlob(getPattern(), context, this)));
+            normalizePattern(resolveDirectory(context));
             artifacts = Artifacts.resolveFiles(context, resolveDirectory(context), Collections.singletonList(pattern));
             artifacts.forEach(artifact -> {
                 artifact.setPlatform(platform);
@@ -132,11 +121,12 @@ public class Glob implements Domain, ExtraProperties {
     }
 
     public void setPattern(String pattern) {
+        freezeCheck();
         if (isBlank(pattern)) return;
         this.pattern = pattern.trim();
     }
 
-    private void normalizePattern() {
+    private void normalizePattern(Path basedir) {
         if (!pattern.startsWith(GLOB_PREFIX) && !pattern.startsWith(REGEX_PREFIX)) {
             this.pattern = GLOB_PREFIX + pattern;
         }
@@ -149,6 +139,8 @@ public class Glob implements Domain, ExtraProperties {
             }
             if (!Paths.get(test).isAbsolute()) {
                 this.pattern = GLOB_PREFIX + "**" + File.separator + path;
+            } else {
+                this.pattern = GLOB_PREFIX + "**" + relativize(basedir, Paths.get(path));
             }
         } else {
             String path = this.pattern.substring(REGEX_PREFIX.length());
@@ -158,6 +150,8 @@ public class Glob implements Domain, ExtraProperties {
             }
             if (!Paths.get(test).isAbsolute()) {
                 this.pattern = REGEX_PREFIX + ".*" + File.separator + path;
+            } else {
+                this.pattern = REGEX_PREFIX + ".*" + relativize(basedir, Paths.get(path));
             }
         }
 
@@ -166,11 +160,18 @@ public class Glob implements Domain, ExtraProperties {
         }
     }
 
+    public Path relativize(Path base, Path other) {
+        Path p1 = base.toAbsolutePath();
+        Path p2 = other.toAbsolutePath();
+        return p1.relativize(p2).normalize();
+    }
+
     public String getPlatform() {
         return platform;
     }
 
     public void setPlatform(String platform) {
+        freezeCheck();
         this.platform = platform;
     }
 
@@ -179,23 +180,8 @@ public class Glob implements Domain, ExtraProperties {
     }
 
     public void setDirectory(String directory) {
+        freezeCheck();
         this.directory = directory;
-    }
-
-    public String getInclude() {
-        return include;
-    }
-
-    public String getExclude() {
-        return exclude;
-    }
-
-    public Boolean isRecursive() {
-        return recursive != null && recursive;
-    }
-
-    public boolean isRecursiveSet() {
-        return recursive != null;
     }
 
     @Override
@@ -205,82 +191,6 @@ public class Glob implements Domain, ExtraProperties {
         props.put("platform", platform);
         props.put("extraProperties", getResolvedExtraProperties());
         props.put("directory", directory);
-        props.put("include", include);
-        props.put("exclude", exclude);
-        if (isBlank(pattern)) props.put("recursive", isRecursive());
         return props;
-    }
-
-    public static class FileCollector extends SimpleFileVisitor<Path> {
-        private final PathMatcher includeMatcher;
-        private final Set<Path> files = new LinkedHashSet<>();
-        private final JReleaserContext context;
-        private final boolean recursive;
-        private final Path start;
-
-        private PathMatcher excludeMatcher;
-        private boolean failed;
-
-        FileCollector(JReleaserContext context, String include, String exclude, Path start, boolean recursive) {
-            this.context = context;
-            this.start = start;
-            this.recursive = recursive;
-
-            if (include.startsWith("regex:") || include.startsWith("glob:")) {
-                includeMatcher = FileSystems.getDefault()
-                    .getPathMatcher(include);
-            } else {
-                includeMatcher = FileSystems.getDefault()
-                    .getPathMatcher("glob:" + include);
-            }
-
-            if (isNotBlank(exclude)) {
-                if (exclude.startsWith("regex:") || exclude.startsWith("glob:")) {
-                    excludeMatcher = FileSystems.getDefault()
-                        .getPathMatcher(exclude);
-                } else {
-                    excludeMatcher = FileSystems.getDefault()
-                        .getPathMatcher("glob:" + exclude);
-                }
-            }
-        }
-
-        private boolean match(Path file) {
-            Path fileName = file.getFileName();
-
-            if (null != fileName && includeMatcher.matches(fileName)) {
-                if (null != excludeMatcher && excludeMatcher.matches(fileName)) {
-                    return false;
-                }
-                if (java.nio.file.Files.isRegularFile(file)) files.add(file);
-            }
-            return null == excludeMatcher || !excludeMatcher.matches(fileName);
-        }
-
-        public Set<Path> getFiles() {
-            return Collections.unmodifiableSet(files);
-        }
-
-        @Override
-        public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
-            match(file);
-            return CONTINUE;
-        }
-
-        @Override
-        public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) {
-            if (recursive || dir.equals(start)) {
-                return match(dir) ? CONTINUE : SKIP_SUBTREE;
-            }
-            return SKIP_SUBTREE;
-        }
-
-        @Override
-        public FileVisitResult visitFileFailed(Path file, IOException e) {
-            failed = true;
-            context.getLogger().error(RB.$("ERROR_artifacts_unexpected_error_path",
-                context.relativizeToBasedir(file)), e);
-            return CONTINUE;
-        }
     }
 }

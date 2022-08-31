@@ -17,6 +17,8 @@
  */
 package org.jreleaser.model;
 
+import java.util.Locale;
+
 import static org.jreleaser.util.StringUtils.isBlank;
 import static org.jreleaser.util.StringUtils.isNotBlank;
 
@@ -24,7 +26,7 @@ import static org.jreleaser.util.StringUtils.isNotBlank;
  * @author Andres Almiray
  * @since 0.5.0
  */
-public class VersionPattern {
+public class VersionPattern extends AbstractModelObject<VersionPattern> {
     private Type type;
     private String format;
 
@@ -37,6 +39,7 @@ public class VersionPattern {
     }
 
     public void setType(Type type) {
+        freezeCheck();
         this.type = type;
     }
 
@@ -45,6 +48,7 @@ public class VersionPattern {
     }
 
     public void setFormat(String format) {
+        freezeCheck();
         this.format = format;
     }
 
@@ -59,6 +63,14 @@ public class VersionPattern {
                 }
         }
         return s;
+    }
+
+    @Override
+    public void merge(VersionPattern source) {
+        if (source != null) {
+            this.type = merge(this.type, source.type);
+            this.format = merge(this.format, source.format);
+        }
     }
 
     public static VersionPattern of(String str) {
@@ -92,14 +104,14 @@ public class VersionPattern {
 
         @Override
         public String toString() {
-            return name().toLowerCase();
+            return name().toLowerCase(Locale.ENGLISH);
         }
 
         public static Type of(String str) {
             if (isBlank(str)) return null;
             return Type.valueOf(str.replaceAll(" ", "_")
                 .replaceAll("-", "_")
-                .toUpperCase().trim());
+                .toUpperCase(Locale.ENGLISH).trim());
         }
     }
 }

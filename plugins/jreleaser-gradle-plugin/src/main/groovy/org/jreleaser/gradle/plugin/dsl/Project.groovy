@@ -21,6 +21,7 @@ import groovy.transform.CompileStatic
 import org.gradle.api.Action
 import org.gradle.api.provider.ListProperty
 import org.gradle.api.provider.Property
+import org.jreleaser.model.Stereotype
 
 /**
  *
@@ -35,33 +36,52 @@ interface Project extends ExtraProperties {
 
     Property<String> getVersionPattern()
 
+    Property<Stereotype> getStereotype()
+
     Property<String> getDescription()
 
     Property<String> getLongDescription()
 
+    @Deprecated
     Property<String> getWebsite()
 
     Property<String> getLicense()
 
+    Property<String> getInceptionYear()
+
+    @Deprecated
     Property<String> getLicenseUrl()
 
     Property<String> getCopyright()
 
     Property<String> getVendor()
 
+    @Deprecated
     Property<String> getDocsUrl()
 
     ListProperty<String> getAuthors()
 
     ListProperty<String> getTags()
 
+    ListProperty<String> getMaintainers()
+
     void author(String name)
 
     void tag(String tag)
 
+    void maintainer(String maintainer)
+
+    Links getLinks()
+
     Java getJava()
 
     Snapshot getSnapshot()
+
+    void setStereotype(String str)
+
+    void links(Action<? super Links> action)
+
+    void links(@DelegatesTo(strategy = Closure.DELEGATE_FIRST, value = Links) Closure<Void> action)
 
     void java(Action<? super Java> action)
 
@@ -71,11 +91,43 @@ interface Project extends ExtraProperties {
 
     void snapshot(@DelegatesTo(strategy = Closure.DELEGATE_FIRST, value = Snapshot) Closure<Void> action)
 
+    void screenshot(Action<? super Screenshot> action)
+
+    void screenshot(@DelegatesTo(strategy = Closure.DELEGATE_FIRST, value = Screenshot) Closure<Void> action)
+
+    void icon(Action<? super Icon> action)
+
+    void icon(@DelegatesTo(strategy = Closure.DELEGATE_FIRST, value = Icon) Closure<Void> action)
+
     interface Snapshot {
         Property<String> getPattern()
 
         Property<String> getLabel()
 
         Property<Boolean> getFullChangelog()
+    }
+
+    interface Links {
+        Property<String> getHomepage()
+
+        Property<String> getDocumentation()
+
+        Property<String> getLicense()
+
+        Property<String> getBugTracker()
+
+        Property<String> getFaq()
+
+        Property<String> getHelp()
+
+        Property<String> getDonation()
+
+        Property<String> getTranslate()
+
+        Property<String> getContact()
+
+        Property<String> getVcsBrowser()
+
+        Property<String> getContribute()
     }
 }

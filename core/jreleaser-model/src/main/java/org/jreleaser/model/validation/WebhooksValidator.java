@@ -53,18 +53,26 @@ public abstract class WebhooksValidator extends Validator {
 
         if (enabled) {
             webhooks.setActive(Active.ALWAYS);
-            webhooks.resolveEnabled(context.getModel().getProject());
+        } else {
+            webhooks.setActive(Active.NEVER);
+        }
+
+        if (!webhooks.resolveEnabled(context.getModel().getProject())) {
+            context.getLogger().debug(RB.$("validation.disabled"));
         }
     }
 
     public static boolean validateWebhook(JReleaserContext context, Webhooks webhooks, Webhook webhook, Errors errors) {
-        if (!webhook.resolveEnabled(context.getModel().getProject())) return false;
+        context.getLogger().debug("announce.webhook." + webhook.getName());
+        if (!webhook.resolveEnabled(context.getModel().getProject())) {
+            context.getLogger().debug(RB.$("validation.disabled"));
+            return false;
+        }
         if (isBlank(webhook.getName())) {
+            context.getLogger().debug(RB.$("validation.disabled"));
             webhook.disable();
             return false;
         }
-
-        context.getLogger().debug("announce.webhook." + webhook.getName());
 
         webhook.setWebhook(
             checkProperty(context,
@@ -74,9 +82,10 @@ public abstract class WebhooksValidator extends Validator {
                 errors,
                 context.isDryrun()));
 
+        String defaultMessageTemplate = DEFAULT_TPL + webhook.getName() + ".tpl";
         if (isBlank(webhook.getMessage()) && isBlank(webhook.getMessageTemplate())) {
-            if (Files.exists(context.getBasedir().resolve(DEFAULT_TPL + webhook.getName() + ".tpl"))) {
-                webhook.setMessageTemplate(DEFAULT_TPL + webhook.getName() + ".tpl");
+            if (Files.exists(context.getBasedir().resolve(defaultMessageTemplate))) {
+                webhook.setMessageTemplate(defaultMessageTemplate);
             } else {
                 webhook.setMessage(RB.$("default.release.message"));
             }
@@ -87,6 +96,7 @@ public abstract class WebhooksValidator extends Validator {
         }
 
         if (isNotBlank(webhook.getMessageTemplate()) &&
+            !defaultMessageTemplate.equals(webhook.getMessageTemplate().trim()) &&
             !Files.exists(context.getBasedir().resolve(webhook.getMessageTemplate().trim()))) {
             errors.configuration(RB.$("validation_directory_not_exist",
                 "webhook." + webhook.getName() + ".messageTemplate", webhook.getMessageTemplate()));

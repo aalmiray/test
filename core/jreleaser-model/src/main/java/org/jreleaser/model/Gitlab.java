@@ -21,17 +21,19 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 import static org.jreleaser.util.Constants.KEY_IDENTIFIER;
+import static org.jreleaser.util.Constants.KEY_PROJECT_IDENTIFIER;
+import static org.jreleaser.util.JReleaserOutput.nag;
 
 /**
  * @author Andres Almiray
  * @since 0.1.0
  */
-public class Gitlab extends GitService {
+public class Gitlab extends GitService<Gitlab> {
     public static final String NAME = "gitlab";
     public static final String SKIP_GITLAB_LINKS = "skipGitlabLinks";
 
     private final Map<String, String> uploadLinks = new LinkedHashMap<>();
-    private String identifier;
+    private String projectIdentifier;
 
     public Gitlab() {
         super(NAME, true);
@@ -46,10 +48,12 @@ public class Gitlab extends GitService {
         setIssueTrackerUrl("https://{{repoHost}}/{{repoOwner}}/{{repoName}}/-/issues");
     }
 
-    void setAll(Gitlab service) {
-        super.setAll(service);
-        this.identifier = service.identifier;
-        setUploadLinks(service.uploadLinks);
+    @Override
+    public void merge(Gitlab service) {
+        freezeCheck();
+        super.merge(service);
+        this.projectIdentifier = merge(this.projectIdentifier, service.projectIdentifier);
+        setUploadLinks(merge(this.uploadLinks, service.uploadLinks));
     }
 
     @Override
@@ -57,19 +61,32 @@ public class Gitlab extends GitService {
         return "com.gitlab";
     }
 
+    @Deprecated
     public String getIdentifier() {
-        return identifier;
+        return getProjectIdentifier();
     }
 
+    @Deprecated
     public void setIdentifier(String identifier) {
-        this.identifier = identifier;
+        nag("gitlab.identifier is deprecated since 1.2.0 and will be removed in 2.0.0. Use gitlab.projectIdentifier instead");
+        setProjectIdentifier(identifier);
+    }
+
+    public String getProjectIdentifier() {
+        return projectIdentifier;
+    }
+
+    public void setProjectIdentifier(String projectIdentifier) {
+        freezeCheck();
+        this.projectIdentifier = projectIdentifier;
     }
 
     public Map<String, String> getUploadLinks() {
-        return uploadLinks;
+        return freezeWrap(uploadLinks);
     }
 
     public void setUploadLinks(Map<String, String> uploadLinks) {
+        freezeCheck();
         this.uploadLinks.clear();
         this.uploadLinks.putAll(uploadLinks);
     }
@@ -77,7 +94,7 @@ public class Gitlab extends GitService {
     @Override
     public Map<String, Object> asMap(boolean full) {
         Map<String, Object> map = super.asMap(full);
-        map.put("identifier", identifier);
+        map.put("projectIdentifier", projectIdentifier);
         map.put("uploadLinks", uploadLinks);
         return map;
     }
@@ -85,7 +102,8 @@ public class Gitlab extends GitService {
     @Override
     public Map<String, Object> props(JReleaserModel model) {
         Map<String, Object> props = super.props(model);
-        props.put(KEY_IDENTIFIER, identifier);
+        props.put(KEY_IDENTIFIER, projectIdentifier);
+        props.put(KEY_PROJECT_IDENTIFIER, projectIdentifier);
 
         return props;
     }

@@ -26,6 +26,7 @@ import org.jreleaser.model.announcer.spi.AnnounceException;
 import org.jreleaser.model.announcer.spi.Announcer;
 
 import java.util.LinkedHashMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -67,7 +68,9 @@ public class SdkmanAnnouncer implements Announcer {
                 return isNotBlank(sdkman.getCandidate()) ? sdkman.getCandidate().trim() : context.getModel().getProject().getName();
             }, distribution -> distribution));
 
-        Boolean set = (Boolean) context.getModel().getAnnounce().getSdkman().getExtraProperties().remove(MAGIC_SET);
+        Boolean set = (Boolean) context.getModel().getAnnounce().getSdkman().getExtraProperties().get(MAGIC_SET);
+        context.getModel().getAnnounce().getSdkman().mutate(()-> context.getModel().getAnnounce().getSdkman().getExtraProperties().remove(MAGIC_SET));
+
         if (distributions.isEmpty()) {
             if (set == null || !set) {
                 announceProject();
@@ -86,7 +89,7 @@ public class SdkmanAnnouncer implements Announcer {
             Map<String, Object> props = context.fullProps();
             props.putAll(distribution.props());
             String releaseNotesUrl = resolveTemplate(sdkman.getReleaseNotesUrl(), props);
-            String command = sdkman.getCommand().name().toLowerCase();
+            String command = sdkman.getCommand().name().toLowerCase(Locale.ENGLISH);
 
             context.getLogger().info(RB.$("sdkman.release.announce"), command, candidate);
             try {

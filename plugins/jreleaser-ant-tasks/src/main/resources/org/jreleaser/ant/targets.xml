@@ -38,6 +38,7 @@
     <property name="jreleaser.snapshot" value="false"/>
     <property name="jreleaser.full" value="false"/>
     <property name="jreleaser.assembly" value="false"/>
+    <property name="jreleaser.download" value="false"/>
     <property name="jreleaser.outputdir" value="build"/>
     <property name="jreleaser.select.current.platform" value="false"/>
     <property name="jreleaser.announcers" value=""/>
@@ -46,12 +47,16 @@
     <property name="jreleaser.packagers" value=""/>
     <property name="jreleaser.uploader.types" value=""/>
     <property name="jreleaser.uploader.names" value=""/>
+    <property name="jreleaser.downloader.types" value=""/>
+    <property name="jreleaser.downloader.names" value=""/>
     <property name="jreleaser.excluded.announcers" value=""/>
     <property name="jreleaser.excluded.assemblers" value=""/>
     <property name="jreleaser.excluded.distributions" value=""/>
     <property name="jreleaser.excluded.packagers" value=""/>
     <property name="jreleaser.excluded.uploader.types" value=""/>
     <property name="jreleaser.excluded.uploader.names" value=""/>
+    <property name="jreleaser.excluded.downloader.types" value=""/>
+    <property name="jreleaser.excluded.downloader.names" value=""/>
 
     <target name="jreleaser-template">
         <jreleaser:template skip="${jreleaser.skip}"
@@ -117,6 +122,7 @@
                           selectCurrentPlatform="${jreleaser.select.current.platform}"
                           gitRootSearch="${jreleaser.git.root.search}"
                           assembly="${jreleaser.assembly}"
+                          download="${jreleaser.download}"
                           basedir="${jreleaser.basedir}"
                           configFile="${jreleaser.config.file}"
                           outputDir="${jreleaser.outputdir}"/>
@@ -231,5 +237,18 @@
                           excludedUploaderTypes="${jreleaser.excluded.uploader.types}"
                           uploaderNames="${jreleaser.uploader.types}"
                           excludedUploaderNames="${jreleaser.excluded.uploader.names}"/>
+    </target>
+
+    <target name="jreleaser-download">
+        <jreleaser:download dryrun="${jreleaser.dry.run}"
+                            gitRootSearch="${jreleaser.git.root.search}"
+                            skip="${jreleaser.skip}"
+                            basedir="${jreleaser.basedir}"
+                            configFile="${jreleaser.config.file}"
+                            outputDir="${jreleaser.outputdir}"
+                            downloaderTypes="${jreleaser.downloader.types}"
+                            excludedDownloaderTypes="${jreleaser.excluded.downloader.types}"
+                            downloaderNames="${jreleaser.downloader.types}"
+                            excludedDownloaderNames="${jreleaser.excluded.downloader.names}"/>
     </target>
 </project>

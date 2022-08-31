@@ -39,7 +39,7 @@ import static org.jreleaser.util.StringUtils.isNotBlank;
  * @author Andres Almiray
  * @since 0.3.0
  */
-public class Artifactory extends AbstractUploader {
+public class Artifactory extends AbstractUploader<Artifactory> {
     public static final String TYPE = "artifactory";
 
     private final List<ArtifactoryRepository> repositories = new ArrayList<>();
@@ -47,39 +47,47 @@ public class Artifactory extends AbstractUploader {
     private String host;
     private String username;
     private String password;
-    private HttpUploader.Authorization authorization;
+    private Http.Authorization authorization;
 
     public Artifactory() {
         super(TYPE);
     }
 
-    void setAll(Artifactory artifactory) {
-        super.setAll(artifactory);
-        this.host = artifactory.host;
-        this.username = artifactory.username;
-        this.password = artifactory.password;
-        this.authorization = artifactory.authorization;
-        setRepositories(artifactory.repositories);
+    @Override
+    public void freeze() {
+        super.freeze();
+        repositories.forEach(ArtifactoryRepository::freeze);
     }
 
-    public HttpUploader.Authorization resolveAuthorization() {
+    @Override
+    public void merge(Artifactory artifactory) {
+        freezeCheck();
+        super.merge(artifactory);
+        this.host = merge(this.host, artifactory.host);
+        this.username = merge(this.username, artifactory.username);
+        this.password = merge(this.password, artifactory.password);
+        this.authorization = merge(this.authorization, artifactory.authorization);
+        setRepositories(merge(this.repositories, artifactory.repositories));
+    }
+
+    public Http.Authorization resolveAuthorization() {
         if (null == authorization) {
-            authorization = HttpUploader.Authorization.BEARER;
+            authorization = Http.Authorization.BEARER;
         }
 
         return authorization;
     }
 
     public String getResolvedHost() {
-        return Env.resolve("ARTIFACTORY_" + Env.toVar(name) + "_HOST", host);
+        return Env.env("ARTIFACTORY_" + Env.toVar(name) + "_HOST", host);
     }
 
     public String getResolvedUsername() {
-        return Env.resolve("ARTIFACTORY_" + Env.toVar(name) + "_USERNAME", username);
+        return Env.env("ARTIFACTORY_" + Env.toVar(name) + "_USERNAME", username);
     }
 
     public String getResolvedPassword() {
-        return Env.resolve("ARTIFACTORY_" + Env.toVar(name) + "_PASSWORD", password);
+        return Env.env("ARTIFACTORY_" + Env.toVar(name) + "_PASSWORD", password);
     }
 
     public String getHost() {
@@ -87,6 +95,7 @@ public class Artifactory extends AbstractUploader {
     }
 
     public void setHost(String host) {
+        freezeCheck();
         this.host = host;
     }
 
@@ -95,6 +104,7 @@ public class Artifactory extends AbstractUploader {
     }
 
     public void setUsername(String username) {
+        freezeCheck();
         this.username = username;
     }
 
@@ -103,31 +113,36 @@ public class Artifactory extends AbstractUploader {
     }
 
     public void setPassword(String password) {
+        freezeCheck();
         this.password = password;
     }
 
-    public HttpUploader.Authorization getAuthorization() {
+    public Http.Authorization getAuthorization() {
         return authorization;
     }
 
-    public void setAuthorization(HttpUploader.Authorization authorization) {
+    public void setAuthorization(Http.Authorization authorization) {
+        freezeCheck();
         this.authorization = authorization;
     }
 
     public void setAuthorization(String authorization) {
-        this.authorization = HttpUploader.Authorization.of(authorization);
+        freezeCheck();
+        this.authorization = Http.Authorization.of(authorization);
     }
 
     public List<ArtifactoryRepository> getRepositories() {
-        return repositories;
+        return freezeWrap(repositories);
     }
 
     public void setRepositories(List<ArtifactoryRepository> repositories) {
+        freezeCheck();
         this.repositories.clear();
         this.repositories.addAll(repositories);
     }
 
     public void addRepository(ArtifactoryRepository repository) {
+        freezeCheck();
         if (null != repository) {
             this.repositories.add(repository);
         }
@@ -152,7 +167,7 @@ public class Artifactory extends AbstractUploader {
     }
 
     @Override
-    public String getResolvedDownloadUrl(Map<String,Object> props, Artifact artifact) {
+    public String getResolvedDownloadUrl(Map<String, Object> props, Artifact artifact) {
         return resolveUrl(props, artifact);
     }
 
@@ -160,7 +175,7 @@ public class Artifactory extends AbstractUploader {
         return resolveUrl(context.fullProps(), artifact);
     }
 
-    private String resolveUrl(Map<String,Object> props, Artifact artifact) {
+    private String resolveUrl(Map<String, Object> props, Artifact artifact) {
         Map<String, Object> p = new LinkedHashMap<>(artifactProps(props, artifact));
         p.put("artifactoryHost", host);
 
@@ -177,17 +192,18 @@ public class Artifactory extends AbstractUploader {
         return "";
     }
 
-    public static class ArtifactoryRepository implements Domain, Activatable {
+    public static class ArtifactoryRepository extends AbstractModelObject<ArtifactoryRepository> implements Domain, Activatable {
         private final Set<FileType> fileTypes = new LinkedHashSet<>();
 
         private Active active;
         private boolean enabled;
         private String path;
 
-        void setAll(ArtifactoryRepository repository) {
-            this.active = repository.active;
-            this.enabled = repository.enabled;
-            this.path = repository.path;
+        @Override
+        public void merge(ArtifactoryRepository repository) {
+            this.active  = merge(this.active, repository.active);
+            this.enabled = merge(this.enabled, repository.enabled);
+            this.path = merge(this.path, repository.path);
             setFileTypes(repository.fileTypes);
         }
 
@@ -217,12 +233,13 @@ public class Artifactory extends AbstractUploader {
 
         @Override
         public void setActive(Active active) {
+            freezeCheck();
             this.active = active;
         }
 
         @Override
         public void setActive(String str) {
-            this.active = Active.of(str);
+            setActive(Active.of(str));
         }
 
         @Override
@@ -235,19 +252,22 @@ public class Artifactory extends AbstractUploader {
         }
 
         public void setPath(String path) {
+            freezeCheck();
             this.path = path;
         }
 
         public Set<FileType> getFileTypes() {
-            return fileTypes;
+            return freezeWrap(fileTypes);
         }
 
         public void setFileTypes(Set<FileType> fileTypes) {
+            freezeCheck();
             this.fileTypes.clear();
             this.fileTypes.addAll(fileTypes);
         }
 
         public void addFileType(FileType fileType) {
+            freezeCheck();
             this.fileTypes.add(fileType);
         }
 

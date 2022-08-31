@@ -18,7 +18,6 @@
 package org.jreleaser.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import org.jreleaser.util.Constants;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -28,48 +27,79 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static org.jreleaser.util.Constants.KEY_DISTRIBUTION_NAME;
+import static org.jreleaser.util.Constants.KEY_DISTRIBUTION_STEREOTYPE;
 import static org.jreleaser.util.MustacheUtils.applyTemplates;
 
 /**
  * @author Andres Almiray
  * @since 0.2.0
  */
-abstract class AbstractAssembler implements Assembler {
+abstract class AbstractAssembler<S extends AbstractAssembler<S>> extends AbstractModelObject<S> implements Assembler {
     @JsonIgnore
     protected final Set<Artifact> outputs = new LinkedHashSet<>();
     protected final Map<String, Object> extraProperties = new LinkedHashMap<>();
     protected final List<FileSet> fileSets = new ArrayList<>();
-    private final Platform platform = new Platform();
+    protected final Platform platform = new Platform();
     @JsonIgnore
-    private final String type;
+    protected final String type;
     @JsonIgnore
     protected String name;
     @JsonIgnore
     protected boolean enabled;
     protected Active active;
     protected Boolean exported;
+    private Stereotype stereotype;
 
     protected AbstractAssembler(String type) {
         this.type = type;
     }
 
-    void setAll(AbstractAssembler assembler) {
-        this.active = assembler.active;
-        this.enabled = assembler.enabled;
-        this.exported = assembler.exported;
-        this.name = assembler.name;
-        setPlatform(assembler.platform);
-        setOutputs(assembler.outputs);
-        setExtraProperties(assembler.extraProperties);
-        setFileSets(assembler.fileSets);
+    @Override
+    public void freeze() {
+        super.freeze();
+        platform.freeze();
+        outputs.forEach(Artifact::freeze);
+        fileSets.forEach(FileSet::freeze);
+    }
+
+    @Override
+    public void merge(S assembler) {
+        freezeCheck();
+        this.active = merge(this.active, assembler.active);
+        this.enabled = merge(this.enabled, assembler.enabled);
+        this.exported = merge(this.exported, assembler.exported);
+        this.name = merge(this.name, assembler.name);
+        this.platform.merge(assembler.platform);
+        this.stereotype = merge(this.stereotype, assembler.getStereotype());
+        setOutputs(merge(this.outputs, assembler.outputs));
+        setFileSets(merge(this.fileSets, assembler.fileSets));
+        setExtraProperties(merge(this.extraProperties, assembler.extraProperties));
     }
 
     @Override
     public Map<String, Object> props() {
         Map<String, Object> props = new LinkedHashMap<>();
         applyTemplates(props, getResolvedExtraProperties());
-        props.put(Constants.KEY_DISTRIBUTION_NAME, name);
+        props.put(KEY_DISTRIBUTION_NAME, name);
+        props.put(KEY_DISTRIBUTION_STEREOTYPE, getStereotype());
         return props;
+    }
+
+    @Override
+    public Stereotype getStereotype() {
+        return stereotype;
+    }
+
+    @Override
+    public void setStereotype(Stereotype stereotype) {
+        freezeCheck();
+        this.stereotype = stereotype;
+    }
+
+    @Override
+    public void setStereotype(String str) {
+        setStereotype(Stereotype.of(str));
     }
 
     @Override
@@ -102,7 +132,8 @@ abstract class AbstractAssembler implements Assembler {
 
     @Override
     public void setPlatform(Platform platform) {
-        this.platform.setAll(platform);
+        freezeCheck();
+        this.platform.merge(platform);
     }
 
     @Override
@@ -111,7 +142,8 @@ abstract class AbstractAssembler implements Assembler {
     }
 
     @Override
-    public void setExported(boolean exported) {
+    public void setExported(Boolean exported) {
+        freezeCheck();
         this.exported = exported;
     }
 
@@ -122,6 +154,7 @@ abstract class AbstractAssembler implements Assembler {
 
     @Override
     public void setName(String name) {
+        freezeCheck();
         this.name = name;
     }
 
@@ -132,12 +165,13 @@ abstract class AbstractAssembler implements Assembler {
 
     @Override
     public void setActive(Active active) {
+        freezeCheck();
         this.active = active;
     }
 
     @Override
     public void setActive(String str) {
-        this.active = Active.of(str);
+        setActive(Active.of(str));
     }
 
     @Override
@@ -147,17 +181,19 @@ abstract class AbstractAssembler implements Assembler {
 
     @Override
     public Set<Artifact> getOutputs() {
-        return Artifact.sortArtifacts(outputs);
+        return freezeWrap(Artifact.sortArtifacts(outputs));
     }
 
     @Override
     public void setOutputs(Set<Artifact> output) {
+        freezeCheck();
         this.outputs.clear();
         this.outputs.addAll(output);
     }
 
     @Override
     public void addOutput(Artifact artifact) {
+        freezeCheck();
         if (null != artifact) {
             this.outputs.add(artifact);
         }
@@ -165,17 +201,19 @@ abstract class AbstractAssembler implements Assembler {
 
     @Override
     public Map<String, Object> getExtraProperties() {
-        return extraProperties;
+        return freezeWrap(extraProperties);
     }
 
     @Override
     public void setExtraProperties(Map<String, Object> extraProperties) {
+        freezeCheck();
         this.extraProperties.clear();
         this.extraProperties.putAll(extraProperties);
     }
 
     @Override
     public void addExtraProperties(Map<String, Object> extraProperties) {
+        freezeCheck();
         this.extraProperties.putAll(extraProperties);
     }
 
@@ -186,22 +224,25 @@ abstract class AbstractAssembler implements Assembler {
 
     @Override
     public List<FileSet> getFileSets() {
-        return fileSets;
+        return freezeWrap(fileSets);
     }
 
     @Override
     public void setFileSets(List<FileSet> fileSets) {
+        freezeCheck();
         this.fileSets.clear();
         this.fileSets.addAll(fileSets);
     }
 
     @Override
     public void addFileSets(List<FileSet> files) {
+        freezeCheck();
         this.fileSets.addAll(files);
     }
 
     @Override
     public void addFileSet(FileSet file) {
+        freezeCheck();
         if (null != file) {
             this.fileSets.add(file);
         }
@@ -215,6 +256,7 @@ abstract class AbstractAssembler implements Assembler {
         props.put("enabled", isEnabled());
         props.put("exported", isExported());
         props.put("active", active);
+        props.put("stereotype", stereotype);
         if (full || platform.isSet()) props.put("platform", platform.asMap(full));
         asMap(full, props);
         Map<String, Map<String, Object>> mappedFileSets = new LinkedHashMap<>();

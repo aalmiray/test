@@ -56,6 +56,22 @@ config {
             dsld: 'SLASHSTAR_STYLE'
         ]
     }
+
+    quality {
+        checkstyle {
+            toolVersion = checkstyleVersion
+            aggregate {
+                enabled = true
+            }
+        }
+        pmd {
+            toolVersion = pmdVersion
+            ignoreFailures = true
+            aggregate {
+                enabled = false
+            }
+        }
+    }
 }
 
 allprojects {

@@ -30,6 +30,7 @@ import org.jreleaser.gradle.plugin.dsl.Discord
 import org.jreleaser.gradle.plugin.dsl.Discussions
 import org.jreleaser.gradle.plugin.dsl.Gitter
 import org.jreleaser.gradle.plugin.dsl.GoogleChat
+import org.jreleaser.gradle.plugin.dsl.HttpAnnouncer
 import org.jreleaser.gradle.plugin.dsl.Mail
 import org.jreleaser.gradle.plugin.dsl.Mastodon
 import org.jreleaser.gradle.plugin.dsl.Mattermost
@@ -40,9 +41,12 @@ import org.jreleaser.gradle.plugin.dsl.Telegram
 import org.jreleaser.gradle.plugin.dsl.Twitter
 import org.jreleaser.gradle.plugin.dsl.Webhook
 import org.jreleaser.gradle.plugin.dsl.Zulip
+import org.jreleaser.model.Active
 import org.kordamp.gradle.util.ConfigureUtil
 
 import javax.inject.Inject
+
+import static org.jreleaser.util.StringUtils.isNotBlank
 
 /**
  *
@@ -51,7 +55,7 @@ import javax.inject.Inject
  */
 @CompileStatic
 class AnnounceImpl implements Announce {
-    final Property<Boolean> enabled
+    final Property<Active> active
     final ArticleImpl article
     final DiscordImpl discord
     final DiscussionsImpl discussions
@@ -66,11 +70,12 @@ class AnnounceImpl implements Announce {
     final TelegramImpl telegram
     final TwitterImpl twitter
     final ZulipImpl zulip
+    final NamedDomainObjectContainer<HttpAnnouncer> http
     final NamedDomainObjectContainer<Webhook> webhooks
 
     @Inject
     AnnounceImpl(ObjectFactory objects) {
-        enabled = objects.property(Boolean).convention(Providers.notDefined())
+        active = objects.property(Active).convention(Providers.notDefined())
         article = objects.newInstance(ArticleImpl, objects)
         discord = objects.newInstance(DiscordImpl, objects)
         discussions = objects.newInstance(DiscussionsImpl, objects)
@@ -86,6 +91,15 @@ class AnnounceImpl implements Announce {
         twitter = objects.newInstance(TwitterImpl, objects)
         zulip = objects.newInstance(ZulipImpl, objects)
 
+        http = objects.domainObjectContainer(HttpAnnouncer, new NamedDomainObjectFactory<HttpAnnouncer>() {
+            @Override
+            HttpAnnouncer create(String name) {
+                HttpAnnouncerImpl http = objects.newInstance(HttpAnnouncerImpl, objects)
+                http.name = name
+                return http
+            }
+        })
+
         webhooks = objects.domainObjectContainer(Webhook, new NamedDomainObjectFactory<Webhook>() {
             @Override
             Webhook create(String name) {
@@ -94,6 +108,13 @@ class AnnounceImpl implements Announce {
                 return webhook
             }
         })
+    }
+
+    @Override
+    void setActive(String str) {
+        if (isNotBlank(str)) {
+            active.set(Active.of(str.trim()))
+        }
     }
 
     @Override
@@ -119,6 +140,11 @@ class AnnounceImpl implements Announce {
     @Override
     void googleChat(Action<? super GoogleChat> action) {
         action.execute(googleChat)
+    }
+
+    @Override
+    void http(Action<? super NamedDomainObjectContainer<HttpAnnouncer>> action) {
+        action.execute(http)
     }
 
     @Override
@@ -197,6 +223,11 @@ class AnnounceImpl implements Announce {
     }
 
     @Override
+    void http(@DelegatesTo(strategy = Closure.DELEGATE_FIRST, value = NamedDomainObjectContainer) Closure<Void> action) {
+        ConfigureUtil.configure(action, http)
+    }
+
+    @Override
     void mail(@DelegatesTo(strategy = Closure.DELEGATE_FIRST, value = Mail) Closure<Void> action) {
         ConfigureUtil.configure(action, mail)
     }
@@ -248,7 +279,7 @@ class AnnounceImpl implements Announce {
 
     org.jreleaser.model.Announce toModel() {
         org.jreleaser.model.Announce announce = new org.jreleaser.model.Announce()
-        if (enabled.present) announce.enabled = enabled.get()
+        if (active.present) announce.active = active.get()
         if (article.isSet()) announce.article = article.toModel()
         if (discord.isSet()) announce.discord = discord.toModel()
         if (discussions.isSet()) announce.discussions = discussions.toModel()
@@ -263,6 +294,10 @@ class AnnounceImpl implements Announce {
         if (telegram.isSet()) announce.telegram = telegram.toModel()
         if (twitter.isSet()) announce.twitter = twitter.toModel()
         if (zulip.isSet()) announce.zulip = zulip.toModel()
+
+        http.toList().each { http ->
+            announce.addHttpAnnouncer(((HttpAnnouncerImpl) http).toModel())
+        }
 
         webhooks.toList().each { webhook ->
             announce.addWebhook(((WebhookImpl) webhook).toModel())

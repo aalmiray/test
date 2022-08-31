@@ -38,7 +38,7 @@ import static org.jreleaser.util.Templates.resolveTemplate;
  * @author Andres Almiray
  * @since 0.5.0
  */
-public class Webhook extends AbstractAnnouncer {
+public class Webhook extends AbstractAnnouncer<Webhook> {
     private String webhook;
     private String message;
     private String messageProperty;
@@ -48,13 +48,15 @@ public class Webhook extends AbstractAnnouncer {
         super("");
     }
 
-    void setAll(Webhook webhook) {
-        super.setAll(webhook);
-        this.name = webhook.name;
-        this.webhook = webhook.webhook;
-        this.message = webhook.message;
-        this.messageProperty = webhook.messageProperty;
-        this.messageTemplate = webhook.messageTemplate;
+    @Override
+    public void merge(Webhook webhook) {
+        freezeCheck();
+        super.merge(webhook);
+        this.name = merge(this.name, webhook.name);
+        this.webhook = merge(this.webhook, webhook.webhook);
+        this.message = merge(this.message, webhook.message);
+        this.messageTemplate = merge(this.messageTemplate, webhook.messageTemplate);
+        this.messageProperty = merge(this.messageProperty, webhook.messageProperty);
     }
 
     public String getResolvedMessage(JReleaserContext context) {
@@ -81,10 +83,16 @@ public class Webhook extends AbstractAnnouncer {
     }
 
     public String getResolvedWebhook() {
-        return Env.resolve(Env.toVar(name) + "_WEBHOOK", webhook);
+        return Env.env(Env.toVar(name) + "_WEBHOOK", webhook);
+    }
+
+    @Override
+    public String getPrefix() {
+        return "webhook";
     }
 
     public void setName(String name) {
+        freezeCheck();
         this.name = name;
     }
 
@@ -93,6 +101,7 @@ public class Webhook extends AbstractAnnouncer {
     }
 
     public void setWebhook(String webhook) {
+        freezeCheck();
         this.webhook = webhook;
     }
 
@@ -101,6 +110,7 @@ public class Webhook extends AbstractAnnouncer {
     }
 
     public void setMessage(String message) {
+        freezeCheck();
         this.message = message;
     }
 
@@ -109,6 +119,7 @@ public class Webhook extends AbstractAnnouncer {
     }
 
     public void setMessageProperty(String messageProperty) {
+        freezeCheck();
         this.messageProperty = messageProperty;
     }
 
@@ -117,6 +128,7 @@ public class Webhook extends AbstractAnnouncer {
     }
 
     public void setMessageTemplate(String messageTemplate) {
+        freezeCheck();
         this.messageTemplate = messageTemplate;
     }
 

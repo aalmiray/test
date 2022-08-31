@@ -38,7 +38,7 @@ import static org.jreleaser.util.Templates.resolveTemplate;
  * @author Andres Almiray
  * @since 0.8.0
  */
-public class Telegram extends AbstractAnnouncer {
+public class Telegram extends AbstractAnnouncer<Telegram> {
     public static final String NAME = "telegram";
     public static final String TELEGRAM_TOKEN = "TELEGRAM_TOKEN";
     public static final String TELEGRAM_CHAT_ID = "TELEGRAM_CHAT_ID";
@@ -52,12 +52,14 @@ public class Telegram extends AbstractAnnouncer {
         super(NAME);
     }
 
-    void setAll(Telegram telegram) {
-        super.setAll(telegram);
-        this.token = telegram.token;
-        this.chatId = telegram.chatId;
-        this.message = telegram.message;
-        this.messageTemplate = telegram.messageTemplate;
+    @Override
+    public void merge(Telegram telegram) {
+        freezeCheck();
+        super.merge(telegram);
+        this.token = merge(this.token, telegram.token);
+        this.chatId = merge(this.chatId, telegram.chatId);
+        this.message = merge(this.message, telegram.message);
+        this.messageTemplate = merge(this.messageTemplate, telegram.messageTemplate);
     }
 
     public String getResolvedMessage(JReleaserContext context) {
@@ -84,11 +86,11 @@ public class Telegram extends AbstractAnnouncer {
     }
 
     public String getResolvedToken() {
-        return Env.resolve(TELEGRAM_TOKEN, token);
+        return Env.env(TELEGRAM_TOKEN, token);
     }
 
     public String getResolvedChatId() {
-        return Env.resolve(TELEGRAM_CHAT_ID, chatId);
+        return Env.env(TELEGRAM_CHAT_ID, chatId);
     }
 
     public String getToken() {
@@ -96,6 +98,7 @@ public class Telegram extends AbstractAnnouncer {
     }
 
     public void setToken(String token) {
+        freezeCheck();
         this.token = token;
     }
 
@@ -104,6 +107,7 @@ public class Telegram extends AbstractAnnouncer {
     }
 
     public void setChatId(String chatId) {
+        freezeCheck();
         this.chatId = chatId;
     }
 
@@ -112,6 +116,7 @@ public class Telegram extends AbstractAnnouncer {
     }
 
     public void setMessage(String message) {
+        freezeCheck();
         this.message = message;
     }
 
@@ -120,6 +125,7 @@ public class Telegram extends AbstractAnnouncer {
     }
 
     public void setMessageTemplate(String messageTemplate) {
+        freezeCheck();
         this.messageTemplate = messageTemplate;
     }
 

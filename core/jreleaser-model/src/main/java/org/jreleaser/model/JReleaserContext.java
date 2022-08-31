@@ -41,6 +41,7 @@ import java.util.Enumeration;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
@@ -96,18 +97,23 @@ public class JReleaserContext {
     private final List<String> includedAssemblers = new ArrayList<>();
     private final List<String> includedDistributions = new ArrayList<>();
     private final List<String> includedPackagers = new ArrayList<>();
+    private final List<String> includedDownloaderTypes = new ArrayList<>();
+    private final List<String> includedDownloaderNames = new ArrayList<>();
     private final List<String> includedUploaderTypes = new ArrayList<>();
     private final List<String> includedUploaderNames = new ArrayList<>();
     private final List<String> excludedAnnouncers = new ArrayList<>();
     private final List<String> excludedAssemblers = new ArrayList<>();
     private final List<String> excludedDistributions = new ArrayList<>();
     private final List<String> excludedPackagers = new ArrayList<>();
+    private final List<String> excludedDownloaderTypes = new ArrayList<>();
+    private final List<String> excludedDownloaderNames = new ArrayList<>();
     private final List<String> excludedUploaderTypes = new ArrayList<>();
     private final List<String> excludedUploaderNames = new ArrayList<>();
 
     private String changelog;
     private Releaser releaser;
     private JReleaserCommand command;
+    private boolean frozen;
 
     public JReleaserContext(JReleaserLogger logger,
                             Configurer configurer,
@@ -132,12 +138,14 @@ public class JReleaserContext {
 
         try {
             logger.increaseIndent();
+            logger.debug("- " + Constants.KEY_BASEDIR + " set to " + getBasedir());
             logger.debug("- " + Constants.KEY_BASE_OUTPUT_DIRECTORY + " set to " + getOutputDirectory().getParent());
             logger.debug("- " + Constants.KEY_OUTPUT_DIRECTORY + " set to " + getOutputDirectory());
             logger.debug("- " + Constants.KEY_CHECKSUMS_DIRECTORY + " set to " + getChecksumsDirectory());
             logger.debug("- " + Constants.KEY_SIGNATURES_DIRECTORY + " set to " + getSignaturesDirectory());
             logger.debug("- " + Constants.KEY_PREPARE_DIRECTORY + " set to " + getPrepareDirectory());
             logger.debug("- " + Constants.KEY_PACKAGE_DIRECTORY + " set to " + getPackageDirectory());
+            logger.debug("- " + Constants.KEY_DOWNLOAD_DIRECTORY + " set to " + getDownloadDirectory());
             logger.debug("- " + Constants.KEY_ASSEMBLE_DIRECTORY + " set to " + getAssembleDirectory());
             logger.debug("- " + Constants.KEY_ARTIFACTS_DIRECTORY + " set to " + getArtifactsDirectory());
         } finally {
@@ -159,6 +167,19 @@ public class JReleaserContext {
             logger.warn(RB.$("context.platform.selection.active"));
             logger.warn(RB.$("context.platform.selection.artifacts"), this.selectedPlatforms);
         }
+    }
+
+    public void freeze() {
+        frozen = true;
+        model.freeze();
+    }
+
+    private void freezeCheck() {
+        if (frozen) throw new UnsupportedOperationException();
+    }
+
+    private <T> List<T> freezeWrap(List<T> list) {
+        return frozen ? Collections.unmodifiableList(list) : list;
     }
 
     public Path relativize(Path basedir, Path other) {
@@ -219,6 +240,7 @@ public class JReleaserContext {
             if (null == distribution) {
                 distribution = new Distribution();
                 distribution.setType(assembler.getDistributionType());
+                distribution.setStereotype(assembler.getStereotype());
                 distribution.setName(assembler.getName());
                 model.getDistributions().put(assembler.getName(), distribution);
             }
@@ -252,7 +274,7 @@ public class JReleaserContext {
                 })
                 .findFirst();
             if (artifact.isPresent()) {
-                artifact.get().merge(incoming);
+                artifact.get().mergeWith(incoming);
             } else {
                 distribution.addArtifact(incoming);
             }
@@ -313,6 +335,10 @@ public class JReleaserContext {
         return outputDirectory.resolve("assemble");
     }
 
+    public Path getDownloadDirectory() {
+        return outputDirectory.resolve("download");
+    }
+
     public Path getArtifactsDirectory() {
         return outputDirectory.resolve("artifacts");
     }
@@ -338,6 +364,7 @@ public class JReleaserContext {
     }
 
     public void setReleaser(Releaser releaser) {
+        freezeCheck();
         this.releaser = releaser;
     }
 
@@ -350,116 +377,168 @@ public class JReleaserContext {
             if (!s.contains("-")) {
                 s = StringUtils.getHyphenatedName(s);
             }
-            tmp.set(i, s.toLowerCase());
+            tmp.set(i, s.toLowerCase(Locale.ENGLISH));
         }
 
         return tmp;
     }
 
     public List<String> getIncludedAnnouncers() {
-        return includedAnnouncers;
+        return freezeWrap(includedAnnouncers);
     }
 
     public void setIncludedAnnouncers(List<String> includedAnnouncers) {
+        freezeCheck();
         this.includedAnnouncers.clear();
         this.includedAnnouncers.addAll(normalize(includedAnnouncers));
     }
 
     public List<String> getIncludedAssemblers() {
-        return includedAssemblers;
+        return freezeWrap(includedAssemblers);
     }
 
     public void setIncludedAssemblers(List<String> includedAssemblerTypes) {
+        freezeCheck();
         this.includedAssemblers.clear();
         this.includedAssemblers.addAll(normalize(includedAssemblerTypes));
     }
 
     public List<String> getIncludedDistributions() {
-        return includedDistributions;
+        return freezeWrap(includedDistributions);
     }
 
     public void setIncludedDistributions(List<String> includedDistributions) {
+        freezeCheck();
         this.includedDistributions.clear();
         this.includedDistributions.addAll(includedDistributions);
     }
 
     public List<String> getIncludedPackagers() {
-        return includedPackagers;
+        return freezeWrap(includedPackagers);
     }
 
     public void setIncludedPackagers(List<String> includedPackagers) {
+        freezeCheck();
         this.includedPackagers.clear();
         this.includedPackagers.addAll(includedPackagers);
     }
 
+    public List<String> getIncludedDownloaderTypes() {
+        return freezeWrap(includedDownloaderTypes);
+    }
+
+    public void setIncludedDownloaderTypes(List<String> includedDownloaderTypes) {
+        freezeCheck();
+        this.includedDownloaderTypes.clear();
+        this.includedDownloaderTypes.addAll(normalize(includedDownloaderTypes));
+    }
+
+    public List<String> getIncludedDownloaderNames() {
+        return freezeWrap(includedDownloaderNames);
+    }
+
+    public void setIncludedDownloaderNames(List<String> includedDownloaderNames) {
+        freezeCheck();
+        this.includedDownloaderNames.clear();
+        this.includedDownloaderNames.addAll(includedDownloaderNames);
+    }
+
     public List<String> getIncludedUploaderTypes() {
-        return includedUploaderTypes;
+        return freezeWrap(includedUploaderTypes);
     }
 
     public void setIncludedUploaderTypes(List<String> includedUploaderTypes) {
+        freezeCheck();
         this.includedUploaderTypes.clear();
         this.includedUploaderTypes.addAll(normalize(includedUploaderTypes));
     }
 
     public List<String> getIncludedUploaderNames() {
-        return includedUploaderNames;
+        return freezeWrap(includedUploaderNames);
     }
 
     public void setIncludedUploaderNames(List<String> includedUploaderNames) {
+        freezeCheck();
         this.includedUploaderNames.clear();
         this.includedUploaderNames.addAll(includedUploaderNames);
     }
 
     public List<String> getExcludedAnnouncers() {
-        return excludedAnnouncers;
+        return freezeWrap(excludedAnnouncers);
     }
 
     public void setExcludedAnnouncers(List<String> excludedAnnouncers) {
+        freezeCheck();
         this.excludedAnnouncers.clear();
         this.excludedAnnouncers.addAll(normalize(excludedAnnouncers));
     }
 
     public List<String> getExcludedAssemblers() {
-        return excludedAssemblers;
+        return freezeWrap(excludedAssemblers);
     }
 
     public void setExcludedAssemblers(List<String> excludedAssemblerTypes) {
+        freezeCheck();
         this.excludedAssemblers.clear();
         this.excludedAssemblers.addAll(normalize(excludedAssemblerTypes));
     }
 
     public List<String> getExcludedDistributions() {
-        return excludedDistributions;
+        return freezeWrap(excludedDistributions);
     }
 
     public void setExcludedDistributions(List<String> excludedDistributions) {
+        freezeCheck();
         this.excludedDistributions.clear();
         this.excludedDistributions.addAll(excludedDistributions);
     }
 
     public List<String> getExcludedPackagers() {
-        return excludedPackagers;
+        return freezeWrap(excludedPackagers);
     }
 
     public void setExcludedPackagers(List<String> excludedPackagers) {
+        freezeCheck();
         this.excludedPackagers.clear();
         this.excludedPackagers.addAll(normalize(excludedPackagers));
     }
 
+    public List<String> getExcludedDownloaderTypes() {
+        return freezeWrap(excludedDownloaderTypes);
+    }
+
+    public void setExcludedDownloaderTypes(List<String> excludedDownloaderTypes) {
+        freezeCheck();
+        this.excludedDownloaderTypes.clear();
+        this.excludedDownloaderTypes.addAll(normalize(excludedDownloaderTypes));
+    }
+
+    public List<String> getExcludedDownloaderNames() {
+        return freezeWrap(excludedDownloaderNames);
+    }
+
+    public void setExcludedDownloaderNames(List<String> excludedDownloaderNames) {
+        freezeCheck();
+        this.excludedDownloaderNames.clear();
+        this.excludedDownloaderNames.addAll(excludedDownloaderNames);
+    }
+
     public List<String> getExcludedUploaderTypes() {
-        return excludedUploaderTypes;
+        return freezeWrap(excludedUploaderTypes);
     }
 
     public void setExcludedUploaderTypes(List<String> excludedUploaderTypes) {
+        freezeCheck();
         this.excludedUploaderTypes.clear();
         this.excludedUploaderTypes.addAll(normalize(excludedUploaderTypes));
     }
 
     public List<String> getExcludedUploaderNames() {
-        return excludedUploaderNames;
+        return freezeWrap(excludedUploaderNames);
     }
 
     public void setExcludedUploaderNames(List<String> excludedUploaderNames) {
+        freezeCheck();
         this.excludedUploaderNames.clear();
         this.excludedUploaderNames.addAll(excludedUploaderNames);
     }
@@ -469,17 +548,20 @@ public class JReleaserContext {
     }
 
     public void setCommand(JReleaserCommand command) {
+        freezeCheck();
         this.command = command;
     }
 
     public Map<String, Object> props() {
         Map<String, Object> props = new LinkedHashMap<>(model.props());
+        props.put(Constants.KEY_BASEDIR, getBasedir());
         props.put(Constants.KEY_BASE_OUTPUT_DIRECTORY, getOutputDirectory().getParent());
         props.put(Constants.KEY_OUTPUT_DIRECTORY, getOutputDirectory());
         props.put(Constants.KEY_CHECKSUMS_DIRECTORY, getChecksumsDirectory());
         props.put(Constants.KEY_SIGNATURES_DIRECTORY, getSignaturesDirectory());
         props.put(Constants.KEY_PREPARE_DIRECTORY, getPrepareDirectory());
         props.put(Constants.KEY_PACKAGE_DIRECTORY, getPackageDirectory());
+        props.put(Constants.KEY_DOWNLOAD_DIRECTORY, getDownloadDirectory());
         props.put(Constants.KEY_ASSEMBLE_DIRECTORY, getAssembleDirectory());
         props.put(Constants.KEY_ARTIFACTS_DIRECTORY, getArtifactsDirectory());
         return props;
@@ -592,12 +674,30 @@ public class JReleaserContext {
 
     public enum Mode {
         CONFIG,
+        DOWNLOAD,
         ASSEMBLE,
         FULL,
-        CHANGELOG;
+        CHANGELOG,
+        ANNOUNCE;
+
+        public boolean validateChangelog() {
+            return this == CHANGELOG;
+        }
+
+        public boolean validateAnnounce() {
+            return this == ANNOUNCE;
+        }
+
+        public boolean validateDownload() {
+            return this == DOWNLOAD;
+        }
 
         public boolean validateAssembly() {
             return this == ASSEMBLE;
+        }
+
+        public boolean validateStandalone() {
+            return validateAssembly() || validateDownload();
         }
 
         public boolean validateConfig() {

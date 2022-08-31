@@ -27,6 +27,7 @@ import org.jreleaser.model.JReleaserModel;
 import org.jreleaser.model.Snap;
 import org.jreleaser.util.Errors;
 
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -45,28 +46,34 @@ import static org.jreleaser.util.StringUtils.isBlank;
  */
 public abstract class SnapValidator extends Validator {
     public static void validateSnap(JReleaserContext context, Distribution distribution, Snap packager, Errors errors) {
+        context.getLogger().debug("distribution.{}.snap", distribution.getName());
         JReleaserModel model = context.getModel();
         Snap parentPackager = model.getPackagers().getSnap();
 
         if (!packager.isActiveSet() && parentPackager.isActiveSet()) {
             packager.setActive(parentPackager.getActive());
         }
-        if (!packager.resolveEnabled(context.getModel().getProject(), distribution)) return;
+        if (!packager.resolveEnabled(context.getModel().getProject(), distribution)) {
+            context.getLogger().debug(RB.$("validation.disabled"));
+            packager.disable();
+            return;
+        }
         GitService service = model.getRelease().getGitService();
         if (!service.isReleaseSupported()) {
+            context.getLogger().debug(RB.$("validation.disabled.release"));
             packager.disable();
             return;
         }
 
-        context.getLogger().debug("distribution.{}.snap", distribution.getName());
-
         List<Artifact> candidateArtifacts = packager.resolveCandidateArtifacts(context, distribution);
         if (candidateArtifacts.size() == 0) {
             packager.setActive(Active.NEVER);
+            context.getLogger().debug(RB.$("validation.disabled.no.artifacts"));
             packager.disable();
             return;
         } else if (candidateArtifacts.size() > 1) {
             errors.configuration(RB.$("validation_packager_multiple_artifacts", "distribution." + distribution.getName() + ".snap"));
+            context.getLogger().debug(RB.$("validation.disabled.multiple.artifacts"));
             packager.disable();
             return;
         }
@@ -118,7 +125,7 @@ public abstract class SnapValidator extends Validator {
             packager.setExportedLogin(parentPackager.getExportedLogin());
             if (isBlank(packager.getExportedLogin())) {
                 errors.configuration(RB.$("validation_must_not_be_empty", "distribution." + distribution.getName() + ".snap.exportedLogin"));
-            } else if (!context.getBasedir().resolve(packager.getExportedLogin()).toFile().exists()) {
+            } else if (!Files.exists(context.getBasedir().resolve(packager.getExportedLogin()))) {
                 errors.configuration(RB.$("validation_directory_not_exist", "distribution." + distribution.getName() + ".snap.exportedLogin",
                     context.getBasedir().resolve(packager.getExportedLogin())));
             }

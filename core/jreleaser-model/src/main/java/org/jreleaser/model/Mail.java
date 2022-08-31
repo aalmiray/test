@@ -25,6 +25,7 @@ import java.io.IOException;
 import java.io.Reader;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
+import java.util.Locale;
 import java.util.Map;
 
 import static org.jreleaser.util.Constants.HIDE;
@@ -39,7 +40,7 @@ import static org.jreleaser.util.Templates.resolveTemplate;
  * @author Andres Almiray
  * @since 0.1.0
  */
-public class Mail extends AbstractAnnouncer {
+public class Mail extends AbstractAnnouncer<Mail> {
     public static final String NAME = "mail";
     public static final String MAIL_PASSWORD = "MAIL_PASSWORD";
 
@@ -64,23 +65,25 @@ public class Mail extends AbstractAnnouncer {
         super(NAME);
     }
 
-    void setAll(Mail mail) {
-        super.setAll(mail);
-        this.transport = mail.transport;
-        this.host = mail.host;
-        this.port = mail.port;
-        this.auth = mail.auth;
-        this.username = mail.username;
-        this.password = mail.password;
-        this.from = mail.from;
-        this.to = mail.to;
-        this.cc = mail.cc;
-        this.bcc = mail.bcc;
-        this.subject = mail.subject;
-        this.message = mail.message;
-        this.messageTemplate = mail.messageTemplate;
-        this.mimeType = mail.mimeType;
-        setProperties(mail.properties);
+    @Override
+    public void merge(Mail mail) {
+        freezeCheck();
+        super.merge(mail);
+        this.transport = merge(this.transport, mail.transport);
+        this.host = merge(this.host, mail.host);
+        this.port = merge(this.port, mail.port);
+        this.auth = merge(this.auth, mail.auth);
+        this.username = merge(this.username, mail.username);
+        this.password = merge(this.password, mail.password);
+        this.from = merge(this.from, mail.from);
+        this.to = merge(this.to, mail.to);
+        this.cc = merge(this.cc, mail.cc);
+        this.bcc = merge(this.bcc, mail.bcc);
+        this.subject = merge(this.subject, mail.subject);
+        this.message = merge(this.message, mail.message);
+        this.messageTemplate = merge(this.messageTemplate, mail.messageTemplate);
+        this.mimeType = merge(this.mimeType, mail.mimeType);
+        setProperties(merge(this.properties, mail.properties));
     }
 
     public String getResolvedSubject(JReleaserContext context) {
@@ -115,7 +118,7 @@ public class Mail extends AbstractAnnouncer {
     }
 
     public String getResolvedPassword() {
-        return Env.resolve(MAIL_PASSWORD, password);
+        return Env.env(MAIL_PASSWORD, password);
     }
 
     public Transport getTransport() {
@@ -123,12 +126,14 @@ public class Mail extends AbstractAnnouncer {
     }
 
     public void setTransport(String transport) {
+        freezeCheck();
         this.transport = Transport.valueOf(transport.replaceAll(" ", "_")
             .replaceAll("-", "_")
-            .toUpperCase());
+            .toUpperCase(Locale.ENGLISH));
     }
 
     public void setTransport(Transport transport) {
+        freezeCheck();
         this.transport = transport;
     }
 
@@ -137,6 +142,7 @@ public class Mail extends AbstractAnnouncer {
     }
 
     public void setHost(String host) {
+        freezeCheck();
         this.host = host;
     }
 
@@ -145,6 +151,7 @@ public class Mail extends AbstractAnnouncer {
     }
 
     public void setPort(Integer port) {
+        freezeCheck();
         this.port = port;
     }
 
@@ -153,6 +160,7 @@ public class Mail extends AbstractAnnouncer {
     }
 
     public void setAuth(Boolean auth) {
+        freezeCheck();
         this.auth = auth;
     }
 
@@ -165,6 +173,7 @@ public class Mail extends AbstractAnnouncer {
     }
 
     public void setUsername(String username) {
+        freezeCheck();
         this.username = username;
     }
 
@@ -173,6 +182,7 @@ public class Mail extends AbstractAnnouncer {
     }
 
     public void setPassword(String password) {
+        freezeCheck();
         this.password = password;
     }
 
@@ -181,6 +191,7 @@ public class Mail extends AbstractAnnouncer {
     }
 
     public void setFrom(String from) {
+        freezeCheck();
         this.from = from;
     }
 
@@ -189,6 +200,7 @@ public class Mail extends AbstractAnnouncer {
     }
 
     public void setTo(String to) {
+        freezeCheck();
         this.to = to;
     }
 
@@ -197,6 +209,7 @@ public class Mail extends AbstractAnnouncer {
     }
 
     public void setCc(String cc) {
+        freezeCheck();
         this.cc = cc;
     }
 
@@ -205,6 +218,7 @@ public class Mail extends AbstractAnnouncer {
     }
 
     public void setBcc(String bcc) {
+        freezeCheck();
         this.bcc = bcc;
     }
 
@@ -213,6 +227,7 @@ public class Mail extends AbstractAnnouncer {
     }
 
     public void setSubject(String subject) {
+        freezeCheck();
         this.subject = subject;
     }
 
@@ -221,6 +236,7 @@ public class Mail extends AbstractAnnouncer {
     }
 
     public void setMessage(String message) {
+        freezeCheck();
         this.message = message;
     }
 
@@ -229,6 +245,7 @@ public class Mail extends AbstractAnnouncer {
     }
 
     public void setMessageTemplate(String messageTemplate) {
+        freezeCheck();
         this.messageTemplate = messageTemplate;
     }
 
@@ -237,20 +254,23 @@ public class Mail extends AbstractAnnouncer {
     }
 
     public void setMimeType(String mimeType) {
+        freezeCheck();
         this.mimeType = MimeType.valueOf(mimeType.replaceAll(" ", "_")
             .replaceAll("-", "_")
-            .toUpperCase());
+            .toUpperCase(Locale.ENGLISH));
     }
 
     public void setMimeType(MimeType mimeType) {
+        freezeCheck();
         this.mimeType = mimeType;
     }
 
     public Map<String, String> getProperties() {
-        return properties;
+        return freezeWrap(properties);
     }
 
     public void setProperties(Map<String, String> properties) {
+        freezeCheck();
         this.properties.putAll(properties);
     }
 

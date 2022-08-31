@@ -25,7 +25,9 @@ import static org.jreleaser.model.validation.AssemblersValidator.validateAssembl
 import static org.jreleaser.model.validation.ChecksumValidator.validateChecksum;
 import static org.jreleaser.model.validation.DistributionsValidator.postValidateDistributions;
 import static org.jreleaser.model.validation.DistributionsValidator.validateDistributions;
+import static org.jreleaser.model.validation.DownloadersValidator.validateDownloaders;
 import static org.jreleaser.model.validation.FilesValidator.validateFiles;
+import static org.jreleaser.model.validation.HooksValidator.validateHooks;
 import static org.jreleaser.model.validation.PackagersValidator.validatePackagers;
 import static org.jreleaser.model.validation.ProjectValidator.postValidateProject;
 import static org.jreleaser.model.validation.ProjectValidator.validateProject;
@@ -46,6 +48,7 @@ public final class JReleaserModelValidator {
         context.getLogger().increaseIndent();
         context.getLogger().setPrefix("validation");
         try {
+            context.getLogger().debug("--== {} ==--", mode);
             validateModel(context, mode, errors);
         } finally {
             context.getLogger().restorePrefix();
@@ -54,7 +57,9 @@ public final class JReleaserModelValidator {
     }
 
     private static void validateModel(JReleaserContext context, JReleaserContext.Mode mode, Errors errors) {
+        validateHooks(context, mode, errors);
         validateProject(context, mode, errors);
+        validateDownloaders(context, mode, errors);
         validateAssemblers(context, mode, errors);
         if (context.getModel().getCommit() != null) {
             validateSigning(context, mode, errors);
@@ -68,10 +73,13 @@ public final class JReleaserModelValidator {
         validateFiles(context, mode, errors);
         validateAnnouncers(context, mode, errors);
 
-        postValidateProject(context, mode, errors);
-        postValidateAssemblers(context, mode, errors);
-        if (mode != JReleaserContext.Mode.ASSEMBLE) {
+        context.getLogger().setPrefix("postvalidation");
+        try {
+            postValidateProject(context, mode, errors);
+            postValidateAssemblers(context, mode, errors);
             postValidateDistributions(context, mode, errors);
+        } finally {
+            context.getLogger().restorePrefix();
         }
     }
 }

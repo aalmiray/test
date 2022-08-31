@@ -31,7 +31,7 @@ import static org.jreleaser.model.Distribution.DistributionType.JAVA_BINARY;
 import static org.jreleaser.model.Distribution.DistributionType.JLINK;
 import static org.jreleaser.model.Distribution.DistributionType.NATIVE_IMAGE;
 import static org.jreleaser.model.Distribution.DistributionType.NATIVE_PACKAGE;
-import static org.jreleaser.util.CollectionUtils.newSet;
+import static org.jreleaser.util.CollectionUtils.setOf;
 import static org.jreleaser.util.FileType.DMG;
 import static org.jreleaser.util.FileType.ZIP;
 import static org.jreleaser.util.StringUtils.isBlank;
@@ -42,7 +42,7 @@ import static org.jreleaser.util.StringUtils.isNotBlank;
  * @author Andres Almiray
  * @since 0.9.0
  */
-public class Macports extends AbstractRepositoryPackager {
+public class Macports extends AbstractRepositoryPackager<Macports> {
     public static final String TYPE = "macports";
     public static final String SKIP_MACPORTS = "skipMacports";
     public static final String APP_NAME = "appName";
@@ -50,12 +50,12 @@ public class Macports extends AbstractRepositoryPackager {
     private static final Map<Distribution.DistributionType, Set<String>> SUPPORTED = new LinkedHashMap<>();
 
     static {
-        Set<String> extensions = newSet(ZIP.extension());
+        Set<String> extensions = setOf(ZIP.extension());
         SUPPORTED.put(BINARY, extensions);
         SUPPORTED.put(JAVA_BINARY, extensions);
         SUPPORTED.put(JLINK, extensions);
         SUPPORTED.put(NATIVE_IMAGE, extensions);
-        SUPPORTED.put(NATIVE_PACKAGE, newSet(DMG.extension()));
+        SUPPORTED.put(NATIVE_PACKAGE, setOf(DMG.extension()));
     }
 
     private final List<String> categories = new ArrayList<>();
@@ -69,13 +69,21 @@ public class Macports extends AbstractRepositoryPackager {
         super(TYPE);
     }
 
-    void setAll(Macports macports) {
-        super.setAll(macports);
-        this.packageName = macports.packageName;
-        this.revision = macports.revision;
+    @Override
+    public void freeze() {
+        super.freeze();
+        repository.freeze();
+    }
+
+    @Override
+    public void merge(Macports macports) {
+        freezeCheck();
+        super.merge(macports);
+        this.packageName = merge(this.packageName, macports.packageName);
+        this.revision = merge(this.revision, macports.revision);
         setRepository(macports.repository);
-        setCategories(macports.categories);
-        setMaintainers(macports.maintainers);
+        setCategories(merge(this.categories, macports.categories));
+        setMaintainers(merge(this.maintainers, macports.maintainers));
     }
 
     public List<String> getResolvedMaintainers(JReleaserContext context) {
@@ -96,6 +104,7 @@ public class Macports extends AbstractRepositoryPackager {
     }
 
     public void setPackageName(String packageName) {
+        freezeCheck();
         this.packageName = packageName;
     }
 
@@ -104,6 +113,7 @@ public class Macports extends AbstractRepositoryPackager {
     }
 
     public void setRevision(Integer revision) {
+        freezeCheck();
         this.revision = revision;
     }
 
@@ -112,23 +122,25 @@ public class Macports extends AbstractRepositoryPackager {
     }
 
     public void setRepository(MacportsRepository repository) {
-        this.repository.setAll(repository);
+        this.repository.merge(repository);
     }
 
     public List<String> getCategories() {
-        return categories;
+        return freezeWrap(categories);
     }
 
     public void setCategories(List<String> categories) {
+        freezeCheck();
         this.categories.clear();
         this.categories.addAll(categories);
     }
 
     public List<String> getMaintainers() {
-        return maintainers;
+        return freezeWrap(maintainers);
     }
 
     public void setMaintainers(List<String> maintainers) {
+        freezeCheck();
         this.maintainers.clear();
         this.maintainers.addAll(maintainers);
     }
@@ -151,7 +163,7 @@ public class Macports extends AbstractRepositoryPackager {
     @Override
     public boolean supportsPlatform(String platform) {
         return isBlank(platform) ||
-            (PlatformUtils.isMac(platform) && PlatformUtils.isIntel(platform));
+            PlatformUtils.isMac(platform) && PlatformUtils.isIntel(platform);
     }
 
     @Override
@@ -161,7 +173,7 @@ public class Macports extends AbstractRepositoryPackager {
 
     @Override
     public Set<String> getSupportedExtensions(Distribution distribution) {
-        return SUPPORTED.getOrDefault(distribution.getType(), Collections.emptySet());
+        return Collections.unmodifiableSet(SUPPORTED.getOrDefault(distribution.getType(), Collections.emptySet()));
     }
 
     @Override
@@ -169,7 +181,7 @@ public class Macports extends AbstractRepositoryPackager {
         return isFalse(artifact.getExtraProperties().get(SKIP_MACPORTS));
     }
 
-    public static class MacportsRepository extends AbstractRepositoryTap {
+    public static class MacportsRepository extends AbstractRepositoryTap<MacportsRepository> {
         public MacportsRepository() {
             super("macports", "macports");
         }

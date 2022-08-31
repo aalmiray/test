@@ -43,7 +43,7 @@ import static org.jreleaser.util.StringUtils.isNotBlank;
  * @author Andres Almiray
  * @since 0.1.0
  */
-public class Artifact implements Domain, ExtraProperties {
+public class Artifact extends AbstractModelObject<Artifact> implements Domain, ExtraProperties {
     private final Map<String, Object> extraProperties = new LinkedHashMap<>();
     @JsonIgnore
     private final Map<Algorithm, String> hashes = new LinkedHashMap<>();
@@ -60,15 +60,19 @@ public class Artifact implements Domain, ExtraProperties {
     @JsonIgnore
     private Path resolvedTransform;
 
-    void setAll(Artifact artifact) {
-        this.effectivePath = artifact.effectivePath;
-        this.path = artifact.path;
-        this.platform = artifact.platform;
-        this.transform = artifact.transform;
-        this.resolvedPath = artifact.resolvedPath;
-        this.resolvedTransform = artifact.resolvedTransform;
+    @Override
+    public void merge(Artifact artifact) {
+        freezeCheck();
+        this.effectivePath = merge(this.effectivePath, artifact.effectivePath);
+        this.path = merge(this.path, artifact.path);
+        this.platform = merge(this.platform, artifact.platform);
+        this.transform = merge(this.transform, artifact.transform);
+        this.resolvedPath = merge(this.resolvedPath, artifact.resolvedPath);
+        this.resolvedTransform = merge(this.resolvedTransform, artifact.resolvedTransform);
         this.active = artifact.active;
-        setExtraProperties(artifact.extraProperties);
+        setExtraProperties(merge(this.extraProperties, artifact.extraProperties));
+
+        // do not merge
         setHashes(artifact.hashes);
     }
 
@@ -227,6 +231,7 @@ public class Artifact implements Domain, ExtraProperties {
     }
 
     public void setPlatform(String platform) {
+        freezeCheck();
         this.platform = platform;
     }
 
@@ -235,6 +240,7 @@ public class Artifact implements Domain, ExtraProperties {
     }
 
     public void setTransform(String transform) {
+        freezeCheck();
         this.transform = transform;
     }
 
@@ -245,17 +251,19 @@ public class Artifact implements Domain, ExtraProperties {
 
     @Override
     public Map<String, Object> getExtraProperties() {
-        return extraProperties;
+        return freezeWrap(extraProperties);
     }
 
     @Override
     public void setExtraProperties(Map<String, Object> extraProperties) {
+        freezeCheck();
         this.extraProperties.clear();
         this.extraProperties.putAll(extraProperties);
     }
 
     @Override
     public void addExtraProperties(Map<String, Object> extraProperties) {
+        freezeCheck();
         this.extraProperties.putAll(extraProperties);
     }
 
@@ -290,7 +298,7 @@ public class Artifact implements Domain, ExtraProperties {
         return Objects.hash(path);
     }
 
-    public void merge(Artifact other) {
+    public void mergeWith(Artifact other) {
         if (this == other) return;
         if (isBlank(this.platform)) this.platform = other.platform;
         if (isBlank(this.transform)) this.transform = other.transform;
@@ -299,7 +307,7 @@ public class Artifact implements Domain, ExtraProperties {
 
     public Artifact copy() {
         Artifact copy = new Artifact();
-        copy.setAll(this);
+        copy.mergeWith(this);
         return copy;
     }
 

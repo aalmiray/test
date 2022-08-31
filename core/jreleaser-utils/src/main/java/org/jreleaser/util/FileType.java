@@ -19,6 +19,8 @@ package org.jreleaser.util;
 
 import java.nio.file.Path;
 import java.util.LinkedHashSet;
+import java.util.Locale;
+import java.util.Optional;
 import java.util.Set;
 
 import static org.jreleaser.util.StringUtils.isBlank;
@@ -38,19 +40,29 @@ public enum FileType {
     PKG("pkg"),
     RPM("rpm"),
     SIG("sig"),
-    TAR("tar"),
-    TAR_BZ2("tar.bz2"),
-    TAR_GZ("tar.gz"),
-    TAR_XZ("tar.xz"),
-    TBZ2("tbz2"),
-    TGZ("tgz"),
-    TXZ("txz"),
-    ZIP("zip");
+    TAR("tar", true),
+    TAR_BZ2("tar.bz2", true),
+    TAR_GZ("tar.gz", true),
+    TAR_XZ("tar.xz", true),
+    TBZ2("tbz2", true),
+    TGZ("tgz", true),
+    TXZ("txz", true),
+    ZIP("zip", true);
 
     private final String type;
+    private final boolean archive;
 
     FileType(String type) {
+        this(type, false);
+    }
+
+    FileType(String type, boolean archive) {
         this.type = type;
+        this.archive = archive;
+    }
+
+    public boolean archive() {
+        return this.archive;
     }
 
     public String type() {
@@ -68,7 +80,7 @@ public enum FileType {
 
     public static FileType of(String str) {
         if (isBlank(str)) return null;
-        return FileType.valueOf(str.toUpperCase().trim()
+        return FileType.valueOf(str.toUpperCase(Locale.ENGLISH).trim()
             .replace(".", "_"));
     }
 
@@ -88,14 +100,33 @@ public enum FileType {
         return set;
     }
 
-    public static String getFileType(Path path) {
+    public static Optional<FileType> getFileType(Path path) {
         if (null != path) {
             return getFileType(path.getFileName().toString());
+        }
+        return Optional.empty();
+    }
+
+    public static Optional<FileType> getFileType(String path) {
+        if (isBlank(path)) return Optional.empty();
+
+        for (FileType value : values()) {
+            if (path.endsWith(value.extension())) {
+                return Optional.of(value);
+            }
+        }
+
+        return Optional.empty();
+    }
+
+    public static String getType(Path path) {
+        if (null != path) {
+            return getType(path.getFileName().toString());
         }
         return "";
     }
 
-    public static String getFileType(String path) {
+    public static String getType(String path) {
         if (isBlank(path)) return "";
 
         for (FileType value : values()) {
@@ -107,14 +138,14 @@ public enum FileType {
         return "";
     }
 
-    public static String getFileNameExtension(Path path) {
+    public static String getExtension(Path path) {
         if (null != path) {
-            return getFileNameExtension(path.getFileName().toString());
+            return getExtension(path.getFileName().toString());
         }
         return "";
     }
 
-    public static String getFileNameExtension(String path) {
+    public static String getExtension(String path) {
         if (isBlank(path)) return "";
 
         for (FileType value : values()) {

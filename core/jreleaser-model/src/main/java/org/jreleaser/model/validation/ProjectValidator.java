@@ -108,62 +108,96 @@ public abstract class ProjectValidator extends Validator {
             !context.getModel().getAssemble().getJpackage().isEmpty() ||
             !context.getModel().getAssemble().getNativeImage().isEmpty();
 
-        if ((mode.validateConfig() && javaDistributions) || javaAssemblers) {
+        if (javaAssemblers || mode.validateConfig() && javaDistributions) {
             validateJava(context, project, errors);
         }
+
+        validateScreenshots(context, mode, project.getScreenshots(), errors, "project");
+        validateIcons(context, mode, project.getIcons(), errors, "project");
     }
 
     public static void postValidateProject(JReleaserContext context, JReleaserContext.Mode mode, Errors errors) {
         context.getLogger().debug("project");
         Project project = context.getModel().getProject();
 
-        if (isBlank(project.getCopyright())) {
-            if (project.getExtraProperties().containsKey("inceptionYear") &&
-                !project.getAuthors().isEmpty()) {
-                project.setCopyright(
-                    project.getExtraProperties().get("inceptionYear") + " " +
-                        String.join(",", project.getAuthors()));
-            } else {
-                context.nag("0.4.0", "project.copyright must not be blank");
-                project.setCopyright("");
-                // errors.configuration("project.copyright must not be blank");
-            }
+        // TODO: remove in 2.0.0
+        if (null == project.getInceptionYear() &&
+            project.getExtraProperties().containsKey("inceptionYear")) {
+            project.setInceptionYear(project.getExtraProperty("inceptionYear"));
+            context.nag("1.2.0", "Use project.inceptionYear instead of project.extraProperties.inceptionYear");
         }
 
-        if (isBlank(project.getLicenseUrl())) {
+        if (isBlank(project.getLinks().getLicense())) {
             if (isNotBlank(project.getLicense())) {
                 LicenseId.findByLiteral(project.getLicense()).ifPresent(licenseId ->
-                    project.setLicenseUrl(licenseId.url()));
+                    project.getLinks().setLicense(licenseId.url()));
             }
         }
 
-        if (isBlank(project.getLicenseUrl()) && context.getModel().getCommit() != null) {
+        if (isBlank(project.getLinks().getLicense()) && context.getModel().getCommit() != null) {
             findLicenseFile(context.getBasedir())
                 .ifPresent(path -> {
                     GitService service = context.getModel().getRelease().getGitService();
                     String srcUrl = service.getResolvedSrcUrl(context.getModel());
                     if (!srcUrl.endsWith("/")) srcUrl += "/";
                     srcUrl += path.getFileName().toString();
-                    project.setLicenseUrl(srcUrl);
+                    project.getLinks().setLicense(srcUrl);
                 });
         }
+        if (isBlank(project.getLinks().getVcsBrowser())) {
+            project.getLinks().setVcsBrowser(context.getModel().getRelease().getGitService().getRepoUrl());
+        }
+        if (isBlank(project.getLinks().getBugTracker())) {
+            project.getLinks().setBugTracker(context.getModel().getRelease().getGitService().getIssueTrackerUrl());
+        }
+        if (isBlank(project.getLinks().getDocumentation())) {
+            project.getLinks().setDocumentation(project.getLinks().getHomepage());
+        }
 
-        if (!mode.validateConfig()) return;
+        if (context.getModel().getAssemble().isEnabled()) {
+            if (isBlank(project.getDescription())) {
+                errors.configuration(RB.$("validation_must_not_be_blank", "project.description"));
+            }
 
-        if (context.getModel().getActiveDistributions().isEmpty() && !context.getModel().getAnnounce().isEnabled()) {
+            if (isBlank(project.getCopyright())) {
+                if (project.getInceptionYear() != null &&
+                    !project.getAuthors().isEmpty()) {
+                    project.setCopyright(
+                        project.getInceptionYear() + " " +
+                            String.join(", ", project.getAuthors()));
+                } else {
+                    errors.configuration(RB.$("validation_must_not_be_blank", "project.copyright"));
+                }
+            }
+        }
+
+        if (!mode.validateConfig() && !mode.validateAnnounce()) {
             return;
+        }
+
+        if (context.getModel().getActiveDistributions().isEmpty() ||
+            !context.getModel().getAnnounce().isEnabled()) {
+            return;
+        }
+
+        if (isBlank(project.getCopyright())) {
+            if (project.getInceptionYear() != null &&
+                !project.getAuthors().isEmpty()) {
+                project.setCopyright(
+                    project.getInceptionYear() + " " +
+                        String.join(", ", project.getAuthors()));
+            } else {
+                errors.configuration(RB.$("validation_must_not_be_blank", "project.copyright"));
+            }
         }
 
         if (isBlank(project.getDescription())) {
             errors.configuration(RB.$("validation_must_not_be_blank", "project.description"));
         }
-        if (isBlank(project.getDocsUrl())) {
-            project.setDocsUrl(project.getWebsite());
-        }
-        if (isBlank(project.getWebsite())) {
+        if (isBlank(project.getLinks().getHomepage())) {
             errors.configuration(RB.$("validation_must_not_be_blank", "project.website"));
         }
-        if (isBlank(project.getDocsUrl())) {
+        if (isBlank(project.getLinks().getDocumentation())) {
             errors.configuration(RB.$("validation_must_not_be_blank", "project.docsUrl"));
         }
         if (isBlank(project.getLicense())) {

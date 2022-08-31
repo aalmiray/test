@@ -20,7 +20,6 @@ package org.jreleaser.gradle.plugin.dsl
 import groovy.transform.CompileStatic
 import org.gradle.api.Action
 import org.gradle.api.NamedDomainObjectContainer
-import org.gradle.api.provider.Property
 
 /**
  *
@@ -28,24 +27,52 @@ import org.gradle.api.provider.Property
  * @since 0.3.0
  */
 @CompileStatic
-interface Upload {
-    Property<Boolean> getEnabled()
-
+interface Upload extends Activatable {
     NamedDomainObjectContainer<Artifactory> getArtifactory()
 
-    NamedDomainObjectContainer<Http> getHttp()
+    NamedDomainObjectContainer<FtpUploader> getFtp()
+
+    NamedDomainObjectContainer<GitlabUploader> getGitea()
+
+    NamedDomainObjectContainer<GitlabUploader> getGitlab()
+
+    NamedDomainObjectContainer<HttpUploader> getHttp()
 
     NamedDomainObjectContainer<S3> getS3()
 
+    NamedDomainObjectContainer<ScpUploader> getScp()
+
+    NamedDomainObjectContainer<SftpUploader> getSftp()
+
     void artifactory(Action<? super NamedDomainObjectContainer<Artifactory>> action)
 
-    void http(Action<? super NamedDomainObjectContainer<Http>> action)
+    void ftp(Action<? super NamedDomainObjectContainer<FtpUploader>> action)
+
+    void gitea(Action<? super NamedDomainObjectContainer<GiteaUploader>> action)
+
+    void gitlab(Action<? super NamedDomainObjectContainer<GitlabUploader>> action)
+
+    void http(Action<? super NamedDomainObjectContainer<HttpUploader>> action)
 
     void s3(Action<? super NamedDomainObjectContainer<S3>> action)
 
+    void scp(Action<? super NamedDomainObjectContainer<ScpUploader>> action)
+
+    void sftp(Action<? super NamedDomainObjectContainer<SftpUploader>> action)
+
     void artifactory(@DelegatesTo(strategy = Closure.DELEGATE_FIRST, value = NamedDomainObjectContainer) Closure<Void> action)
+
+    void ftp(@DelegatesTo(strategy = Closure.DELEGATE_FIRST, value = NamedDomainObjectContainer) Closure<Void> action)
+
+    void gitea(@DelegatesTo(strategy = Closure.DELEGATE_FIRST, value = NamedDomainObjectContainer) Closure<Void> action)
+
+    void gitlab(@DelegatesTo(strategy = Closure.DELEGATE_FIRST, value = NamedDomainObjectContainer) Closure<Void> action)
 
     void http(@DelegatesTo(strategy = Closure.DELEGATE_FIRST, value = NamedDomainObjectContainer) Closure<Void> action)
 
     void s3(@DelegatesTo(strategy = Closure.DELEGATE_FIRST, value = NamedDomainObjectContainer) Closure<Void> action)
+
+    void scp(@DelegatesTo(strategy = Closure.DELEGATE_FIRST, value = NamedDomainObjectContainer) Closure<Void> action)
+
+    void sftp(@DelegatesTo(strategy = Closure.DELEGATE_FIRST, value = NamedDomainObjectContainer) Closure<Void> action)
 }

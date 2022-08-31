@@ -31,7 +31,7 @@ import static org.jreleaser.util.StringUtils.isNotBlank;
  * @author Andres Almiray
  * @since 0.1.0
  */
-public class SdkmanAnnouncer extends AbstractAnnouncer {
+public class SdkmanAnnouncer extends AbstractAnnouncer<SdkmanAnnouncer> {
     public static final String NAME = "sdkman";
 
     private String consumerKey;
@@ -45,14 +45,16 @@ public class SdkmanAnnouncer extends AbstractAnnouncer {
         super(NAME);
     }
 
-    void setAll(SdkmanAnnouncer sdkman) {
-        super.setAll(sdkman);
-        this.consumerKey = sdkman.consumerKey;
-        this.consumerToken = sdkman.consumerToken;
-        this.candidate = sdkman.candidate;
-        this.releaseNotesUrl = sdkman.releaseNotesUrl;
-        this.downloadUrl = sdkman.downloadUrl;
-        this.command = sdkman.command;
+    @Override
+    public void merge(SdkmanAnnouncer sdkman) {
+        freezeCheck();
+        super.merge(sdkman);
+        this.consumerKey = merge(this.consumerKey, sdkman.consumerKey);
+        this.consumerToken = merge(this.consumerToken, sdkman.consumerToken);
+        this.candidate = merge(this.candidate, sdkman.candidate);
+        this.releaseNotesUrl = merge(this.releaseNotesUrl, sdkman.releaseNotesUrl);
+        this.downloadUrl = merge(this.downloadUrl, sdkman.downloadUrl);
+        this.command = merge(this.command, sdkman.command);
     }
 
     @Override
@@ -61,11 +63,11 @@ public class SdkmanAnnouncer extends AbstractAnnouncer {
     }
 
     public String getResolvedConsumerKey() {
-        return Env.resolve(SDKMAN_CONSUMER_KEY, consumerKey);
+        return Env.env(SDKMAN_CONSUMER_KEY, consumerKey);
     }
 
     public String getResolvedConsumerToken() {
-        return Env.resolve(SDKMAN_CONSUMER_TOKEN, consumerToken);
+        return Env.env(SDKMAN_CONSUMER_TOKEN, consumerToken);
     }
 
     public String getConsumerKey() {
@@ -73,6 +75,7 @@ public class SdkmanAnnouncer extends AbstractAnnouncer {
     }
 
     public void setConsumerKey(String consumerKey) {
+        freezeCheck();
         this.consumerKey = consumerKey;
     }
 
@@ -81,6 +84,7 @@ public class SdkmanAnnouncer extends AbstractAnnouncer {
     }
 
     public void setConsumerToken(String consumerToken) {
+        freezeCheck();
         this.consumerToken = consumerToken;
     }
 
@@ -89,6 +93,7 @@ public class SdkmanAnnouncer extends AbstractAnnouncer {
     }
 
     public void setCandidate(String candidate) {
+        freezeCheck();
         this.candidate = candidate;
     }
 
@@ -97,6 +102,7 @@ public class SdkmanAnnouncer extends AbstractAnnouncer {
     }
 
     public void setReleaseNotesUrl(String releaseNotesUrl) {
+        freezeCheck();
         this.releaseNotesUrl = releaseNotesUrl;
     }
 
@@ -105,6 +111,7 @@ public class SdkmanAnnouncer extends AbstractAnnouncer {
     }
 
     public void setDownloadUrl(String downloadUrl) {
+        freezeCheck();
         this.downloadUrl = downloadUrl;
     }
 
@@ -113,11 +120,12 @@ public class SdkmanAnnouncer extends AbstractAnnouncer {
     }
 
     public void setCommand(Sdkman.Command command) {
+        freezeCheck();
         this.command = command;
     }
 
     public void setCommand(String str) {
-        this.command = Sdkman.Command.of(str);
+        setCommand(Sdkman.Command.of(str));
     }
 
     public boolean isCommandSet() {

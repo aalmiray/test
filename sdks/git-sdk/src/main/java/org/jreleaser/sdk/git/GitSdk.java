@@ -37,6 +37,7 @@ import org.jreleaser.util.StringUtils;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Comparator;
 import java.util.List;
@@ -198,6 +199,11 @@ public class GitSdk {
         }
     }
 
+    public boolean isShallow() {
+        Path path = basedir.toPath();
+        return Files.exists(path.resolve(".git/shallow"));
+    }
+
     public void tag(String tagName, JReleaserContext context) throws IOException {
         tag(tagName, false, context);
     }
@@ -220,7 +226,7 @@ public class GitSdk {
     }
 
     public static String resolveDefaultGitRemoteName() {
-        String remoteName = Env.resolve("DEFAULT_GIT_REMOTE", "");
+        String remoteName = Env.env("DEFAULT_GIT_REMOTE", "");
         if (isBlank(remoteName)) remoteName = "origin";
         return remoteName;
     }

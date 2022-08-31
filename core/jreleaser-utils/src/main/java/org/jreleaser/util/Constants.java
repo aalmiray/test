@@ -26,6 +26,7 @@ public interface Constants {
     String HIDE = "************";
 
     String MAGIC_SET = "__MAGIC_SET__";
+    String SKIP_OPENJDK = "skipOpenjdk";
 
     // General
     String KEY_ZONED_DATE_TIME_NOW = "__ZonedDateTime_now__";
@@ -66,10 +67,13 @@ public interface Constants {
     String KEY_PROJECT_LONG_DESCRIPTION = "projectLongDescription";
     String KEY_PROJECT_WEBSITE = "projectWebsite";
     String KEY_PROJECT_DOCS_URL = "projectDocsUrl";
+    String KEY_PROJECT_STEREOTYPE = "projectStereotype";
     String KEY_PROJECT_COPYRIGHT = "projectCopyright";
     String KEY_PROJECT_VENDOR = "projectVendor";
     String KEY_PROJECT_LICENSE = "projectLicense";
+    String KEY_PROJECT_INCEPTION_YEAR = "projectInceptionYear";
     String KEY_PROJECT_LICENSE_URL = "projectLicenseUrl";
+    String KEY_PROJECT_AUTHORS = "projectAuthors";
     String KEY_PROJECT_AUTHORS_BY_SPACE = "projectAuthorsBySpace";
     String KEY_PROJECT_AUTHORS_BY_COMMA = "projectAuthorsByComma";
     String KEY_PROJECT_TAGS_BY_SPACE = "projectTagsBySpace";
@@ -96,6 +100,7 @@ public interface Constants {
     String KEY_REPO_OWNER = "repoOwner";
     String KEY_REPO_NAME = "repoName";
     String KEY_IDENTIFIER = "identifier";
+    String KEY_PROJECT_IDENTIFIER = "projectIdentifier";
     String KEY_REPO_BRANCH = "repoBranch";
     String KEY_TAG_NAME = "tagName";
     String KEY_RELEASE_NAME = "releaseName";
@@ -125,6 +130,7 @@ public interface Constants {
     String KEY_DISTRIBUTION_EXECUTABLE_EXTENSION_WINDOWS = "distributionExecutableExtensionWindows";
     String KEY_DISTRIBUTION_TAGS_BY_SPACE = "distributionTagsBySpace";
     String KEY_DISTRIBUTION_TAGS_BY_COMMA = "distributionTagsByComma";
+    String KEY_DISTRIBUTION_STEREOTYPE = "distributionStereotype";
     String KEY_DISTRIBUTION_URL = "distributionUrl";
     String KEY_DISTRIBUTION_SIZE = "distributionSize";
     String KEY_DISTRIBUTION_SHA_256 = "distributionSha256";
@@ -164,6 +170,29 @@ public interface Constants {
     String KEY_ARTIFACT_ARCH = "artifactArch";
     String KEY_ARTIFACT_SIZE = "artifactSize";
     String KEY_ARTIFACT_ARCHIVE_FORMAT = "artifactArchiveFormat";
+
+    // AppImage
+    String KEY_APPIMAGE_REPO_OWNER = "appImageRepoOwner";
+    String KEY_APPIMAGE_REPO_NAME = "appImageRepoName";
+    String KEY_APPIMAGE_COMPONENT_ID = "appImageComponentId";
+    String KEY_APPIMAGE_CATEGORIES = "appImageCategories";
+    String KEY_APPIMAGE_CATEGORIES_BY_COMMA = "appImageCategoriesByComma";
+    String KEY_APPIMAGE_DEVELOPER_NAME = "appImageDeveloperName";
+    String KEY_APPIMAGE_REQUIRES_TERMINAL = "appImageRequiresTerminal";
+    String KEY_APPIMAGE_RELEASES = "appImageReleases";
+    String KEY_APPIMAGE_URLS = "appImageUrls";
+    String KEY_APPIMAGE_SCREENSHOTS = "appImageScreenshots";
+    String KEY_APPIMAGE_ICONS = "appImageIcons";
+    String KEY_APPIMAGE_DISTRIBUTION_ARTIFACT_FILE = "appImageDistributionArtifactFile";
+    String KEY_APPIMAGE_DISTRIBUTION_URL = "appImageDistributionUrl";
+    String KEY_APPIMAGE_DISTRIBUTION_ARTIFACT_FILE_NAME = "appImageDistributionArtifactFileName";
+
+    // Asdf
+    String KEY_ASDF_PLUGIN_REPO_URL = "asdfPluginRepoUrl";
+    String KEY_ASDF_PLUGIN_TOOL_CHECK = "asdfPluginToolCheck";
+    String KEY_ASDF_DISTRIBUTION_ARTIFACT_FILE = "asdfDistributionArtifactFile";
+    String KEY_ASDF_DISTRIBUTION_URL = "asdfDistributionUrl";
+    String KEY_ASDF_DISTRIBUTION_ARTIFACT_FILE_NAME = "asdfDistributionArtifactFileName";
 
     // Brew
     String KEY_BREW_FORMULA_NAME = "brewFormulaName";
@@ -262,13 +291,41 @@ public interface Constants {
     String KEY_SPEC_BINARIES = "specBinaries";
     String KEY_SPEC_FILES = "specFiles";
 
+    // Flatpak
+    String KEY_FLATPAK_REPO_OWNER = "flatpakRepoOwner";
+    String KEY_FLATPAK_REPO_NAME = "flatpakRepoName";
+    String KEY_FLATPAK_COMPONENT_ID = "flatpakComponentId";
+    String KEY_FLATPAK_CATEGORIES = "flatpakCategories";
+    String KEY_FLATPAK_CATEGORIES_BY_COMMA = "flatpakCategoriesByComma";
+    String KEY_FLATPAK_CATEGORIES_BY_SEMICOLON = "flatpakCategoriesBySemicolon";
+    String KEY_FLATPAK_DEVELOPER_NAME = "flatpakDeveloperName";
+    String KEY_FLATPAK_RELEASES = "flatpakReleases";
+    String KEY_FLATPAK_URLS = "flatpakUrls";
+    String KEY_FLATPAK_SCREENSHOTS = "flatpakScreenshots";
+    String KEY_FLATPACK_ICONS = "flatpakIcons";
+    String KEY_FLATPAK_DIRECTORIES = "flatpakDirectories";
+    String KEY_FLATPAK_BINARIES = "flatpakBinaries";
+    String KEY_FLATPAK_FILES = "flatpakFiles";
+    String KEY_FLATPAK_HAS_SDK_EXTENSIONS = "flatpakHasSdkExtensions";
+    String KEY_FLATPAK_SDK_EXTENSIONS = "flatpakSdkExtensions";
+    String KEY_FLATPAK_HAS_SDK_FINISH_ARGS = "flatpakHasFinishArgs";
+    String KEY_FLATPAK_SDK_FINISH_ARGS = "flatpakFinishArgs";
+    String KEY_FLATPAK_RUNTIME = "flatpakRuntime";
+    String KEY_FLATPAK_RUNTIME_VERSION = "flatpakRuntimeVersion";
+    String KEY_FLATPAK_SDK = "flatpakSdk";
+    String KEY_FLATPAK_INCLUDE_OPENJDK = "flatpakIncludeOpendJdk";
+
     // Gofish
     String KEY_GOFISH_PACKAGES = "gofishPackages";
 
     // upload
     String KEY_UPLOADER_NAME = "uploaderName";
 
+    // Download
+    String KEY_DOWNLOADER_NAME = "downloaderName";
+
     // Directories
+    String KEY_BASEDIR = "basedir";
     String KEY_BASE_OUTPUT_DIRECTORY = "baseOutputDirectory";
     String KEY_OUTPUT_DIRECTORY = "outputDirectory";
     String KEY_CHECKSUMS_DIRECTORY = "checksumDirectory";
@@ -276,6 +333,7 @@ public interface Constants {
     String KEY_ASSEMBLE_DIRECTORY = "assembleDirectory";
     String KEY_DISTRIBUTION_ASSEMBLE_DIRECTORY = "distributionAssembleDirectory";
     String KEY_ARTIFACTS_DIRECTORY = "artifactsDirectory";
+    String KEY_DOWNLOAD_DIRECTORY = "downloadDirectory";
     String KEY_PREPARE_DIRECTORY = "prepareDirectory";
     String KEY_PACKAGE_DIRECTORY = "packageDirectory";
     String KEY_DISTRIBUTION_PREPARE_DIRECTORY = "distributionPrepareDirectory";

@@ -24,7 +24,6 @@ import org.jreleaser.model.Artifact;
 import org.jreleaser.model.FileSet;
 import org.jreleaser.model.JReleaserContext;
 import org.jreleaser.model.NativeImage;
-import org.jreleaser.model.Platform;
 import org.jreleaser.util.Errors;
 import org.jreleaser.util.PlatformUtils;
 
@@ -43,8 +42,8 @@ import static org.jreleaser.util.StringUtils.isNotBlank;
  */
 public abstract class NativeImageValidator extends Validator {
     public static void validateNativeImage(JReleaserContext context, JReleaserContext.Mode mode, Errors errors) {
-        context.getLogger().debug("nativeImage");
         Map<String, NativeImage> nativeImage = context.getModel().getAssemble().getNativeImage();
+        if (!nativeImage.isEmpty()) context.getLogger().debug("assemble.nativeImage");
 
         for (Map.Entry<String, NativeImage> e : nativeImage.entrySet()) {
             e.getValue().setName(e.getKey());
@@ -53,25 +52,34 @@ public abstract class NativeImageValidator extends Validator {
     }
 
     private static void validateNativeImage(JReleaserContext context, JReleaserContext.Mode mode, NativeImage nativeImage, Errors errors) {
-        context.getLogger().debug("nativeImage.{}", nativeImage.getName());
+        context.getLogger().debug("assemble.nativeImage.{}", nativeImage.getName());
 
         if (!nativeImage.isActiveSet()) {
             nativeImage.setActive(Active.NEVER);
         }
-        if (!nativeImage.resolveEnabled(context.getModel().getProject())) return;
+        if (!nativeImage.resolveEnabled(context.getModel().getProject())) {
+            context.getLogger().debug(RB.$("validation.disabled"));
+            return;
+        }
+
+        if (null == nativeImage.getStereotype()) {
+            nativeImage.setStereotype(context.getModel().getProject().getStereotype());
+        }
 
         if (isBlank(nativeImage.getName())) {
             errors.configuration(RB.$("validation_must_not_be_blank", "nativeImage.name"));
+            context.getLogger().debug(RB.$("validation.disabled.error"));
+            nativeImage.disable();
             return;
         }
 
         if (null == nativeImage.getMainJar()) {
             errors.configuration(RB.$("validation_is_null", "nativeImage." + nativeImage.getName() + ".mainJar"));
+            context.getLogger().debug(RB.$("validation.disabled.error"));
             return;
         }
 
-        Platform platform = nativeImage.getPlatform().merge(context.getModel().getPlatform());
-        nativeImage.setPlatform(platform);
+        nativeImage.setPlatform(nativeImage.getPlatform().mergeValues(context.getModel().getPlatform()));
 
         if (isBlank(nativeImage.getExecutable())) {
             nativeImage.setExecutable(nativeImage.getName());

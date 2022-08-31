@@ -24,35 +24,64 @@ import java.util.Map;
  * @author Andres Almiray
  * @since 0.1.0
  */
-public class Packagers implements Domain {
-    private final Brew brew = new Brew();
-    private final Chocolatey chocolatey = new Chocolatey();
-    private final Docker docker = new Docker();
-    private final Gofish gofish = new Gofish();
-    private final Jbang jbang = new Jbang();
-    private final Macports macports = new Macports();
-    private final Scoop scoop = new Scoop();
-    private final Sdkman sdkman = new Sdkman();
-    private final Snap snap = new Snap();
-    private final Spec spec = new Spec();
+public class Packagers<S extends Packagers<S>> extends AbstractModelObject<S> implements Domain {
+    protected final AppImage appImage = new AppImage();
+    protected final Asdf asdf = new Asdf();
+    protected final Brew brew = new Brew();
+    protected final Chocolatey chocolatey = new Chocolatey();
+    protected final Docker docker = new Docker();
+    protected final Flatpak flatpak = new Flatpak();
+    protected final Gofish gofish = new Gofish();
+    protected final Jbang jbang = new Jbang();
+    protected final Macports macports = new Macports();
+    protected final Scoop scoop = new Scoop();
+    protected final Sdkman sdkman = new Sdkman();
+    protected final Snap snap = new Snap();
+    protected final Spec spec = new Spec();
 
     public boolean hasEnabledPackagers() {
-        return brew.isEnabled() ||
+        return appImage.isEnabled() ||
+            asdf.isEnabled() ||
+            brew.isEnabled() ||
             chocolatey.isEnabled() ||
             docker.isEnabled() ||
+            flatpak.isEnabled() ||
             gofish.isEnabled() ||
             jbang.isEnabled() ||
             macports.isEnabled() ||
             scoop.isEnabled() ||
             sdkman.isEnabled() ||
-            snap.isEnabled()||
+            snap.isEnabled() ||
             spec.isEnabled();
     }
 
-    void setAll(Packagers packagers) {
+    @Override
+    public void freeze() {
+        super.freeze();
+        appImage.freeze();
+        asdf.freeze();
+        brew.freeze();
+        chocolatey.freeze();
+        docker.freeze();
+        flatpak.freeze();
+        gofish.freeze();
+        jbang.freeze();
+        macports.freeze();
+        scoop.freeze();
+        sdkman.freeze();
+        snap.freeze();
+        spec.freeze();
+    }
+
+    @Override
+    public void merge(S packagers) {
+        freezeCheck();
+        setAppImage(packagers.appImage);
+        setAsdf(packagers.asdf);
         setBrew(packagers.brew);
         setChocolatey(packagers.chocolatey);
         setDocker(packagers.docker);
+        setFlatpak(packagers.flatpak);
         setGofish(packagers.gofish);
         setJbang(packagers.jbang);
         setMacports(packagers.macports);
@@ -62,12 +91,28 @@ public class Packagers implements Domain {
         setSpec(packagers.spec);
     }
 
+    public AppImage getAppImage() {
+        return appImage;
+    }
+
+    public void setAppImage(AppImage appimage) {
+        this.appImage.merge(appimage);
+    }
+
+    public Asdf getAsdf() {
+        return asdf;
+    }
+
+    public void setAsdf(Asdf asdf) {
+        this.asdf.merge(asdf);
+    }
+
     public Brew getBrew() {
         return brew;
     }
 
     public void setBrew(Brew brew) {
-        this.brew.setAll(brew);
+        this.brew.merge(brew);
     }
 
     public Chocolatey getChocolatey() {
@@ -75,7 +120,7 @@ public class Packagers implements Domain {
     }
 
     public void setChocolatey(Chocolatey chocolatey) {
-        this.chocolatey.setAll(chocolatey);
+        this.chocolatey.merge(chocolatey);
     }
 
     public Docker getDocker() {
@@ -83,7 +128,7 @@ public class Packagers implements Domain {
     }
 
     public void setDocker(Docker docker) {
-        this.docker.setAll(docker);
+        this.docker.merge(docker);
     }
 
     public Gofish getGofish() {
@@ -91,7 +136,15 @@ public class Packagers implements Domain {
     }
 
     public void setGofish(Gofish gofish) {
-        this.gofish.setAll(gofish);
+        this.gofish.merge(gofish);
+    }
+
+    public Flatpak getFlatpak() {
+        return flatpak;
+    }
+
+    public void setFlatpak(Flatpak flatpak) {
+        this.flatpak.merge(flatpak);
     }
 
     public Jbang getJbang() {
@@ -99,7 +152,7 @@ public class Packagers implements Domain {
     }
 
     public void setJbang(Jbang jbang) {
-        this.jbang.setAll(jbang);
+        this.jbang.merge(jbang);
     }
 
     public Macports getMacports() {
@@ -107,7 +160,7 @@ public class Packagers implements Domain {
     }
 
     public void setMacports(Macports macports) {
-        this.macports.setAll(macports);
+        this.macports.merge(macports);
     }
 
     public Scoop getScoop() {
@@ -115,7 +168,7 @@ public class Packagers implements Domain {
     }
 
     public void setScoop(Scoop scoop) {
-        this.scoop.setAll(scoop);
+        this.scoop.merge(scoop);
     }
 
     public Sdkman getSdkman() {
@@ -123,7 +176,7 @@ public class Packagers implements Domain {
     }
 
     public void setSdkman(Sdkman sdkman) {
-        this.sdkman.setAll(sdkman);
+        this.sdkman.merge(sdkman);
     }
 
     public Snap getSnap() {
@@ -131,7 +184,7 @@ public class Packagers implements Domain {
     }
 
     public void setSnap(Snap snap) {
-        this.snap.setAll(snap);
+        this.snap.merge(snap);
     }
 
     public Spec getSpec() {
@@ -139,15 +192,18 @@ public class Packagers implements Domain {
     }
 
     public void setSpec(Spec spec) {
-        this.spec.setAll(spec);
+        this.spec.merge(spec);
     }
 
     @Override
     public Map<String, Object> asMap(boolean full) {
         Map<String, Object> map = new LinkedHashMap<>();
+        map.putAll(appImage.asMap(full));
+        map.putAll(asdf.asMap(full));
         map.putAll(brew.asMap(full));
         map.putAll(chocolatey.asMap(full));
         map.putAll(docker.asMap(full));
+        map.putAll(flatpak.asMap(full));
         map.putAll(gofish.asMap(full));
         map.putAll(jbang.asMap(full));
         map.putAll(macports.asMap(full));

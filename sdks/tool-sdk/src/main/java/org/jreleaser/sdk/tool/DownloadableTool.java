@@ -65,14 +65,17 @@ public class DownloadableTool {
     private final boolean enabled;
     private final Properties properties;
     private Path executable;
+    protected final boolean verifyErrorOutput;
 
-    public DownloadableTool(JReleaserLogger logger, String name, String version, String platform) throws ToolException {
+    public DownloadableTool(JReleaserLogger logger, String name, String version, String platform, boolean verifyErrorOutput) throws ToolException {
         this.logger = logger;
         this.name = name;
         this.version = version;
         this.platform = platform;
+        this.verifyErrorOutput = verifyErrorOutput;
 
         String key = name + ".properties";
+
         try {
             properties = new Properties();
             properties.load(DownloadableTool.class.getClassLoader()
@@ -118,15 +121,24 @@ public class DownloadableTool {
             .arg(properties.getProperty(COMMAND_VERSION));
 
         try {
-            ByteArrayOutputStream out = new ByteArrayOutputStream();
-            executeCommandCapturing(command, out);
 
             String verify = properties.getProperty(COMMAND_VERIFY).trim();
             Map<String, Object> props = props();
             verify = resolveTemplate(verify, props);
 
             Pattern pattern = Pattern.compile(verify);
-            return pattern.matcher(out.toString()).find();
+
+            if (verifyErrorOutput) {
+                ByteArrayOutputStream out = new ByteArrayOutputStream();
+                ByteArrayOutputStream err = new ByteArrayOutputStream();
+                executeCommandCapturing(command, out, err);
+                return pattern.matcher(out.toString()).find() || pattern.matcher(err.toString()).find();
+            } else {
+                ByteArrayOutputStream out = new ByteArrayOutputStream();
+                executeCommandCapturing(command, out, null);
+                return pattern.matcher(out.toString()).find();
+            }
+
         } catch (CommandException e) {
             if (null != e.getCause()) {
                 logger.debug(e.getCause().getMessage());
@@ -210,9 +222,9 @@ public class DownloadableTool {
         return props;
     }
 
-    private void executeCommandCapturing(Command command, OutputStream out) throws CommandException {
+    private void executeCommandCapturing(Command command, OutputStream out, OutputStream err) throws CommandException {
         int exitValue = new CommandExecutor(logger)
-            .executeCommandCapturing(command, out);
+            .executeCommandCapturing(command, out, err);
         if (exitValue != 0) {
             logger.error(out.toString().trim());
             throw new CommandException(RB.$("ERROR_command_execution_exit_value", exitValue));
@@ -227,4 +239,5 @@ public class DownloadableTool {
 
         return Paths.get(home).resolve("caches");
     }
+
 }

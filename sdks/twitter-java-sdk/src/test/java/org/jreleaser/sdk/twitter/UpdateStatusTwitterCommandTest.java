@@ -29,6 +29,7 @@ import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.options;
 import static org.jreleaser.sdk.twitter.ApiEndpoints.UPDATE_STATUS_ENDPOINT;
 import static org.jreleaser.sdk.twitter.Stubs.verifyPostContains;
+import static org.jreleaser.util.CollectionUtils.listOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
@@ -52,7 +53,31 @@ public class UpdateStatusTwitterCommandTest {
             .consumerToken("CONSUMER_TOKEN")
             .accessToken("ACCESS_TOKEN")
             .accessTokenSecret("ACCESS_TOKEN_SECRET")
-            .status("success")
+            .statuses(listOf("success"))
+            .build();
+
+        // when:
+        command.execute();
+
+        // then:
+        verifyPostContains(UPDATE_STATUS_ENDPOINT + ".json",
+            "status=success");
+    }
+
+    @Test
+    public void testUpdateStatuses() throws TwitterException {
+        // given:
+        stubFor(post(urlEqualTo(UPDATE_STATUS_ENDPOINT + ".json"))
+            .willReturn(okJson("{\"status\": 202, \"message\":\"success\"}")));
+
+        UpdateStatusTwitterCommand command = UpdateStatusTwitterCommand
+            .builder(new SimpleJReleaserLoggerAdapter(SimpleJReleaserLoggerAdapter.Level.DEBUG))
+            .apiHost(api.baseUrl() + "/")
+            .consumerKey("CONSUMER_KEY")
+            .consumerToken("CONSUMER_TOKEN")
+            .accessToken("ACCESS_TOKEN")
+            .accessTokenSecret("ACCESS_TOKEN_SECRET")
+            .statuses(listOf("success", "success", "success"))
             .build();
 
         // when:
@@ -76,7 +101,7 @@ public class UpdateStatusTwitterCommandTest {
             .consumerToken("CONSUMER_TOKEN")
             .accessToken("ACCESS_TOKEN")
             .accessTokenSecret("ACCESS_TOKEN_SECRET")
-            .status("failure")
+            .statuses(listOf("failure"))
             .build();
 
         // expected:

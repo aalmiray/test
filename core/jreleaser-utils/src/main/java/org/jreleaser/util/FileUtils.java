@@ -62,6 +62,7 @@ import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.Enumeration;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Consumer;
@@ -128,7 +129,7 @@ public final class FileUtils {
             if (Files.exists(path)) {
                 return Optional.of(path);
             }
-            path = basedir.resolve(licenseFilename.toLowerCase());
+            path = basedir.resolve(licenseFilename.toLowerCase(Locale.ENGLISH));
             if (Files.exists(path)) {
                 return Optional.of(path);
             }
@@ -138,7 +139,7 @@ public final class FileUtils {
     }
 
     public static Path resolveOutputDirectory(Path basedir, Path outputdir, String baseOutput) {
-        String od = Env.resolve("OUTPUT_DIRECTORY", "");
+        String od = Env.env("OUTPUT_DIRECTORY", "");
         if (isNotBlank(od)) {
             return basedir.resolve(od).resolve("jreleaser").normalize();
         }
@@ -236,6 +237,10 @@ public final class FileUtils {
     }
 
     public static void unpackArchive(Path src, Path dest, boolean removeRootEntry) throws IOException {
+        unpackArchive(src, dest, removeRootEntry, true);
+    }
+
+    public static void unpackArchive(Path src, Path dest, boolean removeRootEntry, boolean cleanDirectory) throws IOException {
         String filename = src.getFileName().toString();
         for (String extension : TAR_COMPRESSED_EXTENSIONS) {
             if (filename.endsWith(extension)) {
@@ -244,7 +249,7 @@ public final class FileUtils {
             }
         }
 
-        deleteFiles(dest, true);
+        if (cleanDirectory) deleteFiles(dest, true);
         File destinationDir = dest.toFile();
 
         if (filename.endsWith(ZIP.extension())) {
@@ -271,7 +276,11 @@ public final class FileUtils {
     }
 
     public static void unpackArchiveCompressed(Path src, Path dest, boolean removeRootEntry) throws IOException {
-        deleteFiles(dest, true);
+        unpackArchiveCompressed(src, dest, removeRootEntry, true);
+    }
+
+    public static void unpackArchiveCompressed(Path src, Path dest, boolean removeRootEntry, boolean cleanDirectory) throws IOException {
+        if (cleanDirectory) deleteFiles(dest, true);
         File destinationDir = dest.toFile();
 
         String filename = src.getFileName().toString();

@@ -17,115 +17,43 @@
  */
 package org.jreleaser.model;
 
-import org.jreleaser.util.Env;
+import java.util.Locale;
 
-import java.util.LinkedHashMap;
-import java.util.Map;
-
-import static org.jreleaser.util.Constants.HIDE;
-import static org.jreleaser.util.Constants.UNSET;
-import static org.jreleaser.util.StringUtils.isNotBlank;
+import static org.jreleaser.util.StringUtils.isBlank;
 
 /**
  * @author Andres Almiray
- * @since 0.4.0
+ * @since 1.1.0
  */
-public class Http extends AbstractHttpUploader {
-    public static final String TYPE = "http";
+public interface Http {
+    enum Method {
+        PUT,
+        POST;
 
-    private final Map<String, String> headers = new LinkedHashMap<>();
-    private String username;
-    private String password;
-    private Authorization authorization;
-    private Method method;
-
-    public Http() {
-        super(TYPE);
-    }
-
-    void setAll(Http http) {
-        super.setAll(http);
-        this.username = http.username;
-        this.password = http.password;
-        this.authorization = http.authorization;
-        this.method = http.method;
-        setHeaders(http.headers);
-    }
-
-    public Authorization resolveAuthorization() {
-        if (null == authorization) {
-            authorization = Authorization.NONE;
+        @Override
+        public String toString() {
+            return name().toLowerCase(Locale.ENGLISH);
         }
 
-        return authorization;
+        public static Method of(String str) {
+            if (isBlank(str)) return null;
+            return Method.valueOf(str.toUpperCase(Locale.ENGLISH).trim());
+        }
     }
 
-    public String getResolvedUsername() {
-        return Env.resolve("HTTP_" + Env.toVar(name) + "_USERNAME", username);
-    }
+    enum Authorization {
+        NONE,
+        BASIC,
+        BEARER;
 
-    public String getResolvedPassword() {
-        return Env.resolve("HTTP_" + Env.toVar(name) + "_PASSWORD", password);
-    }
+        @Override
+        public String toString() {
+            return name().toLowerCase(Locale.ENGLISH);
+        }
 
-    public String getUsername() {
-        return username;
-    }
-
-    public void setUsername(String username) {
-        this.username = username;
-    }
-
-    public String getPassword() {
-        return password;
-    }
-
-    public void setPassword(String password) {
-        this.password = password;
-    }
-
-    public Authorization getAuthorization() {
-        return authorization;
-    }
-
-    public void setAuthorization(Authorization authorization) {
-        this.authorization = authorization;
-    }
-
-    public void setAuthorization(String authorization) {
-        this.authorization = Authorization.of(authorization);
-    }
-
-    public Method getMethod() {
-        return method;
-    }
-
-    public void setMethod(Method method) {
-        this.method = method;
-    }
-
-    public void setMethod(String method) {
-        this.method = Http.Method.of(method);
-    }
-
-    public Map<String, String> getHeaders() {
-        return headers;
-    }
-
-    public void setHeaders(Map<String, String> headers) {
-        this.headers.putAll(headers);
-    }
-
-    public void addHeaders(Map<String, String> headers) {
-        this.headers.putAll(headers);
-    }
-
-    @Override
-    protected void asMap(Map<String, Object> props, boolean full) {
-        props.put("authorization", authorization);
-        props.put("method", method);
-        props.put("username", isNotBlank(getResolvedUsername()) ? HIDE : UNSET);
-        props.put("password", isNotBlank(getResolvedPassword()) ? HIDE : UNSET);
-        props.put("headers", headers);
+        public static Authorization of(String str) {
+            if (isBlank(str)) return null;
+            return Authorization.valueOf(str.toUpperCase(Locale.ENGLISH).trim());
+        }
     }
 }

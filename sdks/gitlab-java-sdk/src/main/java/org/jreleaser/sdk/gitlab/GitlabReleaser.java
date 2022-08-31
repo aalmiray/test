@@ -30,14 +30,19 @@ import org.jreleaser.model.releaser.spi.ReleaseException;
 import org.jreleaser.model.releaser.spi.Repository;
 import org.jreleaser.model.releaser.spi.User;
 import org.jreleaser.model.util.Artifacts;
+import org.jreleaser.model.util.VersionUtils;
 import org.jreleaser.sdk.commons.RestAPIException;
+import org.jreleaser.sdk.git.ChangelogProvider;
 import org.jreleaser.sdk.git.GitSdk;
 import org.jreleaser.sdk.git.ReleaseUtils;
-import org.jreleaser.sdk.gitlab.api.FileUpload;
-import org.jreleaser.sdk.gitlab.api.LinkRequest;
-import org.jreleaser.sdk.gitlab.api.Milestone;
-import org.jreleaser.sdk.gitlab.api.Project;
-import org.jreleaser.sdk.gitlab.api.Release;
+import org.jreleaser.sdk.gitlab.api.GlFileUpload;
+import org.jreleaser.sdk.gitlab.api.GlIssue;
+import org.jreleaser.sdk.gitlab.api.GlLabel;
+import org.jreleaser.sdk.gitlab.api.GlLinkRequest;
+import org.jreleaser.sdk.gitlab.api.GlMilestone;
+import org.jreleaser.sdk.gitlab.api.GlProject;
+import org.jreleaser.sdk.gitlab.api.GlRelease;
+import org.jreleaser.util.JReleaserException;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -47,9 +52,12 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.regex.Pattern;
 
 import static org.jreleaser.model.Signing.KEY_SKIP_SIGNING;
+import static org.jreleaser.util.Constants.KEY_PLATFORM_REPLACED;
 import static org.jreleaser.util.StringUtils.isNotBlank;
+import static org.jreleaser.util.Templates.resolveTemplate;
 
 /**
  * @author Andres Almiray
@@ -59,6 +67,15 @@ import static org.jreleaser.util.StringUtils.isNotBlank;
 public class GitlabReleaser extends AbstractReleaser {
     public GitlabReleaser(JReleaserContext context, List<Asset> assets) {
         super(context, assets);
+    }
+
+    @Override
+    public String generateReleaseNotes() throws IOException {
+        try {
+            return ChangelogProvider.getChangelog(context).trim();
+        } catch (IOException e) {
+            throw new JReleaserException(RB.$("ERROR_unexpected_error_changelog"), e);
+        }
     }
 
     @Override
@@ -73,30 +90,30 @@ public class GitlabReleaser extends AbstractReleaser {
         String tagName = gitlab.getEffectiveTagName(context.getModel());
 
         try {
-            String branch = gitlab.getBranch();
-            List<String> branchNames = GitSdk.of(context)
-                .getRemoteBranches();
-            if (!branchNames.contains(branch)) {
-                throw new ReleaseException(RB.$("ERROR_git_release_branch_not_exists", branch, branchNames));
-            }
-
-            String changelog = context.getChangelog();
-
             Gitlab api = new Gitlab(context.getLogger(),
                 gitlab.getApiEndpoint(),
                 gitlab.getResolvedToken(),
                 gitlab.getConnectTimeout(),
                 gitlab.getReadTimeout());
 
+            String branch = gitlab.getBranch();
+
+            List<String> branchNames = api.listBranches(gitlab.getOwner(), gitlab.getName(), gitlab.getProjectIdentifier());
+            if (!branchNames.contains(branch)) {
+                throw new ReleaseException(RB.$("ERROR_git_release_branch_not_exists", branch, branchNames));
+            }
+
+            String changelog = context.getChangelog();
+
             context.getLogger().debug(RB.$("git.releaser.release.lookup"), tagName, gitlab.getCanonicalRepoName());
-            Release release = api.findReleaseByTag(gitlab.getOwner(), gitlab.getName(), gitlab.getIdentifier(), tagName);
+            GlRelease release = api.findReleaseByTag(gitlab.getOwner(), gitlab.getName(), gitlab.getProjectIdentifier(), tagName);
             boolean snapshot = context.getModel().getProject().isSnapshot();
             if (null != release) {
                 context.getLogger().debug(RB.$("git.releaser.release.exists"), tagName);
                 if (gitlab.isOverwrite() || snapshot) {
                     context.getLogger().debug(RB.$("git.releaser.release.delete"), tagName);
                     if (!context.isDryrun()) {
-                        api.deleteRelease(gitlab.getOwner(), gitlab.getName(), gitlab.getIdentifier(), tagName);
+                        api.deleteRelease(gitlab.getOwner(), gitlab.getName(), gitlab.getProjectIdentifier(), tagName);
                     }
                     context.getLogger().debug(RB.$("git.releaser.release.create"), tagName);
                     createRelease(api, tagName, changelog, gitlab.isMatch());
@@ -104,7 +121,7 @@ public class GitlabReleaser extends AbstractReleaser {
                     context.getLogger().debug(RB.$("git.releaser.release.update"), tagName);
                     if (!context.isDryrun()) {
                         boolean update = false;
-                        Release updater = new Release();
+                        GlRelease updater = new GlRelease();
                         if (gitlab.getUpdate().getSections().contains(UpdateSection.TITLE)) {
                             update = true;
                             context.getLogger().info(RB.$("git.releaser.release.update.title"), gitlab.getEffectiveReleaseName());
@@ -116,19 +133,20 @@ public class GitlabReleaser extends AbstractReleaser {
                             updater.setDescription(changelog);
                         }
                         if (update) {
-                            api.updateRelease(gitlab.getOwner(), gitlab.getName(), gitlab.getIdentifier(), updater);
+                            api.updateRelease(gitlab.getOwner(), gitlab.getName(), gitlab.getProjectIdentifier(), updater);
                         }
 
                         if (gitlab.getUpdate().getSections().contains(UpdateSection.ASSETS)) {
                             if (!assets.isEmpty()) {
-                                Collection<FileUpload> uploads = api.uploadAssets(gitlab.getOwner(), gitlab.getName(), gitlab.getIdentifier(), assets);
-                                api.linkReleaseAssets(gitlab.getOwner(), gitlab.getName(), release, gitlab.getIdentifier(), uploads);
+                                Collection<GlFileUpload> uploads = api.uploadAssets(gitlab.getOwner(), gitlab.getName(), gitlab.getProjectIdentifier(), assets);
+                                api.linkReleaseAssets(gitlab.getOwner(), gitlab.getName(), release, gitlab.getProjectIdentifier(), uploads);
                             }
                             if (!gitlab.getUploadLinks().isEmpty()) {
-                                Collection<LinkRequest> links = collectUploadLinks(gitlab);
-                                api.linkAssets(gitlab.getOwner(), gitlab.getName(), release, gitlab.getIdentifier(), links);
+                                Collection<GlLinkRequest> links = collectUploadLinks(gitlab);
+                                api.linkAssets(gitlab.getOwner(), gitlab.getName(), release, gitlab.getProjectIdentifier(), links);
                             }
                         }
+                        updateIssues(gitlab, api);
                     }
                 } else {
                     if (context.isDryrun()) {
@@ -165,10 +183,10 @@ public class GitlabReleaser extends AbstractReleaser {
             password,
             gitlab.getConnectTimeout(),
             gitlab.getReadTimeout());
-        Project project = null;
+        GlProject project = null;
 
         try {
-            project = api.findProject(repo, gitlab.getIdentifier());
+            project = api.findProject(repo, gitlab.getProjectIdentifier());
         } catch (RestAPIException e) {
             if (!e.isNotFound()) {
                 throw e;
@@ -206,10 +224,33 @@ public class GitlabReleaser extends AbstractReleaser {
         return Optional.empty();
     }
 
+    @Override
+    public List<org.jreleaser.model.releaser.spi.Release> listReleases(String owner, String repo) throws IOException {
+        org.jreleaser.model.Gitlab gitlab = context.getModel().getRelease().getGitlab();
+
+        Gitlab api = new Gitlab(context.getLogger(),
+            gitlab.getApiEndpoint(),
+            gitlab.getResolvedToken(),
+            gitlab.getConnectTimeout(),
+            gitlab.getReadTimeout());
+
+        List<org.jreleaser.model.releaser.spi.Release> releases = api.listReleases(owner, repo, gitlab.getProjectIdentifier());
+
+        VersionUtils.clearUnparseableTags();
+        Pattern versionPattern = VersionUtils.resolveVersionPattern(context);
+        for (org.jreleaser.model.releaser.spi.Release release : releases) {
+            release.setVersion(VersionUtils.version(context, release.getTagName(), versionPattern));
+        }
+
+        releases.sort((r1, r2) -> r2.getVersion().compareTo(r1.getVersion()));
+
+        return releases;
+    }
+
     private void createRelease(Gitlab api, String tagName, String changelog, boolean deleteTags) throws IOException {
         org.jreleaser.model.Gitlab gitlab = context.getModel().getRelease().getGitlab();
 
-        Collection<LinkRequest> links = collectUploadLinks(gitlab);
+        Collection<GlLinkRequest> links = collectUploadLinks(gitlab);
 
         if (context.isDryrun()) {
             if (!assets.isEmpty()) {
@@ -223,16 +264,17 @@ public class GitlabReleaser extends AbstractReleaser {
                 }
             }
             if (!links.isEmpty()) {
-                for (LinkRequest link : links) {
+                for (GlLinkRequest link : links) {
                     context.getLogger().info(" " + RB.$("git.upload.asset"), link.getName());
                 }
             }
+            updateIssues(gitlab, api);
 
             return;
         }
 
         if (deleteTags) {
-            deleteTags(api, gitlab.getOwner(), gitlab.getName(), gitlab.getIdentifier(), tagName);
+            deleteTags(api, gitlab.getOwner(), gitlab.getName(), gitlab.getProjectIdentifier(), tagName);
         }
 
         // local tag
@@ -241,40 +283,106 @@ public class GitlabReleaser extends AbstractReleaser {
             GitSdk.of(context).tag(tagName, true, context);
         }
 
-        Release release = new Release();
+        GlRelease release = new GlRelease();
         release.setName(gitlab.getEffectiveReleaseName());
         release.setTagName(tagName);
         release.setRef(gitlab.getBranch());
         release.setDescription(changelog);
 
         // remote tag/release
-        api.createRelease(gitlab.getOwner(), gitlab.getName(), gitlab.getIdentifier(), release);
+        api.createRelease(gitlab.getOwner(), gitlab.getName(), gitlab.getProjectIdentifier(), release);
 
         if (!assets.isEmpty()) {
-            Collection<FileUpload> uploads = api.uploadAssets(gitlab.getOwner(), gitlab.getName(), gitlab.getIdentifier(), assets);
-            api.linkReleaseAssets(gitlab.getOwner(), gitlab.getName(), release, gitlab.getIdentifier(), uploads);
+            Collection<GlFileUpload> uploads = api.uploadAssets(gitlab.getOwner(), gitlab.getName(), gitlab.getProjectIdentifier(), assets);
+            api.linkReleaseAssets(gitlab.getOwner(), gitlab.getName(), release, gitlab.getProjectIdentifier(), uploads);
         }
         if (!links.isEmpty()) {
-            api.linkAssets(gitlab.getOwner(), gitlab.getName(), release, gitlab.getIdentifier(), links);
+            api.linkAssets(gitlab.getOwner(), gitlab.getName(), release, gitlab.getProjectIdentifier(), links);
         }
 
         if (gitlab.getMilestone().isClose() && !context.getModel().getProject().isSnapshot()) {
-            Optional<Milestone> milestone = api.findMilestoneByName(
+            Optional<GlMilestone> milestone = api.findMilestoneByName(
                 gitlab.getOwner(),
                 gitlab.getName(),
-                gitlab.getIdentifier(),
+                gitlab.getProjectIdentifier(),
                 gitlab.getMilestone().getEffectiveName());
             if (milestone.isPresent()) {
                 api.closeMilestone(gitlab.getOwner(),
                     gitlab.getName(),
-                    gitlab.getIdentifier(),
+                    gitlab.getProjectIdentifier(),
                     milestone.get());
+            }
+        }
+        updateIssues(gitlab, api);
+    }
+
+    private void updateIssues(org.jreleaser.model.Gitlab gitlab, Gitlab api) throws IOException {
+        if (!gitlab.getIssues().isEnabled()) return;
+
+        List<String> issueNumbers = ChangelogProvider.getIssues(context);
+
+        if (!issueNumbers.isEmpty()) {
+            context.getLogger().info(RB.$("git.issue.release.mark", issueNumbers.size()));
+        }
+
+        if (context.isDryrun()) {
+            for (String issueNumber : issueNumbers) {
+                context.getLogger().debug(RB.$("git.issue.release", issueNumber));
+            }
+            return;
+        }
+
+        Integer projectIdentifier = api.findProject(gitlab.getName(), gitlab.getProjectIdentifier()).getId();
+        String tagName = gitlab.getEffectiveTagName(context.getModel());
+        String labelName = gitlab.getIssues().getLabel().getName();
+        String labelColor = gitlab.getIssues().getLabel().getColor();
+        Map<String, Object> props = gitlab.props(context.getModel());
+        gitlab.fillProps(props, context.getModel());
+        String comment = resolveTemplate(gitlab.getIssues().getComment(), props);
+
+        if (!labelColor.startsWith("#")) {
+            try {
+                Integer.parseInt(labelColor, 16);
+                labelColor = "#" + labelColor;
+            } catch (NumberFormatException ok) {
+                // ignored
+            }
+        }
+
+        GlLabel glLabel = null;
+
+        try {
+            glLabel = api.getOrCreateLabel(
+                projectIdentifier,
+                labelName,
+                labelColor,
+                gitlab.getIssues().getLabel().getDescription());
+        } catch (IOException e) {
+            throw new IllegalStateException(RB.$("ERROR_git_releaser_fetch_label", tagName, labelName), e);
+        }
+
+        List<GlIssue> issues = api.listIssues(projectIdentifier);
+
+        for (String issueNumber : issueNumbers) {
+            try {
+                Integer in = Integer.parseInt(issueNumber);
+                Optional<GlIssue> op = issues.stream().filter(i -> i.getIid().equals(in)).findFirst();
+                if (!op.isPresent()) continue;
+
+                GlIssue glIssue = op.get();
+                if (glIssue.getState().equals("closed") && glIssue.getLabels().stream().noneMatch(l -> l.equals(labelName))) {
+                    context.getLogger().debug(RB.$("git.issue.release", issueNumber));
+                    api.addLabelToIssue(projectIdentifier, glIssue, glLabel);
+                    api.commentOnIssue(projectIdentifier, glIssue, comment);
+                }
+            } catch (IOException e) {
+                throw new IllegalStateException(RB.$("ERROR_git_releaser_cannot_release", tagName, issueNumber), e);
             }
         }
     }
 
-    private Collection<LinkRequest> collectUploadLinks(org.jreleaser.model.Gitlab gitlab) {
-        List<LinkRequest> links = new ArrayList<>();
+    private Collection<GlLinkRequest> collectUploadLinks(org.jreleaser.model.Gitlab gitlab) {
+        List<GlLinkRequest> links = new ArrayList<>();
 
         for (Map.Entry<String, String> e : gitlab.getUploadLinks().entrySet()) {
             Optional<? extends Uploader> uploader = context.getModel().getUpload().getActiveUploader(e.getKey(), e.getValue());
@@ -286,7 +394,7 @@ public class GitlabReleaser extends AbstractReleaser {
         return links;
     }
 
-    private void collectUploadLinks(Uploader uploader, List<LinkRequest> links) {
+    private void collectUploadLinks(Uploader uploader, List<GlLinkRequest> links) {
         List<String> keys = uploader.resolveSkipKeys();
         keys.add(org.jreleaser.model.Gitlab.SKIP_GITLAB_LINKS);
 
@@ -314,7 +422,7 @@ public class GitlabReleaser extends AbstractReleaser {
                         String platform = artifact.getPlatform();
                         String platformReplaced = distribution.getPlatform().applyReplacements(platform);
                         if (isNotBlank(platformReplaced)) {
-                            artifact.getExtraProperties().put("platformReplaced", platformReplaced);
+                            artifact.mutate(() -> artifact.getExtraProperties().put(KEY_PLATFORM_REPLACED, platformReplaced));
                         }
                         artifacts.add(artifact);
                     }
@@ -352,17 +460,17 @@ public class GitlabReleaser extends AbstractReleaser {
         return false;
     }
 
-    private void deleteTags(Gitlab api, String owner, String repo, String identifier, String tagName) {
+    private void deleteTags(Gitlab api, String owner, String repo, String projectIdentifier, String tagName) {
         // delete remote tag
         try {
-            api.deleteTag(owner, repo, identifier, tagName);
+            api.deleteTag(owner, repo, projectIdentifier, tagName);
         } catch (RestAPIException ignored) {
             //noop
         }
     }
 
-    private static LinkRequest toLinkRequest(Path path, String url) {
-        LinkRequest link = new LinkRequest();
+    private static GlLinkRequest toLinkRequest(Path path, String url) {
+        GlLinkRequest link = new GlLinkRequest();
         link.setName(path.getFileName().toString());
         link.setUrl(url);
         link.setFilepath("/" + link.getName());

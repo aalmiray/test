@@ -23,7 +23,6 @@ import org.jreleaser.model.Artifact;
 import org.jreleaser.model.FileSet;
 import org.jreleaser.model.JReleaserContext;
 import org.jreleaser.model.Jlink;
-import org.jreleaser.model.Platform;
 import org.jreleaser.model.Project;
 import org.jreleaser.util.Errors;
 import org.jreleaser.util.PlatformUtils;
@@ -43,8 +42,8 @@ import static org.jreleaser.util.StringUtils.isNotBlank;
  */
 public abstract class JlinkValidator extends Validator {
     public static void validateJlink(JReleaserContext context, JReleaserContext.Mode mode, Errors errors) {
-        context.getLogger().debug("jlink");
         Map<String, Jlink> jlink = context.getModel().getAssemble().getJlink();
+        if (!jlink.isEmpty()) context.getLogger().debug("assemble.jlink");
 
         for (Map.Entry<String, Jlink> e : jlink.entrySet()) {
             e.getValue().setName(e.getKey());
@@ -53,25 +52,32 @@ public abstract class JlinkValidator extends Validator {
     }
 
     private static void validateJlink(JReleaserContext context, JReleaserContext.Mode mode, Jlink jlink, Errors errors) {
-        context.getLogger().debug("jlink.{}", jlink.getName());
+        context.getLogger().debug("assemble.jlink.{}", jlink.getName());
 
         if (!jlink.isActiveSet()) {
             jlink.setActive(Active.NEVER);
         }
-        if (!jlink.resolveEnabled(context.getModel().getProject())) return;
+        if (!jlink.resolveEnabled(context.getModel().getProject())) {
+            context.getLogger().debug(RB.$("validation.disabled"));
+            return;
+        }
 
         if (isBlank(jlink.getName())) {
             errors.configuration(RB.$("validation_must_not_be_blank", "jlink.name"));
             return;
         }
+        if (null == jlink.getStereotype()) {
+            jlink.setStereotype(context.getModel().getProject().getStereotype());
+        }
 
-        context.getLogger().debug("jlink.{}.java", jlink.getName());
+        context.getLogger().debug("assemble.jlink.{}.java", jlink.getName());
         if (!validateJava(context, jlink, errors)) {
+            context.getLogger().debug(RB.$("validation.disabled.error"));
+            jlink.disable();
             return;
         }
 
-        Platform platform = jlink.getPlatform().merge(context.getModel().getPlatform());
-        jlink.setPlatform(platform);
+        jlink.setPlatform(jlink.getPlatform().mergeValues(context.getModel().getPlatform()));
 
         if (isBlank(jlink.getImageName())) {
             jlink.setImageName(jlink.getJava().getGroupId() + "." +
@@ -166,6 +172,18 @@ public abstract class JlinkValidator extends Validator {
             for (FileSet fileSet : jlink.getFileSets()) {
                 validateFileSet(context, mode, jlink, fileSet, i++, errors);
             }
+        }
+
+        if (!jlink.getJdeps().isEnabledSet()) {
+            jlink.getJdeps().setEnabled(true);
+        }
+
+        if (!jlink.getJdeps().isEnabled() && jlink.getModuleNames().isEmpty()) {
+            jlink.getModuleNames().add("java.base");
+        }
+
+        if (!jlink.getModuleNames().isEmpty()) {
+            jlink.getJdeps().setEnabled(false);
         }
     }
 

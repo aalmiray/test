@@ -23,7 +23,6 @@ import org.jreleaser.model.Archive;
 import org.jreleaser.model.Distribution;
 import org.jreleaser.model.FileSet;
 import org.jreleaser.model.JReleaserContext;
-import org.jreleaser.model.Platform;
 import org.jreleaser.util.Errors;
 
 import java.util.Map;
@@ -36,8 +35,8 @@ import static org.jreleaser.util.StringUtils.isBlank;
  */
 public abstract class ArchiveValidator extends Validator {
     public static void validateArchive(JReleaserContext context, JReleaserContext.Mode mode, Errors errors) {
-        context.getLogger().debug("archive");
         Map<String, Archive> archive = context.getModel().getAssemble().getArchive();
+        if (!archive.isEmpty()) context.getLogger().debug("assemble.archive");
 
         for (Map.Entry<String, Archive> e : archive.entrySet()) {
             e.getValue().setName(e.getKey());
@@ -46,23 +45,30 @@ public abstract class ArchiveValidator extends Validator {
     }
 
     private static void validateArchive(JReleaserContext context, JReleaserContext.Mode mode, Archive archive, Errors errors) {
-        context.getLogger().debug("archive.{}", archive.getName());
+        context.getLogger().debug("assemble.archive.{}", archive.getName());
 
         if (!archive.isActiveSet()) {
             archive.setActive(Active.NEVER);
         }
-        if (!archive.resolveEnabled(context.getModel().getProject())) return;
-
-        if (isBlank(archive.getName())) {
-            errors.configuration(RB.$("validation_must_not_be_blank", "archive.name"));
+        if (!archive.resolveEnabled(context.getModel().getProject())) {
+            context.getLogger().debug(RB.$("validation.disabled"));
             return;
         }
 
-        Platform platform = archive.getPlatform().merge(context.getModel().getPlatform());
-        archive.setPlatform(platform);
+        if (isBlank(archive.getName())) {
+            errors.configuration(RB.$("validation_must_not_be_blank", "archive.name"));
+            context.getLogger().debug(RB.$("validation.disabled.error"));
+            archive.disable();
+            return;
+        }
+
+        archive.setPlatform(archive.getPlatform().mergeValues(context.getModel().getPlatform()));
 
         if (null == archive.getDistributionType()) {
             archive.setDistributionType(Distribution.DistributionType.BINARY);
+        }
+        if (null == archive.getStereotype()) {
+            archive.setStereotype(context.getModel().getProject().getStereotype());
         }
 
         if (isBlank(archive.getArchiveName())) {

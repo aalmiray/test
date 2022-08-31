@@ -17,51 +17,120 @@
  */
 package org.jreleaser.model;
 
-import static org.jreleaser.util.StringUtils.isBlank;
+import org.jreleaser.util.Env;
+
+import java.util.LinkedHashMap;
+import java.util.Map;
+
+import static org.jreleaser.util.Constants.HIDE;
+import static org.jreleaser.util.Constants.UNSET;
+import static org.jreleaser.util.StringUtils.isNotBlank;
 
 /**
  * @author Andres Almiray
- * @since 0.8.0
+ * @since 0.4.0
  */
-public interface HttpUploader extends Uploader {
-    String getUploadUrl();
+public class HttpUploader extends AbstractWebUploader<HttpUploader> {
+    public static final String TYPE = "http";
 
-    void setUploadUrl(String uploadUrl);
+    private final Map<String, String> headers = new LinkedHashMap<>();
+    private String username;
+    private String password;
+    private Authorization authorization;
+    private Method method;
 
-    String getDownloadUrl();
-
-    void setDownloadUrl(String downloadUrl);
-
-    String getResolvedUploadUrl(JReleaserContext context, Artifact artifact);
-
-    enum Method {
-        PUT,
-        POST;
-
-        @Override
-        public String toString() {
-            return name().toLowerCase();
-        }
-
-        public static Method of(String str) {
-            if (isBlank(str)) return null;
-            return Method.valueOf(str.toUpperCase().trim());
-        }
+    public HttpUploader() {
+        super(TYPE);
     }
 
-    enum Authorization {
-        NONE,
-        BASIC,
-        BEARER;
+    @Override
+    public void merge(HttpUploader http) {
+        freezeCheck();
+        super.merge(http);
+        this.username = merge(this.username, http.username);
+        this.password = merge(this.password, http.password);
+        this.authorization = merge(this.authorization, http.authorization);
+        this.method = merge(this.method, http.method);
+        setHeaders(merge(this.headers, http.headers));
+    }
 
-        @Override
-        public String toString() {
-            return name().toLowerCase();
+    public Authorization resolveAuthorization() {
+        if (null == authorization) {
+            authorization = Authorization.NONE;
         }
 
-        public static Authorization of(String str) {
-            if (isBlank(str)) return null;
-            return Authorization.valueOf(str.toUpperCase().trim());
-        }
+        return authorization;
+    }
+
+    public String getResolvedUsername() {
+        return Env.env("HTTP_" + Env.toVar(name) + "_USERNAME", username);
+    }
+
+    public String getResolvedPassword() {
+        return Env.env("HTTP_" + Env.toVar(name) + "_PASSWORD", password);
+    }
+
+    public String getUsername() {
+        return username;
+    }
+
+    public void setUsername(String username) {
+        freezeCheck();
+        this.username = username;
+    }
+
+    public String getPassword() {
+        return password;
+    }
+
+    public void setPassword(String password) {
+        freezeCheck();
+        this.password = password;
+    }
+
+    public Authorization getAuthorization() {
+        return authorization;
+    }
+
+    public void setAuthorization(Authorization authorization) {
+        freezeCheck();
+        this.authorization = authorization;
+    }
+
+    public void setAuthorization(String authorization) {
+        freezeCheck();
+        this.authorization = Authorization.of(authorization);
+    }
+
+    public Method getMethod() {
+        return method;
+    }
+
+    public void setMethod(Method method) {
+        freezeCheck();
+        this.method = method;
+    }
+
+    public void setMethod(String method) {
+        freezeCheck();
+        this.method = HttpUploader.Method.of(method);
+    }
+
+    public Map<String, String> getHeaders() {
+        return freezeWrap(headers);
+    }
+
+    public void setHeaders(Map<String, String> headers) {
+        freezeCheck();
+        this.headers.putAll(headers);
+    }
+
+    @Override
+    protected void asMap(Map<String, Object> props, boolean full) {
+        props.put("authorization", authorization);
+        props.put("method", method);
+        props.put("username", isNotBlank(getResolvedUsername()) ? HIDE : UNSET);
+        props.put("password", isNotBlank(getResolvedPassword()) ? HIDE : UNSET);
+        props.put("headers", headers);
     }
 }

@@ -19,6 +19,7 @@ import org.apache.tools.ant.DirectoryScanner
 
 dependencies {
     api project(':jreleaser-model')
+    api "commons-io:commons-io:$commonsIoVersion"
     api "com.github.spullara.mustache.java:compiler:$mustacheVersion"
 }
 

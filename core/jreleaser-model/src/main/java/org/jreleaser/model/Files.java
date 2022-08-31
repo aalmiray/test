@@ -18,6 +18,7 @@
 package org.jreleaser.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import org.jreleaser.util.Env;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -30,7 +31,7 @@ import java.util.Set;
  * @author Andres Almiray
  * @since 0.1.0
  */
-public class Files implements Domain, Activatable {
+public class Files extends AbstractModelObject<Files> implements Domain, Activatable {
     private final Set<Artifact> artifacts = new LinkedHashSet<>();
     private final List<Glob> globs = new ArrayList<>();
     @JsonIgnore
@@ -41,11 +42,20 @@ public class Files implements Domain, Activatable {
     @JsonIgnore
     private boolean enabled;
 
-    void setAll(Files files) {
-        this.active = files.active;
-        this.enabled = files.enabled;
-        setArtifacts(files.artifacts);
-        setGlobs(files.globs);
+    @Override
+    public void freeze() {
+        super.freeze();
+        artifacts.forEach(Artifact::freeze);
+        globs.forEach(Glob::freeze);
+    }
+
+    @Override
+    public void merge(Files files) {
+        freezeCheck();
+        this.active = merge(this.active, files.active);
+        this.enabled = merge(this.enabled, files.enabled);
+        setArtifacts(merge(this.artifacts, files.artifacts));
+        setGlobs(merge(this.globs, files.globs));
     }
 
     @Override
@@ -60,7 +70,7 @@ public class Files implements Domain, Activatable {
 
     public boolean resolveEnabled(Project project) {
         if (null == active) {
-            active = Active.NEVER;
+            setActive(Env.resolveOrDefault("files.active", "", "NEVER"));
         }
         enabled = active.check(project);
         return enabled;
@@ -73,12 +83,13 @@ public class Files implements Domain, Activatable {
 
     @Override
     public void setActive(Active active) {
+        freezeCheck();
         this.active = active;
     }
 
     @Override
     public void setActive(String str) {
-        this.active = Active.of(str);
+        setActive(Active.of(str));
     }
 
     @Override
@@ -95,48 +106,55 @@ public class Files implements Domain, Activatable {
     }
 
     public Set<Artifact> getPaths() {
-        return Artifact.sortArtifacts(paths);
+        return freezeWrap(Artifact.sortArtifacts(paths));
     }
 
     public void setPaths(Set<Artifact> paths) {
+        freezeCheck();
         this.paths.clear();
         this.paths.addAll(paths);
         this.resolved = true;
     }
 
     public Set<Artifact> getArtifacts() {
-        return Artifact.sortArtifacts(artifacts);
+        return freezeWrap(Artifact.sortArtifacts(artifacts));
     }
 
     public void setArtifacts(Set<Artifact> artifacts) {
+        freezeCheck();
         this.artifacts.clear();
         this.artifacts.addAll(artifacts);
     }
 
     public void addArtifacts(Set<Artifact> artifacts) {
+        freezeCheck();
         this.artifacts.addAll(artifacts);
     }
 
     public void addArtifact(Artifact artifact) {
+        freezeCheck();
         if (null != artifact) {
             this.artifacts.add(artifact);
         }
     }
 
     public List<Glob> getGlobs() {
-        return globs;
+        return freezeWrap(globs);
     }
 
     public void setGlobs(List<Glob> globs) {
+        freezeCheck();
         this.globs.clear();
         this.globs.addAll(globs);
     }
 
     public void addGlobs(List<Glob> globs) {
+        freezeCheck();
         this.globs.addAll(globs);
     }
 
     public void addGlob(Glob glob) {
+        freezeCheck();
         if (null != glob) {
             this.globs.add(glob);
         }

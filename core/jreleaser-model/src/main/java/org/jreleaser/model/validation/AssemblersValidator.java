@@ -43,17 +43,20 @@ import static org.jreleaser.model.validation.NativeImageValidator.validateNative
  */
 public abstract class AssemblersValidator extends Validator {
     public static void validateAssemblers(JReleaserContext context, JReleaserContext.Mode mode, Errors errors) {
-        if (mode == JReleaserContext.Mode.CHANGELOG) {
-            return;
-        }
-
+        Assemble assemble = context.getModel().getAssemble();
         context.getLogger().debug("assemble");
 
-        Assemble assemble = context.getModel().getAssemble();
-        validateArchive(context, mode, errors);
-        validateJlink(context, mode, errors);
-        validateJpackage(context, mode, errors);
-        validateNativeImage(context, mode, errors);
+        boolean skipValidation = !mode.validateAssembly() && !mode.validateConfig();
+        Errors errorCollector = skipValidation ? new Errors() : errors;
+        validateArchive(context, mode, errorCollector);
+        validateJlink(context, mode, errorCollector);
+        validateJpackage(context, mode, errorCollector);
+        validateNativeImage(context, mode, errorCollector);
+
+        if (skipValidation) {
+            context.getLogger().debug(RB.$("validation.disabled"));
+            return;
+        }
 
         // validate unique distribution names between exported assemblers
         Map<String, List<String>> byDistributionName = new LinkedHashMap<>();
@@ -76,20 +79,29 @@ public abstract class AssemblersValidator extends Validator {
         byDistributionName.forEach((name, types) -> {
             if (types.size() > 1) {
                 errors.configuration(RB.$("validation_multiple_assemblers", "distribution." + name, types));
-                assemble.setEnabled(false);
+                context.getLogger().debug(RB.$("validation.disabled.error"));
+                assemble.disable();
             }
         });
 
-        if (!assemble.isEnabledSet()) {
-            assemble.setEnabled(!assemble.getActiveArchives().isEmpty() ||
+        boolean activeSet = assemble.isActiveSet();
+        assemble.resolveEnabled(context.getModel().getProject());
+
+        if (assemble.isEnabled()) {
+            boolean enabled = !assemble.getActiveArchives().isEmpty() ||
                 !assemble.getActiveJlinks().isEmpty() ||
                 !assemble.getActiveJpackages().isEmpty() ||
-                !assemble.getActiveNativeImages().isEmpty());
+                !assemble.getActiveNativeImages().isEmpty();
+
+            if (!activeSet && !enabled) {
+                context.getLogger().debug(RB.$("validation.disabled"));
+                assemble.disable();
+            }
         }
     }
 
     public static void postValidateAssemblers(JReleaserContext context, JReleaserContext.Mode mode, Errors errors) {
-        if (mode == JReleaserContext.Mode.CHANGELOG) {
+        if (!mode.validateAssembly() && !mode.validateConfig()) {
             return;
         }
 

@@ -26,8 +26,10 @@ import org.jreleaser.gradle.plugin.dsl.Announce
 import org.jreleaser.gradle.plugin.dsl.Assemble
 import org.jreleaser.gradle.plugin.dsl.Checksum
 import org.jreleaser.gradle.plugin.dsl.Distribution
+import org.jreleaser.gradle.plugin.dsl.Download
 import org.jreleaser.gradle.plugin.dsl.Environment
 import org.jreleaser.gradle.plugin.dsl.Files
+import org.jreleaser.gradle.plugin.dsl.Hooks
 import org.jreleaser.gradle.plugin.dsl.Packagers
 import org.jreleaser.gradle.plugin.dsl.Platform
 import org.jreleaser.gradle.plugin.dsl.Project
@@ -54,6 +56,8 @@ interface JReleaserExtension {
 
     Environment getEnvironment()
 
+    Hooks getHooks()
+
     Project getProject()
 
     Platform getPlatform()
@@ -61,6 +65,8 @@ interface JReleaserExtension {
     Release getRelease()
 
     Upload getUpload()
+
+    Download getDownload()
 
     Packagers getPackagers()
 
@@ -76,6 +82,8 @@ interface JReleaserExtension {
 
     void environment(Action<? super Environment> action)
 
+    void hooks(Action<? super Hooks> action)
+
     void project(Action<? super Project> action)
 
     void platform(Action<? super Platform> action)
@@ -85,6 +93,8 @@ interface JReleaserExtension {
     void release(Action<? super Release> action)
 
     void upload(Action<? super Upload> action)
+
+    void download(Action<? super Download> action)
 
     void packagers(Action<? super Packagers> action)
 
@@ -100,6 +110,8 @@ interface JReleaserExtension {
 
     void environment(@DelegatesTo(strategy = Closure.DELEGATE_FIRST, value = Environment) Closure<Void> action)
 
+    void hooks(@DelegatesTo(strategy = Closure.DELEGATE_FIRST, value = Hooks) Closure<Void> action)
+
     void project(@DelegatesTo(strategy = Closure.DELEGATE_FIRST, value = Project) Closure<Void> action)
 
     void platform(@DelegatesTo(strategy = Closure.DELEGATE_FIRST, value = Platform) Closure<Void> action)
@@ -109,6 +121,8 @@ interface JReleaserExtension {
     void release(@DelegatesTo(strategy = Closure.DELEGATE_FIRST, value = Release) Closure<Void> action)
 
     void upload(@DelegatesTo(strategy = Closure.DELEGATE_FIRST, value = Upload) Closure<Void> action)
+
+    void download(@DelegatesTo(strategy = Closure.DELEGATE_FIRST, value = Download) Closure<Void> action)
 
     void packagers(@DelegatesTo(strategy = Closure.DELEGATE_FIRST, value = Packagers) Closure<Void> action)
 

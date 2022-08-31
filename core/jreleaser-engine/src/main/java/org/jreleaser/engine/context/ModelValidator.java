@@ -34,12 +34,13 @@ public class ModelValidator {
         try {
             Errors errors = context.validateModel();
 
-            if (context.getMode() != JReleaserContext.Mode.CHANGELOG) {
+            if (!context.getMode().validateChangelog()) {
                 new JReleaserModelPrinter.Plain(context.getLogger().getTracer())
                     .print(context.getModel().asMap(true));
             }
 
             switch (context.getMode()) {
+                case DOWNLOAD:
                 case ASSEMBLE:
                     if (errors.hasConfigurationErrors()) {
                         throw new JReleaserException(RB.$("ERROR_context_configurer_jreleaser_misconfigured") +
@@ -62,9 +63,11 @@ public class ModelValidator {
             throw new JReleaserException(RB.$("ERROR_context_configurer_jreleaser_misconfigured"), e);
         }
 
-        if (context.getMode() != JReleaserContext.Mode.ASSEMBLE) {
+        if (!context.getMode().validateStandalone()) {
             context.setReleaser(Releasers.releaserFor(context));
         }
+
+        // context.freeze();
 
         report(context);
     }

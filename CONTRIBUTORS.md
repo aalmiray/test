@@ -1,6 +1,6 @@
 
 <!-- ALL-CONTRIBUTORS-BADGE:START - Do not remove or modify this section -->
-[![All Contributors](https://img.shields.io/badge/all_contributors-20-orange.svg?style=flat-square)](#contributors-)
+[![All Contributors](https://img.shields.io/badge/all_contributors-29-orange.svg?style=flat-square)](#contributors-)
 <!-- ALL-CONTRIBUTORS-BADGE:END -->
 ## Contributors ✨
 
@@ -35,6 +35,19 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
     <td align="center"><a href="http://www.dmitryalexandrov.net"><img src="https://avatars.githubusercontent.com/u/2016949?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Dmitry Aleksandrov</b></sub></a><br /><a href="#translation-dalexandrov" title="Translation">🌍</a></td>
     <td align="center"><a href="https://maarten.mulders.it/"><img src="https://avatars.githubusercontent.com/u/430114?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Maarten Mulders</b></sub></a><br /><a href="https://github.com/jreleaser/jreleaser/commits?author=mthmulders" title="Code">💻</a> <a href="https://github.com/jreleaser/jreleaser/issues?q=author%3Amthmulders" title="Bug reports">🐛</a></td>
     <td align="center"><a href="http://michael-simons.eu"><img src="https://avatars.githubusercontent.com/u/526383?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Michael Simons</b></sub></a><br /><a href="https://github.com/jreleaser/jreleaser/issues?q=author%3Amichael-simons" title="Bug reports">🐛</a></td>
+    <td align="center"><a href="https://shblue21.github.io/"><img src="https://avatars.githubusercontent.com/u/25363091?v=4?s=100" width="100px;" alt=""/><br /><sub><b>shblue21</b></sub></a><br /><a href="#translation-shblue21" title="Translation">🌍</a></td>
+  </tr>
+  <tr>
+    <td align="center"><a href="http://codepitbull.de"><img src="https://avatars.githubusercontent.com/u/1409931?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Jochen Mader</b></sub></a><br /><a href="https://github.com/jreleaser/jreleaser/commits?author=codepitbull" title="Code">💻</a></td>
+    <td align="center"><a href="http://www.jee.gr"><img src="https://avatars.githubusercontent.com/u/20904915?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Alexius DIAKOGIANNIS</b></sub></a><br /><a href="https://github.com/jreleaser/jreleaser/commits?author=diakogiannis" title="Code">💻</a></td>
+    <td align="center"><a href="https://github.com/margarita-nedzelska-sonarsource"><img src="https://avatars.githubusercontent.com/u/70522623?v=4?s=100" width="100px;" alt=""/><br /><sub><b>margarita-nedzelska-sonarsource</b></sub></a><br /><a href="https://github.com/jreleaser/jreleaser/commits?author=margarita-nedzelska-sonarsource" title="Code">💻</a></td>
+    <td align="center"><a href="https://github.com/ixchelruiz"><img src="https://avatars.githubusercontent.com/u/1284934?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Ix-chel Ruiz</b></sub></a><br /><a href="#ideas-ixchelruiz" title="Ideas, Planning, & Feedback">🤔</a></td>
+    <td align="center"><a href="https://fbiville.github.io"><img src="https://avatars.githubusercontent.com/u/445792?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Florent Biville</b></sub></a><br /><a href="#ideas-fbiville" title="Ideas, Planning, & Feedback">🤔</a></td>
+    <td align="center"><a href="https://lesincroyableslivres.fr/"><img src="https://avatars.githubusercontent.com/u/1279749?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Guillaume Smet</b></sub></a><br /><a href="https://github.com/jreleaser/jreleaser/commits?author=gsmet" title="Code">💻</a> <a href="https://github.com/jreleaser/jreleaser/issues?q=author%3Agsmet" title="Bug reports">🐛</a></td>
+    <td align="center"><a href="https://github.com/aidenzzz"><img src="https://avatars.githubusercontent.com/u/8568425?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Aiden Turner</b></sub></a><br /><a href="https://github.com/jreleaser/jreleaser/commits?author=aidenzzz" title="Code">💻</a></td>
+  </tr>
+  <tr>
+    <td align="center"><a href="http://gastaldi.wordpress.com"><img src="https://avatars.githubusercontent.com/u/54133?v=4?s=100" width="100px;" alt=""/><br /><sub><b>George Gastaldi</b></sub></a><br /><a href="https://github.com/jreleaser/jreleaser/commits?author=gastaldi" title="Code">💻</a></td>
   </tr>
 </table>
 

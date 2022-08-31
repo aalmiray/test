@@ -23,7 +23,9 @@ import feign.QueryMap;
 import feign.RequestLine;
 import feign.form.FormData;
 import org.jreleaser.infra.nativeimage.annotations.ProxyConfig;
+import org.jreleaser.sdk.gitlab.internal.Page;
 
+import java.net.URI;
 import java.util.List;
 import java.util.Map;
 
@@ -34,21 +36,21 @@ import java.util.Map;
 @ProxyConfig
 public interface GitlabAPI {
     @RequestLine("GET /user")
-    User getCurrentUser();
+    GlUser getCurrentUser();
 
     @RequestLine("GET /projects/{projectId}")
     @Headers("Content-Type: application/json")
-    Project getProject(@Param("projectId") String projectId);
+    GlProject getProject(@Param("projectId") String projectId);
 
     @RequestLine("GET /users/{userId}/projects")
-    List<Project> getProject(@Param("userId") Integer userId, @QueryMap Map<String, Object> queryMap);
+    List<GlProject> getProject(@Param("userId") Integer userId, @QueryMap Map<String, Object> queryMap);
 
     @RequestLine("POST /projects")
     @Headers("Content-Type: multipart/form-data")
-    Project createProject(@Param("name") String projectName, @Param("visibility") String visibility);
+    GlProject createProject(@Param("name") String projectName, @Param("visibility") String visibility);
 
     @RequestLine("GET /projects/{projectId}/releases/{tagName}")
-    Release getRelease(@Param("projectId") Integer projectId, @Param("tagName") String tagName);
+    GlRelease getRelease(@Param("projectId") Integer projectId, @Param("tagName") String tagName);
 
     @RequestLine("DELETE /projects/{projectId}/repository/tags/{tagName}")
     void deleteTag(@Param("projectId") Integer projectId, @Param("tagName") String tagName);
@@ -58,22 +60,22 @@ public interface GitlabAPI {
 
     @RequestLine("POST /projects/{projectId}/releases")
     @Headers("Content-Type: application/json")
-    void createRelease(Release release, @Param("projectId") Integer projectId);
+    void createRelease(GlRelease release, @Param("projectId") Integer projectId);
 
     @RequestLine("PUT /projects/{projectId}/releases/{tagName}")
     @Headers("Content-Type: application/json")
-    void updateRelease(Release release, @Param("projectId") Integer projectId);
+    void updateRelease(GlRelease release, @Param("projectId") Integer projectId);
 
     @RequestLine("POST /projects/{projectId}/uploads")
     @Headers("Content-Type: multipart/form-data")
-    FileUpload uploadFile(@Param("projectId") Integer projectId, @Param("file") FormData file);
+    GlFileUpload uploadFile(@Param("projectId") Integer projectId, @Param("file") FormData file);
 
     @RequestLine("POST /projects/{projectId}/releases/{tagName}/assets/links")
     @Headers("Content-Type: multipart/form-data")
-    Link linkAsset(LinkRequest link, @Param("projectId") Integer projectId, @Param("tagName") String tagName);
+    GlLink linkAsset(GlLinkRequest link, @Param("projectId") Integer projectId, @Param("tagName") String tagName);
 
     @RequestLine("GET /projects/{projectId}/milestones")
-    List<Milestone> findMilestoneByTitle(@Param("projectId") Integer projectId, @QueryMap Map<String, Object> queryMap);
+    List<GlMilestone> findMilestoneByTitle(@Param("projectId") Integer projectId, @QueryMap Map<String, Object> queryMap);
 
     @RequestLine("PUT /projects/{projectId}/milestones/{milestoneId}")
     @Headers("Content-Type: application/json")
@@ -81,5 +83,49 @@ public interface GitlabAPI {
 
     @RequestLine("GET /search")
     @Headers("Content-Type: application/json")
-    List<User> searchUser(@QueryMap Map<String, String> q);
+    List<GlUser> searchUser(@QueryMap Map<String, String> q);
+
+    @RequestLine("GET /projects/{projectId}/releases")
+    @Headers("Content-Type: application/json")
+    Page<List<GlRelease>> listReleases0(@Param("projectId") String projectId);
+
+    @RequestLine("GET")
+    @Headers("Content-Type: application/json")
+    Page<List<GlRelease>> listReleases1(URI uri);
+
+    @RequestLine("GET /projects/{projectId}/repository/branches")
+    @Headers("Content-Type: application/json")
+    Page<List<GlBranch>> listBranches0(@Param("projectId") String projectId);
+
+    @RequestLine("GET")
+    @Headers("Content-Type: application/json")
+    Page<List<GlBranch>> listBranches1(URI uri);
+
+    @RequestLine("GET /projects/{projectId}/labels")
+    @Headers("Content-Type: application/json")
+    Page<List<GlLabel>> listLabels0(@Param("projectId") Integer projectId);
+
+    @RequestLine("GET")
+    @Headers("Content-Type: application/json")
+    Page<List<GlLabel>> listLabels1(URI uri);
+
+    @RequestLine("POST /projects/{projectId}/labels")
+    @Headers("Content-Type: application/json")
+    GlLabel createLabel(@Param("projectId") Integer projectId, @Param("name") String name, @Param("color") String color, @Param("description") String description);
+
+    @RequestLine("GET /projects/{projectId}/issues")
+    @Headers("Content-Type: application/json")
+    Page<List<GlIssue>> listIssues0(@Param("projectId") Integer projectId);
+
+    @RequestLine("GET")
+    @Headers("Content-Type: application/json")
+    Page<List<GlIssue>> listIssues1(URI uri);
+
+    @RequestLine("PUT /projects/{projectId}/issues/{issue_iid}")
+    @Headers("Content-Type: application/json")
+    void labelIssue(Map<String, List<String>> labels, @Param("projectId") Integer projectId, @Param("issue_iid") Integer iid);
+
+    @RequestLine("POST /projects/{projectId}/issues/{issue_iid}/notes")
+    @Headers("Content-Type: application/json")
+    void commentIssue(Map<String, String> params, @Param("projectId") Integer projectId, @Param("issue_iid") Integer iid);
 }

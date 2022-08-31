@@ -31,7 +31,7 @@ import static org.jreleaser.util.StringUtils.isNotBlank;
  * @author Andres Almiray
  * @since 0.1.0
  */
-public class Registry implements Domain, Comparable<Registry> {
+public class Registry extends AbstractModelObject<Registry> implements Domain, Comparable<Registry> {
     public static final String DEFAULT_NAME = "DEFAULT";
 
     protected String server;
@@ -40,20 +40,22 @@ public class Registry implements Domain, Comparable<Registry> {
     protected String username;
     protected String password;
 
-    void setAll(Registry registry) {
-        this.server = registry.server;
-        this.serverName = registry.serverName;
-        this.repositoryName = registry.repositoryName;
-        this.username = registry.username;
-        this.password = registry.password;
+    @Override
+    public void merge(Registry registry) {
+        freezeCheck();
+        this.server = merge(this.server, registry.server);
+        this.serverName = merge(this.serverName, registry.serverName);
+        this.repositoryName = merge(this.repositoryName, registry.repositoryName);
+        this.username = merge(this.username, registry.username);
+        this.password = merge(this.password, registry.password);
     }
 
     public String getResolvedPassword() {
-        return Env.resolve("DOCKER_" + Env.toVar(serverName) + "_PASSWORD", password);
+        return Env.env("DOCKER_" + Env.toVar(serverName) + "_PASSWORD", password);
     }
 
     public String getResolvedUsername() {
-        return Env.resolve("DOCKER_" + Env.toVar(serverName) + "_USERNAME", username);
+        return Env.env("DOCKER_" + Env.toVar(serverName) + "_USERNAME", username);
     }
 
     public String getServer() {
@@ -61,6 +63,7 @@ public class Registry implements Domain, Comparable<Registry> {
     }
 
     public void setServer(String server) {
+        freezeCheck();
         this.server = server;
     }
 
@@ -69,6 +72,7 @@ public class Registry implements Domain, Comparable<Registry> {
     }
 
     public void setServerName(String serverName) {
+        freezeCheck();
         this.serverName = serverName;
     }
 
@@ -77,6 +81,7 @@ public class Registry implements Domain, Comparable<Registry> {
     }
 
     public void setRepositoryName(String repositoryName) {
+        freezeCheck();
         this.repositoryName = repositoryName;
     }
 
@@ -85,6 +90,7 @@ public class Registry implements Domain, Comparable<Registry> {
     }
 
     public void setUsername(String username) {
+        freezeCheck();
         this.username = username;
     }
 
@@ -93,6 +99,7 @@ public class Registry implements Domain, Comparable<Registry> {
     }
 
     public void setPassword(String password) {
+        freezeCheck();
         this.password = password;
     }
 

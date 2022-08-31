@@ -58,10 +58,10 @@ public class StringUtils {
         }
 
         if (str.length() == 1) {
-            return str.toUpperCase();
+            return str.toUpperCase(Locale.ENGLISH);
         }
 
-        return ((String) (str.substring(0, 1).toUpperCase(Locale.ENGLISH) + str.substring(1)));
+        return str.substring(0, 1).toUpperCase(Locale.ENGLISH) + str.substring(1);
     }
 
     public static String getFilenameExtension(String path) {
@@ -120,7 +120,7 @@ public class StringUtils {
      * @return The setter equivalent
      */
     public static String getSetterName(String propertyName) {
-        return ((String) (PROPERTY_SET_PREFIX + capitalize(propertyName)));
+        return PROPERTY_SET_PREFIX + capitalize(propertyName);
     }
 
     /**
@@ -130,7 +130,7 @@ public class StringUtils {
      * @return The name for the getter method for this property, if it were to exist, i.e. getConstraints
      */
     public static String getGetterName(String propertyName) {
-        return ((String) (PROPERTY_GET_PREFIX + capitalize(propertyName)));
+        return PROPERTY_GET_PREFIX + capitalize(propertyName);
     }
 
     /**
@@ -148,7 +148,7 @@ public class StringUtils {
 
         String className = capitalize(logicalName);
         if (trailingName != null) {
-            className = ((String) (className + trailingName));
+            className = className + trailingName;
         }
 
         return className;
@@ -204,6 +204,38 @@ public class StringUtils {
     }
 
     /**
+     * Converts foo-bar into Foo Bar. Empty and null strings are returned
+     * as-is.
+     *
+     * @param name The lower case hyphen separated name
+     * @return The capitalized name equivalent.
+     */
+    public static String getCapitalizedName(String name) {
+        // Handle null and empty strings.
+        if (isBlank(name)) {
+            return name;
+        }
+
+        if (name.contains("-")) {
+            StringBuilder buf = new StringBuilder();
+            String[] tokens = name.split("-");
+            for (String token : tokens) {
+                if (token == null || token.length() == 0) {
+                    continue;
+                }
+                if (buf.length() > 0) {
+                    buf.append(' ');
+                }
+                buf.append(capitalize(token));
+            }
+
+            return buf.toString();
+        }
+
+        return capitalize(name);
+    }
+
+    /**
      * Retrieves the logical class name of a Griffon artifact given the Griffon class
      * and a specified trailing name
      *
@@ -235,7 +267,7 @@ public class StringUtils {
 
     public static String getLogicalPropertyName(String className, String trailingName) {
         if (isNotBlank(className) && isNotBlank(trailingName) && className.length() == trailingName.length() + 1 && className.endsWith(trailingName)) {
-            return className.substring(0, 1).toLowerCase();
+            return className.substring(0, 1).toLowerCase(Locale.ENGLISH);
         }
 
         return getLogicalName(getPropertyName(className), trailingName);
@@ -395,7 +427,7 @@ public class StringUtils {
 
                 words.set(i, w + c);
             } else if (Character.isUpperCase(c)) {
-                if ((i == 0 && w.length() == 0) || Character.isUpperCase(w.charAt(w.length() - 1))) {
+                if (i == 0 && w.length() == 0 || Character.isUpperCase(w.charAt(w.length() - 1))) {
                     words.set(i, w + c);
                 } else {
                     words.add(++i, String.valueOf(c));
@@ -404,7 +436,8 @@ public class StringUtils {
         }
 
         StringBuilder buf = new StringBuilder();
-        for (Iterator<String> j = words.iterator(); j.hasNext(); ) {
+        Iterator<String> j = words.iterator();
+        while (j.hasNext()) {
             String word = j.next();
             buf.append(word);
             if (j.hasNext()) {
@@ -528,7 +561,7 @@ public class StringUtils {
         }
 
         String naturalName = getNaturalName(getShortName(name));
-        return naturalName.replaceAll("\\s", "-").toLowerCase();
+        return naturalName.replaceAll("\\s", "-").toLowerCase(Locale.ENGLISH);
     }
 
     /**
@@ -704,8 +737,9 @@ public class StringUtils {
         if (isBlank(str)) {
             return str;
         }
-        if ((str.startsWith("'") && str.endsWith("'")) ||
-            (str.startsWith("\"") && str.endsWith("\""))) {
+        boolean hasDoubleQuotes = str.startsWith("'") && str.endsWith("'");
+        boolean hasSingleQuotes = str.startsWith("\"") && str.endsWith("\"");
+        if (hasDoubleQuotes || hasSingleQuotes) {
             return str.substring(1, str.length() - 1);
         }
         return str;

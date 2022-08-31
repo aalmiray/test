@@ -32,7 +32,7 @@ import static org.jreleaser.util.Templates.resolveTemplate;
  * @author Andres Almiray
  * @since 0.1.0
  */
-public abstract class AbstractRepositoryTap implements RepositoryTap {
+public abstract class AbstractRepositoryTap<S extends AbstractRepositoryTap<S>> extends AbstractModelObject<S> implements RepositoryTap {
     protected Active active;
     @JsonIgnore
     protected boolean enabled;
@@ -59,19 +59,22 @@ public abstract class AbstractRepositoryTap implements RepositoryTap {
     }
 
     public void setTapName(String tapName) {
+        freezeCheck();
         this.tapName = tapName;
     }
 
-    void setAll(AbstractRepositoryTap tap) {
-        this.active = tap.active;
-        this.enabled = tap.enabled;
-        this.owner = tap.owner;
-        this.name = tap.name;
-        this.tagName = tap.tagName;
-        this.branch = tap.branch;
-        this.username = tap.username;
-        this.token = tap.token;
-        this.commitMessage = tap.commitMessage;
+    @Override
+    public void merge(S tap) {
+        freezeCheck();
+        this.active = merge(this.active, tap.active);
+        this.enabled = merge(this.enabled, tap.enabled);
+        this.owner = merge(this.owner, tap.owner);
+        this.name = merge(this.name, tap.name);
+        this.tagName = merge(this.tagName, tap.tagName);
+        this.branch = merge(this.branch, tap.branch);
+        this.username = merge(this.username, tap.username);
+        this.token = merge(this.token, tap.token);
+        this.commitMessage = merge(this.commitMessage, tap.commitMessage);
     }
 
     @Override
@@ -100,12 +103,13 @@ public abstract class AbstractRepositoryTap implements RepositoryTap {
 
     @Override
     public void setActive(Active active) {
+        freezeCheck();
         this.active = active;
     }
 
     @Override
     public void setActive(String str) {
-        this.active = Active.of(str);
+        setActive(Active.of(str));
     }
 
     @Override
@@ -138,13 +142,13 @@ public abstract class AbstractRepositoryTap implements RepositoryTap {
 
     @Override
     public String getResolvedUsername(GitService service) {
-        return Env.resolve(Env.toVar(basename + "_"
+        return Env.env(Env.toVar(basename + "_"
             + service.getServiceName()) + "_USERNAME", username);
     }
 
     @Override
     public String getResolvedToken(GitService service) {
-        return Env.resolve(Env.toVar(basename + "_"
+        return Env.env(Env.toVar(basename + "_"
             + service.getServiceName()) + "_TOKEN", token);
     }
 
@@ -155,6 +159,7 @@ public abstract class AbstractRepositoryTap implements RepositoryTap {
 
     @Override
     public void setOwner(String owner) {
+        freezeCheck();
         this.owner = owner;
     }
 
@@ -165,6 +170,7 @@ public abstract class AbstractRepositoryTap implements RepositoryTap {
 
     @Override
     public void setName(String name) {
+        freezeCheck();
         this.name = name;
     }
 
@@ -175,6 +181,7 @@ public abstract class AbstractRepositoryTap implements RepositoryTap {
 
     @Override
     public void setTagName(String tagName) {
+        freezeCheck();
         this.tagName = tagName;
     }
 
@@ -185,6 +192,7 @@ public abstract class AbstractRepositoryTap implements RepositoryTap {
 
     @Override
     public void setBranch(String branch) {
+        freezeCheck();
         this.branch = branch;
     }
 
@@ -195,6 +203,7 @@ public abstract class AbstractRepositoryTap implements RepositoryTap {
 
     @Override
     public void setUsername(String username) {
+        freezeCheck();
         this.username = username;
     }
 
@@ -205,6 +214,7 @@ public abstract class AbstractRepositoryTap implements RepositoryTap {
 
     @Override
     public void setToken(String token) {
+        freezeCheck();
         this.token = token;
     }
 
@@ -215,6 +225,7 @@ public abstract class AbstractRepositoryTap implements RepositoryTap {
 
     @Override
     public void setCommitMessage(String commitMessage) {
+        freezeCheck();
         this.commitMessage = commitMessage;
     }
 

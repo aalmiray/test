@@ -34,9 +34,15 @@ public interface Assembler extends Domain, Activatable, ExtraProperties {
 
     String getType();
 
+    Stereotype getStereotype();
+
+    void setStereotype(Stereotype stereotype);
+
+    void setStereotype(String str);
+
     boolean isExported();
 
-    void setExported(boolean exported);
+    void setExported(Boolean exported);
 
     String getName();
 

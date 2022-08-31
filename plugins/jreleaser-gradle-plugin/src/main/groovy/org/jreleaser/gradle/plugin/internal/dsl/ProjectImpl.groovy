@@ -19,6 +19,8 @@ package org.jreleaser.gradle.plugin.internal.dsl
 
 import groovy.transform.CompileStatic
 import org.gradle.api.Action
+import org.gradle.api.NamedDomainObjectContainer
+import org.gradle.api.NamedDomainObjectFactory
 import org.gradle.api.internal.provider.Providers
 import org.gradle.api.model.ObjectFactory
 import org.gradle.api.provider.ListProperty
@@ -26,8 +28,11 @@ import org.gradle.api.provider.MapProperty
 import org.gradle.api.provider.Property
 import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.Internal
+import org.jreleaser.gradle.plugin.dsl.Icon
 import org.jreleaser.gradle.plugin.dsl.Java
 import org.jreleaser.gradle.plugin.dsl.Project
+import org.jreleaser.gradle.plugin.dsl.Screenshot
+import org.jreleaser.model.Stereotype
 import org.kordamp.gradle.util.ConfigureUtil
 
 import javax.inject.Inject
@@ -47,16 +52,23 @@ class ProjectImpl implements Project {
     final Property<String> description
     final Property<String> longDescription
     final Property<String> website
+    final Property<String> inceptionYear
     final Property<String> license
     final Property<String> licenseUrl
     final Property<String> copyright
     final Property<String> vendor
     final Property<String> docsUrl
+    final Property<Stereotype> stereotype
     final ListProperty<String> authors
     final ListProperty<String> tags
+    final ListProperty<String> maintainers
     final MapProperty<String, Object> extraProperties
     final JavaImpl java
     final SnapshotImpl snapshot
+    final LinksImpl links
+
+    private final NamedDomainObjectContainer<ScreenshotImpl> screenshots
+    private final NamedDomainObjectContainer<IconImpl> icons
 
     @Inject
     ProjectImpl(ObjectFactory objects,
@@ -70,16 +82,45 @@ class ProjectImpl implements Project {
         longDescription = objects.property(String).convention(descriptionProvider)
         website = objects.property(String).convention(Providers.notDefined())
         license = objects.property(String).convention(Providers.notDefined())
+        inceptionYear = objects.property(String).convention(Providers.notDefined())
         licenseUrl = objects.property(String).convention(Providers.notDefined())
         copyright = objects.property(String).convention(Providers.notDefined())
         vendor = objects.property(String).convention(Providers.notDefined())
         docsUrl = objects.property(String).convention(Providers.notDefined())
+        stereotype = objects.property(Stereotype).convention(Providers.notDefined())
         authors = objects.listProperty(String).convention(Providers.notDefined())
         tags = objects.listProperty(String).convention(Providers.notDefined())
+        maintainers = objects.listProperty(String).convention(Providers.notDefined())
         extraProperties = objects.mapProperty(String, Object).convention(Providers.notDefined())
 
         java = objects.newInstance(JavaImpl, objects)
         snapshot = objects.newInstance(SnapshotImpl, objects)
+        links = objects.newInstance(LinksImpl, objects)
+
+        screenshots = objects.domainObjectContainer(ScreenshotImpl, new NamedDomainObjectFactory<ScreenshotImpl>() {
+            @Override
+            ScreenshotImpl create(String name) {
+                ScreenshotImpl screenshot = objects.newInstance(ScreenshotImpl, objects)
+                screenshot.name = name
+                screenshot
+            }
+        })
+
+        icons = objects.domainObjectContainer(IconImpl, new NamedDomainObjectFactory<IconImpl>() {
+            @Override
+            IconImpl create(String name) {
+                IconImpl icon = objects.newInstance(IconImpl, objects)
+                icon.name = name
+                icon
+            }
+        })
+    }
+
+    @Override
+    void setStereotype(String str) {
+        if (isNotBlank(str)) {
+            stereotype.set(Stereotype.of(str.trim()))
+        }
     }
 
     @Override
@@ -94,6 +135,23 @@ class ProjectImpl implements Project {
         if (isNotBlank(tag)) {
             tags.add(tag.trim())
         }
+    }
+
+    @Override
+    void maintainer(String maintainer) {
+        if (isNotBlank(maintainer)) {
+            maintainers.add(maintainer)
+        }
+    }
+
+    @Override
+    void links(Action<? super Links> action) {
+        action.execute(links)
+    }
+
+    @Override
+    void links(@DelegatesTo(strategy = Closure.DELEGATE_FIRST, value = Links) Closure<Void> action) {
+        ConfigureUtil.configure(action, links)
     }
 
     @Override
@@ -116,6 +174,26 @@ class ProjectImpl implements Project {
         ConfigureUtil.configure(action, snapshot)
     }
 
+    @Override
+    void screenshot(Action<? super Screenshot> action) {
+        action.execute(screenshots.maybeCreate("screenshot-${screenshots.size()}".toString()))
+    }
+
+    @Override
+    void screenshot(@DelegatesTo(strategy = Closure.DELEGATE_FIRST, value = Screenshot) Closure<Void> action) {
+        ConfigureUtil.configure(action, screenshots.maybeCreate("screenshot-${screenshots.size()}".toString()))
+    }
+
+    @Override
+    void icon(Action<? super Icon> action) {
+        action.execute(icons.maybeCreate("icons-${icons.size()}".toString()))
+    }
+
+    @Override
+    void icon(@DelegatesTo(strategy = Closure.DELEGATE_FIRST, value = Icon) Closure<Void> action) {
+        ConfigureUtil.configure(action, icons.maybeCreate("icons-${icons.size()}".toString()))
+    }
+
     org.jreleaser.model.Project toModel() {
         org.jreleaser.model.Project project = new org.jreleaser.model.Project()
         project.name = name.get()
@@ -123,17 +201,27 @@ class ProjectImpl implements Project {
         if (versionPattern.present) project.versionPattern = versionPattern.get()
         if (description.present) project.description = description.get()
         if (longDescription.present) project.longDescription = longDescription.get()
-        if (website.present) project.website = website.get()
+        if (website.present) project.links.homepage = website.get()
         if (license.present) project.license = license.get()
-        if (licenseUrl.present) project.licenseUrl = licenseUrl.get()
+        if (inceptionYear.present) project.inceptionYear = inceptionYear.get()
+        if (licenseUrl.present) project.links.license = licenseUrl.get()
         if (copyright.present) project.copyright = copyright.get()
         if (vendor.present) project.vendor = vendor.get()
-        if (docsUrl.present) project.docsUrl = docsUrl.get()
+        if (docsUrl.present) project.links.documentation = docsUrl.get()
+        if (stereotype.present) project.stereotype = stereotype.get()
         project.authors = (List<String>) authors.getOrElse([])
         project.tags = (List<String>) tags.getOrElse([])
+        project.maintainers = (List<String>) maintainers.getOrElse([])
         if (extraProperties.present) project.extraProperties.putAll(extraProperties.get())
         project.java = java.toModel()
         project.snapshot = snapshot.toModel()
+        project.links = links.toModel()
+        for (ScreenshotImpl screenshot : screenshots) {
+            project.addScreenshot(screenshot.toModel())
+        }
+        for (IconImpl icon : icons) {
+            project.addIcon(icon.toModel())
+        }
         project
     }
 
@@ -163,6 +251,68 @@ class ProjectImpl implements Project {
             if (label.present) snapshot.label = label.get()
             if (fullChangelog.present) snapshot.fullChangelog = fullChangelog.get()
             snapshot
+        }
+    }
+
+
+    @CompileStatic
+    static class LinksImpl implements Links {
+        final Property<String> homepage
+        final Property<String> documentation
+        final Property<String> license
+        final Property<String> bugTracker
+        final Property<String> faq
+        final Property<String> help
+        final Property<String> donation
+        final Property<String> translate
+        final Property<String> contact
+        final Property<String> vcsBrowser
+        final Property<String> contribute
+
+        @Inject
+        LinksImpl(ObjectFactory objects) {
+            homepage = objects.property(String).convention(Providers.notDefined())
+            documentation = objects.property(String).convention(Providers.notDefined())
+            license = objects.property(String).convention(Providers.notDefined())
+            bugTracker = objects.property(String).convention(Providers.notDefined())
+            faq = objects.property(String).convention(Providers.notDefined())
+            help = objects.property(String).convention(Providers.notDefined())
+            donation = objects.property(String).convention(Providers.notDefined())
+            translate = objects.property(String).convention(Providers.notDefined())
+            contact = objects.property(String).convention(Providers.notDefined())
+            vcsBrowser = objects.property(String).convention(Providers.notDefined())
+            contribute = objects.property(String).convention(Providers.notDefined())
+        }
+
+        @Internal
+        boolean isSet() {
+            homepage.present ||
+                documentation.present ||
+                license.present ||
+                bugTracker.present ||
+                faq.present ||
+                help.present ||
+                donation.present ||
+                translate.present ||
+                contact.present ||
+                vcsBrowser.present ||
+                contribute.present
+        }
+
+        org.jreleaser.model.Project.Links toModel() {
+            org.jreleaser.model.Project.Links links = new org.jreleaser.model.Project.Links()
+            if (homepage.present) links.homepage = homepage.get()
+            if (documentation.present) links.documentation = documentation.get()
+            if (license.present) links.license = license.get()
+            if (bugTracker.present) links.bugTracker = bugTracker.get()
+            if (faq.present) links.faq = faq.get()
+            if (help.present) links.help = help.get()
+            if (donation.present) links.donation = donation.get()
+            if (translate.present) links.translate = translate.get()
+            if (contact.present) links.contact = contact.get()
+            if (vcsBrowser.present) links.vcsBrowser = vcsBrowser.get()
+            if (contribute.present) links.contribute = contribute.get()
+            links
         }
     }
 }

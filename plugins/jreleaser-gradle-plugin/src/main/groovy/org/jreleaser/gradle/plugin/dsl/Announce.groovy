@@ -20,7 +20,6 @@ package org.jreleaser.gradle.plugin.dsl
 import groovy.transform.CompileStatic
 import org.gradle.api.Action
 import org.gradle.api.NamedDomainObjectContainer
-import org.gradle.api.provider.Property
 
 /**
  *
@@ -28,9 +27,7 @@ import org.gradle.api.provider.Property
  * @since 0.1.0
  */
 @CompileStatic
-interface Announce {
-    Property<Boolean> getEnabled()
-
+interface Announce extends Activatable {
     Article getArticle()
 
     Discord getDiscord()
@@ -59,6 +56,8 @@ interface Announce {
 
     Zulip getZulip()
 
+    NamedDomainObjectContainer<HttpAnnouncer> getHttp()
+
     NamedDomainObjectContainer<Webhook> getWebhooks()
 
     void article(Action<? super Article> action)
@@ -70,6 +69,8 @@ interface Announce {
     void gitter(Action<? super Gitter> action)
 
     void googleChat(Action<? super GoogleChat> action)
+
+    void http(Action<? super NamedDomainObjectContainer<HttpAnnouncer>> action)
 
     void mail(Action<? super Mail> action)
 
@@ -100,6 +101,8 @@ interface Announce {
     void gitter(@DelegatesTo(strategy = Closure.DELEGATE_FIRST, value = Gitter) Closure<Void> action)
 
     void googleChat(@DelegatesTo(strategy = Closure.DELEGATE_FIRST, value = GoogleChat) Closure<Void> action)
+
+    void http(@DelegatesTo(strategy = Closure.DELEGATE_FIRST, value = NamedDomainObjectContainer) Closure<Void> action)
 
     void mail(@DelegatesTo(strategy = Closure.DELEGATE_FIRST, value = Mail) Closure<Void> action)
 

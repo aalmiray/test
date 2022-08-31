@@ -24,10 +24,13 @@ import org.jreleaser.model.JReleaserVersion;
 import org.jreleaser.model.releaser.spi.Asset;
 import org.jreleaser.util.JReleaserLogger;
 import org.kohsuke.github.GHAsset;
+import org.kohsuke.github.GHBranch;
 import org.kohsuke.github.GHDiscussion;
 import org.kohsuke.github.GHException;
 import org.kohsuke.github.GHFileNotFoundException;
+import org.kohsuke.github.GHIssue;
 import org.kohsuke.github.GHIssueState;
+import org.kohsuke.github.GHLabel;
 import org.kohsuke.github.GHMilestone;
 import org.kohsuke.github.GHOrganization;
 import org.kohsuke.github.GHRelease;
@@ -40,11 +43,14 @@ import org.kohsuke.github.HttpConnector;
 import org.kohsuke.github.PagedIterable;
 import org.kohsuke.github.extras.ImpatientHttpConnector;
 
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.file.Files;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.StreamSupport;
 
@@ -85,6 +91,29 @@ class Github {
             .withEndpoint(endpoint)
             .withOAuthToken(token)
             .build();
+    }
+
+    PagedIterable<GHRelease> listReleases(String owner, String repo) throws IOException {
+        logger.debug(RB.$("git.list.releases"), owner, repo);
+        return github.getRepository(owner + "/" + repo)
+            .listReleases();
+    }
+
+    Map<String, GHBranch> listBranches(String owner, String repo) throws IOException {
+        logger.debug(RB.$("git.list.branches"), owner, repo);
+        return github.getRepository(owner + "/" + repo)
+            .getBranches();
+    }
+
+    Map<String, GHAsset> listAssets(String owner, String repo, GHRelease release) throws IOException {
+        logger.debug(RB.$("git.list.assets.github"), owner, repo, release.getId());
+
+        Map<String, GHAsset> assets = new LinkedHashMap<>();
+        for (GHAsset asset : release.listAssets()) {
+            assets.put(asset.getName(), asset);
+        }
+
+        return assets;
     }
 
     GHRepository findRepository(String owner, String repo) throws IOException {
@@ -160,6 +189,29 @@ class Github {
         }
     }
 
+    void updateAssets(GHRelease release, List<Asset> assets, Map<String, GHAsset> existingAssets) throws IOException {
+        for (Asset asset : assets) {
+            if (0 == Files.size(asset.getPath()) || !Files.exists(asset.getPath())) {
+                // do not upload empty or non existent files
+                continue;
+            }
+
+            logger.debug(" " + RB.$("git.delete.asset"), asset.getFilename());
+            try {
+                existingAssets.get(asset.getFilename()).delete();
+            } catch (IOException e) {
+                logger.error(" " + RB.$("git.delete.asset.failure"), asset.getFilename());
+                throw e;
+            }
+
+            logger.info(" " + RB.$("git.update.asset"), asset.getFilename());
+            GHAsset ghasset = release.uploadAsset(asset.getPath().toFile(), MediaType.parse(tika.detect(asset.getPath())).toString());
+            if (!"uploaded".equalsIgnoreCase(ghasset.getState())) {
+                logger.warn(" " + RB.$("git.update.asset.failure"), asset.getFilename());
+            }
+        }
+    }
+
     Optional<GHDiscussion> findDiscussion(String organization, String team, String title) throws IOException {
         GHTeam ghTeam = resolveTeam(organization, team);
 
@@ -182,6 +234,26 @@ class Github {
         return ghTeam.createDiscussion(title)
             .body(message)
             .done();
+    }
+
+    GHLabel getOrCreateLabel(GHRepository repository, String labelName, String color, String description) throws IOException {
+        logger.debug(RB.$("git.label.fetch", labelName));
+
+        try {
+            return repository.getLabel(labelName);
+        } catch (FileNotFoundException ok) {
+            logger.debug(RB.$("git.label.create", labelName));
+            return repository.createLabel(labelName, color, description);
+        }
+    }
+
+    Optional<GHIssue> findIssue(GHRepository repository, int issueNumber) throws IOException {
+        logger.debug(RB.$("git.issue.fetch", issueNumber));
+        try {
+            return Optional.of(repository.getIssue(issueNumber));
+        } catch (FileNotFoundException ok) {
+            return Optional.empty();
+        }
     }
 
     private GHOrganization resolveOrganization(String name) throws IOException {

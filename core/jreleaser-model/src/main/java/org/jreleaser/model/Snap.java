@@ -35,7 +35,7 @@ import static org.jreleaser.model.Distribution.DistributionType.JLINK;
 import static org.jreleaser.model.Distribution.DistributionType.NATIVE_IMAGE;
 import static org.jreleaser.model.Distribution.DistributionType.NATIVE_PACKAGE;
 import static org.jreleaser.model.Distribution.DistributionType.SINGLE_JAR;
-import static org.jreleaser.util.CollectionUtils.newSet;
+import static org.jreleaser.util.CollectionUtils.setOf;
 import static org.jreleaser.util.FileType.DEB;
 import static org.jreleaser.util.FileType.JAR;
 import static org.jreleaser.util.FileType.RPM;
@@ -48,20 +48,19 @@ import static org.jreleaser.util.FileType.TGZ;
 import static org.jreleaser.util.FileType.TXZ;
 import static org.jreleaser.util.StringUtils.isBlank;
 import static org.jreleaser.util.StringUtils.isFalse;
-import static org.jreleaser.util.StringUtils.isNotBlank;
 
 /**
  * @author Andres Almiray
  * @since 0.1.0
  */
-public class Snap extends AbstractRepositoryPackager {
+public class Snap extends AbstractRepositoryPackager<Snap> {
     public static final String TYPE = "snap";
     public static final String SKIP_SNAP = "skipSnap";
 
     private static final Map<Distribution.DistributionType, Set<String>> SUPPORTED = new LinkedHashMap<>();
 
     static {
-        Set<String> extensions = newSet(
+        Set<String> extensions = setOf(
             TAR_BZ2.extension(),
             TAR_GZ.extension(),
             TAR_XZ.extension(),
@@ -74,8 +73,8 @@ public class Snap extends AbstractRepositoryPackager {
         SUPPORTED.put(JAVA_BINARY, extensions);
         SUPPORTED.put(JLINK, extensions);
         SUPPORTED.put(NATIVE_IMAGE, extensions);
-        SUPPORTED.put(NATIVE_PACKAGE, newSet(DEB.extension(), RPM.extension()));
-        SUPPORTED.put(SINGLE_JAR, newSet(JAR.extension()));
+        SUPPORTED.put(NATIVE_PACKAGE, setOf(DEB.extension(), RPM.extension()));
+        SUPPORTED.put(SINGLE_JAR, setOf(JAR.extension()));
     }
 
     private final Set<String> localPlugs = new LinkedHashSet<>();
@@ -96,19 +95,30 @@ public class Snap extends AbstractRepositoryPackager {
         super(TYPE);
     }
 
-    void setAll(Snap snap) {
-        super.setAll(snap);
-        this.packageName = snap.packageName;
-        this.base = snap.base;
-        this.grade = snap.grade;
-        this.confinement = snap.confinement;
-        this.exportedLogin = snap.exportedLogin;
-        this.remoteBuild = snap.remoteBuild;
-        setLocalPlugs(snap.localPlugs);
-        setLocalSlots(snap.localSlots);
-        setPlugs(snap.plugs);
-        setSlots(snap.slots);
-        setArchitectures(snap.architectures);
+    @Override
+    public void freeze() {
+        super.freeze();
+        plugs.forEach(Plug::freeze);
+        slots.forEach(Slot::freeze);
+        architectures.forEach(Architecture::freeze);
+        snap.freeze();
+    }
+
+    @Override
+    public void merge(Snap snap) {
+        freezeCheck();
+        super.merge(snap);
+        this.packageName = merge(this.packageName, snap.packageName);
+        this.base = merge(this.base, snap.base);
+        this.grade = merge(this.grade, snap.grade);
+        this.confinement = merge(this.confinement, snap.confinement);
+        this.exportedLogin = merge(this.exportedLogin, snap.exportedLogin);
+        this.remoteBuild = merge(this.remoteBuild, snap.remoteBuild);
+        setLocalPlugs(merge(this.localPlugs, snap.localPlugs));
+        setLocalSlots(merge(this.localSlots, snap.localSlots));
+        setPlugs(merge(this.plugs, snap.plugs));
+        setSlots(merge(this.slots, snap.slots));
+        setArchitectures(merge(this.architectures, snap.architectures));
         setSnap(snap.snap);
     }
 
@@ -117,6 +127,7 @@ public class Snap extends AbstractRepositoryPackager {
     }
 
     public void setPackageName(String packageName) {
+        freezeCheck();
         this.packageName = packageName;
     }
 
@@ -125,6 +136,7 @@ public class Snap extends AbstractRepositoryPackager {
     }
 
     public void setBase(String base) {
+        freezeCheck();
         this.base = base;
     }
 
@@ -133,6 +145,7 @@ public class Snap extends AbstractRepositoryPackager {
     }
 
     public void setGrade(String grade) {
+        freezeCheck();
         this.grade = grade;
     }
 
@@ -141,131 +154,69 @@ public class Snap extends AbstractRepositoryPackager {
     }
 
     public void setConfinement(String confinement) {
+        freezeCheck();
         this.confinement = confinement;
     }
 
     public Set<String> getLocalPlugs() {
-        return localPlugs;
+        return freezeWrap(localPlugs);
     }
 
     public void setLocalPlugs(Set<String> localPlugs) {
+        freezeCheck();
         this.localPlugs.clear();
         this.localPlugs.addAll(localPlugs);
     }
 
-    public void addLocalPlugs(Set<String> localPlugs) {
-        this.localPlugs.addAll(localPlugs);
-    }
-
-    public void addLocalPlug(String localPlug) {
-        if (isNotBlank(localPlug)) {
-            this.localPlugs.add(localPlug.trim());
-        }
-    }
-
-    public void removeLocalPlug(String localPlug) {
-        if (isNotBlank(localPlug)) {
-            this.localPlugs.remove(localPlug.trim());
-        }
-    }
-
     public Set<String> getLocalSlots() {
-        return localSlots;
+        return freezeWrap(localSlots);
     }
 
     public void setLocalSlots(Set<String> localSlots) {
+        freezeCheck();
         this.localSlots.clear();
         this.localSlots.addAll(localSlots);
     }
 
-    public void addLocalSlots(Set<String> localSlots) {
-        this.localSlots.addAll(localSlots);
-    }
-
-    public void addLocalSlot(String localSlot) {
-        if (isNotBlank(localSlot)) {
-            this.localSlots.add(localSlot.trim());
-        }
-    }
-
-    public void removeLocalSlot(String localSlot) {
-        if (isNotBlank(localSlot)) {
-            this.localSlots.remove(localSlot.trim());
-        }
-    }
-
     public List<Plug> getPlugs() {
-        return plugs;
+        return freezeWrap(plugs);
     }
 
     public void setPlugs(List<Plug> plugs) {
+        freezeCheck();
         this.plugs.clear();
         this.plugs.addAll(plugs);
     }
 
-    public void addPlugs(List<Plug> plugs) {
-        this.plugs.addAll(plugs);
-    }
-
-    public void addPlug(Plug plug) {
-        if (null != plug) {
-            this.plugs.add(plug);
-        }
-    }
-
-    public void removePlug(Plug plug) {
-        if (null != plug) {
-            this.plugs.remove(plug);
-        }
-    }
-
     public List<Slot> getSlots() {
-        return slots;
+        return freezeWrap(slots);
     }
 
     public void setSlots(List<Slot> slots) {
+        freezeCheck();
         this.slots.clear();
         this.slots.addAll(slots);
     }
 
-    public void addSlots(List<Slot> slots) {
-        this.slots.addAll(slots);
-    }
-
-    public void addSlot(Slot slot) {
-        if (null != slot) {
-            this.slots.add(slot);
-        }
-    }
-
-    public void removeSlot(Slot slot) {
-        if (null != slot) {
-            this.slots.remove(slot);
-        }
-    }
-
     public List<Architecture> getArchitectures() {
-        return architectures;
+        return freezeWrap(architectures);
     }
 
     public void setArchitectures(List<Architecture> architectures) {
+        freezeCheck();
         this.architectures.clear();
         this.architectures.addAll(architectures);
     }
 
     public void addArchitecture(List<Architecture> architectures) {
+        freezeCheck();
         this.architectures.addAll(architectures);
     }
 
     public void addArchitecture(Architecture architecture) {
+        freezeCheck();
         if (null != architecture) {
             this.architectures.add(architecture);
-        }
-    }
-
-    public void removeArchitecture(Architecture architecture) {
-        if (null != architecture) {
-            this.architectures.remove(architecture);
         }
     }
 
@@ -274,6 +225,7 @@ public class Snap extends AbstractRepositoryPackager {
     }
 
     public void setExportedLogin(String exportedLogin) {
+        freezeCheck();
         this.exportedLogin = exportedLogin;
     }
 
@@ -282,6 +234,7 @@ public class Snap extends AbstractRepositoryPackager {
     }
 
     public void setRemoteBuild(Boolean remoteBuild) {
+        freezeCheck();
         this.remoteBuild = remoteBuild;
     }
 
@@ -294,7 +247,7 @@ public class Snap extends AbstractRepositoryPackager {
     }
 
     public void setSnap(SnapTap snap) {
-        this.snap.setAll(snap);
+        this.snap.merge(snap);
     }
 
     @Override
@@ -346,7 +299,7 @@ public class Snap extends AbstractRepositoryPackager {
 
     @Override
     public Set<String> getSupportedExtensions(Distribution distribution) {
-        return SUPPORTED.getOrDefault(distribution.getType(), Collections.emptySet());
+        return Collections.unmodifiableSet(SUPPORTED.getOrDefault(distribution.getType(), Collections.emptySet()));
     }
 
     @Override
@@ -364,91 +317,63 @@ public class Snap extends AbstractRepositoryPackager {
         }
     }
 
-    public static class Slot implements Domain {
+    public static class Slot extends AbstractModelObject<Slot> implements Domain {
         private final Map<String, String> attributes = new LinkedHashMap<>();
         private final List<String> reads = new ArrayList<>();
         private final List<String> writes = new ArrayList<>();
         private String name;
+
+        @Override
+        public void merge(Slot source) {
+            this.name = merge(this.name, source.name);
+            setAttributes(merge(this.attributes, source.attributes));
+            setReads(merge(this.reads, source.reads));
+            setWrites(merge(this.writes, source.writes));
+        }
 
         public String getName() {
             return name;
         }
 
         public void setName(String name) {
+            freezeCheck();
             this.name = name;
         }
 
         public Map<String, String> getAttributes() {
-            return attributes;
+            return freezeWrap(attributes);
         }
 
         public void setAttributes(Map<String, String> attributes) {
+            freezeCheck();
             this.attributes.clear();
             this.attributes.putAll(attributes);
         }
 
         public Collection<Attribute> getAttrs() {
             return attributes.entrySet().stream()
-                .map(e-> new Attribute(e.getKey(), e.getValue()))
+                .map(e -> new Attribute(e.getKey(), e.getValue()))
                 .collect(toList());
         }
 
-        public void addAttributes(Map<String, String> attributes) {
-            this.attributes.putAll(attributes);
-        }
-
-        public void addAttribute(String key, String value) {
-            attributes.put(key, value);
-        }
-
         public List<String> getReads() {
-            return reads;
+            return freezeWrap(reads);
         }
 
         public void setReads(List<String> reads) {
+            freezeCheck();
             this.reads.clear();
             this.reads.addAll(reads);
         }
 
-        public void addReads(List<String> read) {
-            this.reads.addAll(read);
-        }
-
-        public void addRead(String read) {
-            if (isNotBlank(read)) {
-                this.reads.add(read.trim());
-            }
-        }
-
-        public void removeRead(String read) {
-            if (isNotBlank(read)) {
-                this.reads.remove(read.trim());
-            }
-        }
-
         public List<String> getWrites() {
-            return writes;
+            return freezeWrap(writes);
         }
 
         public void setWrites(List<String> writes) {
+            freezeCheck();
             this.writes.clear();
             this.writes.addAll(writes);
-        }
-
-        public void addWrites(List<String> write) {
-            this.writes.addAll(write);
-        }
-
-        public void addWrite(String write) {
-            if (isNotBlank(write)) {
-                this.writes.add(write.trim());
-            }
-        }
-
-        public void removeWrite(String write) {
-            if (isNotBlank(write)) {
-                this.writes.remove(write.trim());
-            }
         }
 
         public boolean getHasReads() {
@@ -478,91 +403,63 @@ public class Snap extends AbstractRepositoryPackager {
         }
     }
 
-    public static class Plug implements Domain {
+    public static class Plug extends AbstractModelObject<Plug> implements Domain {
         private final Map<String, String> attributes = new LinkedHashMap<>();
         private final List<String> reads = new ArrayList<>();
         private final List<String> writes = new ArrayList<>();
         private String name;
+
+        @Override
+        public void merge(Plug source) {
+            this.name = merge(this.name, source.name);
+            setAttributes(merge(this.attributes, source.attributes));
+            setReads(merge(this.reads, source.reads));
+            setWrites(merge(this.writes, source.writes));
+        }
 
         public String getName() {
             return name;
         }
 
         public void setName(String name) {
+            freezeCheck();
             this.name = name;
         }
 
         public Map<String, String> getAttributes() {
-            return attributes;
+            return freezeWrap(attributes);
         }
 
         public void setAttributes(Map<String, String> attributes) {
+            freezeCheck();
             this.attributes.clear();
             this.attributes.putAll(attributes);
         }
 
         public Collection<Attribute> getAttrs() {
             return attributes.entrySet().stream()
-                .map(e-> new Attribute(e.getKey(), e.getValue()))
+                .map(e -> new Attribute(e.getKey(), e.getValue()))
                 .collect(toList());
         }
 
-        public void addAttributes(Map<String, String> attributes) {
-            this.attributes.putAll(attributes);
-        }
-
-        public void addAttribute(String key, String value) {
-            attributes.put(key, value);
-        }
-
         public List<String> getReads() {
-            return reads;
+            return freezeWrap(reads);
         }
 
         public void setReads(List<String> reads) {
+            freezeCheck();
             this.reads.clear();
             this.reads.addAll(reads);
         }
 
-        public void addRead(List<String> read) {
-            this.reads.addAll(read);
-        }
-
-        public void addRead(String read) {
-            if (isNotBlank(read)) {
-                this.reads.add(read.trim());
-            }
-        }
-
-        public void removeRead(String read) {
-            if (isNotBlank(read)) {
-                this.reads.remove(read.trim());
-            }
-        }
-
         public List<String> getWrites() {
-            return writes;
+            return freezeWrap(writes);
         }
 
         public void setWrites(List<String> writes) {
+            freezeCheck();
             this.writes.clear();
             this.writes.addAll(writes);
-        }
-
-        public void addWrite(List<String> write) {
-            this.writes.addAll(write);
-        }
-
-        public void addWrite(String write) {
-            if (isNotBlank(write)) {
-                this.writes.add(write.trim());
-            }
-        }
-
-        public void removeWrite(String write) {
-            if (isNotBlank(write)) {
-                this.writes.remove(write.trim());
-            }
         }
 
         public boolean getHasRead() {
@@ -592,53 +489,42 @@ public class Snap extends AbstractRepositoryPackager {
         }
     }
 
-    public static class SnapTap extends AbstractRepositoryTap {
+    public static class SnapTap extends AbstractRepositoryTap<SnapTap> {
         public SnapTap() {
             super("snap", "snap");
         }
     }
 
-    public static class Architecture implements Domain {
+    public static class Architecture extends AbstractModelObject<Architecture> implements Domain {
         private final List<String> buildOn = new ArrayList<>();
         private final List<String> runOn = new ArrayList<>();
         private Boolean ignoreError;
 
+        @Override
+        public void merge(Architecture source) {
+            this.ignoreError = merge(this.ignoreError, source.ignoreError);
+            setBuildOn(merge(this.buildOn, source.buildOn));
+            setRunOn(merge(this.runOn, source.runOn));
+        }
+
         public List<String> getBuildOn() {
-            return buildOn;
+            return freezeWrap(buildOn);
         }
 
         public void setBuildOn(List<String> buildOn) {
+            freezeCheck();
             this.buildOn.clear();
             this.buildOn.addAll(buildOn);
         }
 
-        public void addBuildOn(List<String> buildOn) {
-            this.buildOn.addAll(buildOn);
-        }
-
-        public void addBuildOn(String str) {
-            if (isNotBlank(str)) {
-                this.buildOn.add(str.trim());
-            }
-        }
-
         public List<String> getRunOn() {
-            return runOn;
+            return freezeWrap(runOn);
         }
 
         public void setRunOn(List<String> runOn) {
+            freezeCheck();
             this.runOn.clear();
             this.runOn.addAll(runOn);
-        }
-
-        public void addRunOn(List<String> runOn) {
-            this.runOn.addAll(runOn);
-        }
-
-        public void addRunOn(String str) {
-            if (isNotBlank(str)) {
-                this.runOn.add(str.trim());
-            }
         }
 
         public boolean hasBuildOn() {
@@ -654,6 +540,7 @@ public class Snap extends AbstractRepositoryPackager {
         }
 
         public void setIgnoreError(Boolean ignoreError) {
+            freezeCheck();
             this.ignoreError = ignoreError;
         }
 

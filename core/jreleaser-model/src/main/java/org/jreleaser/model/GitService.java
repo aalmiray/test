@@ -30,7 +30,7 @@ import java.util.Map;
 import java.util.Set;
 
 import static org.jreleaser.util.MustacheUtils.applyTemplates;
-import static org.jreleaser.util.StringUtils.getClassNameForLowerCaseHyphenSeparatedName;
+import static org.jreleaser.util.StringUtils.getCapitalizedName;
 import static org.jreleaser.util.StringUtils.isBlank;
 import static org.jreleaser.util.StringUtils.isNotBlank;
 import static org.jreleaser.util.Templates.resolveTemplate;
@@ -39,7 +39,7 @@ import static org.jreleaser.util.Templates.resolveTemplate;
  * @author Andres Almiray
  * @since 0.1.0
  */
-public abstract class GitService implements Releaser, CommitAuthorAware, OwnerAware, TimeoutAware {
+public abstract class GitService<S extends GitService<S>> extends AbstractModelObject<S> implements Releaser, CommitAuthorAware, OwnerAware, TimeoutAware {
     public static final String KEY_SKIP_RELEASE = "skipRelease";
     public static final String KEY_SKIP_RELEASE_SIGNATURES = "skipReleaseSignatures";
 
@@ -56,53 +56,54 @@ public abstract class GitService implements Releaser, CommitAuthorAware, OwnerAw
     public static final String PRERELEASE_PATTERN = "PRERELEASE_PATTERN";
 
     @JsonIgnore
-    private final String serviceName;
-    private final Changelog changelog = new Changelog();
-    private final Milestone milestone = new Milestone();
-    private final CommitAuthor commitAuthor = new CommitAuthor();
-    private final Update update = new Update();
-    private final Prerelease prerelease = new Prerelease();
+    protected final String serviceName;
+    protected final Changelog changelog = new Changelog();
+    protected final Milestone milestone = new Milestone();
+    protected final Issues issues = new Issues();
+    protected final CommitAuthor commitAuthor = new CommitAuthor();
+    protected final Update update = new Update();
+    protected final Prerelease prerelease = new Prerelease();
     @JsonIgnore
-    private final boolean releaseSupported;
+    protected final boolean releaseSupported;
 
     @JsonIgnore
-    private boolean match = true;
-    private Boolean enabled;
-    private String host;
-    private String owner;
-    private String name;
-    private String repoUrl;
-    private String repoCloneUrl;
-    private String commitUrl;
-    private String srcUrl;
-    private String downloadUrl;
-    private String releaseNotesUrl;
-    private String latestReleaseUrl;
-    private String issueTrackerUrl;
-    private String username;
-    private String token;
-    private String tagName;
-    private String previousTagName;
-    private String releaseName;
-    private String branch;
-    private Boolean sign;
-    private Boolean skipTag;
-    private Boolean skipRelease;
-    private Boolean overwrite;
-    private String apiEndpoint;
-    private int connectTimeout;
-    private int readTimeout;
-    private Boolean artifacts;
-    private Boolean files;
-    private Boolean checksums;
-    private Boolean signatures;
-    private Active uploadAssets;
-    private Boolean uploadAssetsEnabled;
+    protected boolean match = true;
+    protected Boolean enabled;
+    protected String host;
+    protected String owner;
+    protected String name;
+    protected String repoUrl;
+    protected String repoCloneUrl;
+    protected String commitUrl;
+    protected String srcUrl;
+    protected String downloadUrl;
+    protected String releaseNotesUrl;
+    protected String latestReleaseUrl;
+    protected String issueTrackerUrl;
+    protected String username;
+    protected String token;
+    protected String tagName;
+    protected String previousTagName;
+    protected String releaseName;
+    protected String branch;
+    protected Boolean sign;
+    protected Boolean skipTag;
+    protected Boolean skipRelease;
+    protected Boolean overwrite;
+    protected String apiEndpoint;
+    protected int connectTimeout;
+    protected int readTimeout;
+    protected Boolean artifacts;
+    protected Boolean files;
+    protected Boolean checksums;
+    protected Boolean signatures;
+    protected Active uploadAssets;
+    protected Boolean uploadAssetsEnabled;
 
     @JsonIgnore
-    private String cachedTagName;
+    protected String cachedTagName;
     @JsonIgnore
-    private String cachedReleaseName;
+    protected String cachedReleaseName;
 
     protected GitService(String serviceName, boolean releaseSupported) {
         this.serviceName = serviceName;
@@ -119,44 +120,58 @@ public abstract class GitService implements Releaser, CommitAuthorAware, OwnerAw
         return serviceName;
     }
 
-    void setAll(GitService service) {
+    @Override
+    public void freeze() {
+        super.freeze();
+        changelog.freeze();
+        milestone.freeze();
+        issues.freeze();
+        commitAuthor.freeze();
+        update.freeze();
+        prerelease.freeze();
+    }
+
+    @Override
+    public void merge(S service) {
+        freezeCheck();
         this.match = service.match;
-        this.enabled = service.enabled;
-        this.host = service.host;
-        this.owner = service.owner;
-        this.name = service.name;
-        this.repoUrl = service.repoUrl;
-        this.repoCloneUrl = service.repoCloneUrl;
-        this.commitUrl = service.commitUrl;
-        this.srcUrl = service.srcUrl;
-        this.downloadUrl = service.downloadUrl;
-        this.releaseNotesUrl = service.releaseNotesUrl;
-        this.latestReleaseUrl = service.latestReleaseUrl;
-        this.issueTrackerUrl = service.issueTrackerUrl;
-        this.username = service.username;
-        this.token = service.token;
-        this.tagName = service.tagName;
-        this.previousTagName = service.previousTagName;
-        this.releaseName = service.releaseName;
-        this.branch = service.branch;
-        this.sign = service.sign;
-        this.skipTag = service.skipTag;
-        this.skipRelease = service.skipRelease;
-        this.overwrite = service.overwrite;
-        this.apiEndpoint = service.apiEndpoint;
-        this.connectTimeout = service.connectTimeout;
-        this.readTimeout = service.readTimeout;
-        this.artifacts = service.artifacts;
-        this.files = service.files;
-        this.checksums = service.checksums;
-        this.signatures = service.signatures;
-        this.uploadAssets = service.uploadAssets;
-        this.uploadAssetsEnabled = service.uploadAssetsEnabled;
+        this.enabled = merge(this.enabled, service.enabled);
+        this.host = merge(this.host, service.host);
+        this.owner = merge(this.owner, service.owner);
+        this.name = merge(this.name, service.name);
+        this.repoUrl = merge(this.repoUrl, service.repoUrl);
+        this.repoCloneUrl = merge(this.repoCloneUrl, service.repoCloneUrl);
+        this.commitUrl = merge(this.commitUrl, service.commitUrl);
+        this.srcUrl = merge(this.srcUrl, service.srcUrl);
+        this.downloadUrl = merge(this.downloadUrl, service.downloadUrl);
+        this.releaseNotesUrl = merge(this.releaseNotesUrl, service.releaseNotesUrl);
+        this.latestReleaseUrl = merge(this.latestReleaseUrl, service.latestReleaseUrl);
+        this.issueTrackerUrl = merge(this.issueTrackerUrl, service.issueTrackerUrl);
+        this.username = merge(this.username, service.username);
+        this.token = merge(this.token, service.token);
+        this.tagName = merge(this.tagName, service.tagName);
+        this.previousTagName = merge(this.previousTagName, service.previousTagName);
+        this.releaseName = merge(this.releaseName, service.releaseName);
+        this.branch = merge(this.branch, service.branch);
+        this.sign = merge(this.sign, service.sign);
+        this.skipTag = merge(this.skipTag, service.skipTag);
+        this.skipRelease = merge(this.skipRelease, service.skipRelease);
+        this.overwrite = merge(this.overwrite, service.overwrite);
+        this.apiEndpoint = merge(this.apiEndpoint, service.apiEndpoint);
+        this.connectTimeout = merge(this.connectTimeout, service.connectTimeout);
+        this.readTimeout = merge(this.readTimeout, service.readTimeout);
+        this.artifacts = merge(this.artifacts, service.artifacts);
+        this.files = merge(this.files, service.files);
+        this.checksums = merge(this.checksums, service.checksums);
+        this.signatures = merge(this.signatures, service.signatures);
+        this.uploadAssets = merge(this.uploadAssets, service.uploadAssets);
+        this.uploadAssetsEnabled = merge(this.uploadAssetsEnabled, service.uploadAssetsEnabled);
         setCommitAuthor(service.commitAuthor);
         setUpdate(service.update);
         setPrerelease(service.prerelease);
         setChangelog(service.changelog);
         setMilestone(service.milestone);
+        setIssues(service.issues);
     }
 
     public String getCanonicalRepoName() {
@@ -169,11 +184,11 @@ public abstract class GitService implements Releaser, CommitAuthorAware, OwnerAw
     public abstract String getReverseRepoHost();
 
     public String getConfiguredTagName() {
-        return Env.resolve(TAG_NAME, tagName);
+        return Env.env(TAG_NAME, tagName);
     }
 
     public String getConfiguredPreviousTagName() {
-        return Env.resolve(PREVIOUS_TAG_NAME, previousTagName);
+        return Env.env(PREVIOUS_TAG_NAME, previousTagName);
     }
 
     public String getResolvedTagName(JReleaserModel model) {
@@ -198,7 +213,7 @@ public abstract class GitService implements Releaser, CommitAuthorAware, OwnerAw
     }
 
     public String getConfiguredReleaseName() {
-        return Env.resolve(RELEASE_NAME, cachedReleaseName);
+        return Env.env(RELEASE_NAME, cachedReleaseName);
     }
 
     public String getResolvedReleaseName(JReleaserModel model) {
@@ -288,6 +303,7 @@ public abstract class GitService implements Releaser, CommitAuthorAware, OwnerAw
     }
 
     public void setMatch(boolean match) {
+        freezeCheck();
         this.match = match;
     }
 
@@ -298,6 +314,7 @@ public abstract class GitService implements Releaser, CommitAuthorAware, OwnerAw
 
     @Override
     public void setEnabled(Boolean enabled) {
+        freezeCheck();
         this.enabled = enabled;
     }
 
@@ -311,6 +328,7 @@ public abstract class GitService implements Releaser, CommitAuthorAware, OwnerAw
     }
 
     public void setHost(String host) {
+        freezeCheck();
         this.host = host;
     }
 
@@ -321,6 +339,7 @@ public abstract class GitService implements Releaser, CommitAuthorAware, OwnerAw
 
     @Override
     public void setOwner(String owner) {
+        freezeCheck();
         this.owner = owner;
     }
 
@@ -329,6 +348,7 @@ public abstract class GitService implements Releaser, CommitAuthorAware, OwnerAw
     }
 
     public void setName(String name) {
+        freezeCheck();
         this.name = name;
     }
 
@@ -337,6 +357,7 @@ public abstract class GitService implements Releaser, CommitAuthorAware, OwnerAw
     }
 
     public void setRepoUrl(String repoUrl) {
+        freezeCheck();
         this.repoUrl = repoUrl;
     }
 
@@ -345,6 +366,7 @@ public abstract class GitService implements Releaser, CommitAuthorAware, OwnerAw
     }
 
     public void setRepoCloneUrl(String repoCloneUrl) {
+        freezeCheck();
         this.repoCloneUrl = repoCloneUrl;
     }
 
@@ -353,6 +375,7 @@ public abstract class GitService implements Releaser, CommitAuthorAware, OwnerAw
     }
 
     public void setCommitUrl(String commitUrl) {
+        freezeCheck();
         this.commitUrl = commitUrl;
     }
 
@@ -361,6 +384,7 @@ public abstract class GitService implements Releaser, CommitAuthorAware, OwnerAw
     }
 
     public void setSrcUrl(String srcUrl) {
+        freezeCheck();
         this.srcUrl = srcUrl;
     }
 
@@ -369,6 +393,7 @@ public abstract class GitService implements Releaser, CommitAuthorAware, OwnerAw
     }
 
     public void setDownloadUrl(String downloadUrl) {
+        freezeCheck();
         this.downloadUrl = downloadUrl;
     }
 
@@ -377,6 +402,7 @@ public abstract class GitService implements Releaser, CommitAuthorAware, OwnerAw
     }
 
     public void setReleaseNotesUrl(String releaseNotesUrl) {
+        freezeCheck();
         this.releaseNotesUrl = releaseNotesUrl;
     }
 
@@ -385,6 +411,7 @@ public abstract class GitService implements Releaser, CommitAuthorAware, OwnerAw
     }
 
     public void setLatestReleaseUrl(String latestReleaseUrl) {
+        freezeCheck();
         this.latestReleaseUrl = latestReleaseUrl;
     }
 
@@ -393,15 +420,16 @@ public abstract class GitService implements Releaser, CommitAuthorAware, OwnerAw
     }
 
     public void setIssueTrackerUrl(String issueTrackerUrl) {
+        freezeCheck();
         this.issueTrackerUrl = issueTrackerUrl;
     }
 
     public String getResolvedToken() {
-        return Env.resolve(Env.toVar(getServiceName()) + "_TOKEN", token);
+        return Env.env(Env.toVar(getServiceName()) + "_TOKEN", token);
     }
 
     public String getResolvedUsername() {
-        return Env.resolve(Env.toVar(getServiceName()) + "_USERNAME", username);
+        return Env.env(Env.toVar(getServiceName()) + "_USERNAME", username);
     }
 
     public String getUsername() {
@@ -409,6 +437,7 @@ public abstract class GitService implements Releaser, CommitAuthorAware, OwnerAw
     }
 
     public void setUsername(String username) {
+        freezeCheck();
         this.username = username;
     }
 
@@ -417,6 +446,7 @@ public abstract class GitService implements Releaser, CommitAuthorAware, OwnerAw
     }
 
     public void setToken(String token) {
+        freezeCheck();
         this.token = token;
     }
 
@@ -425,6 +455,7 @@ public abstract class GitService implements Releaser, CommitAuthorAware, OwnerAw
     }
 
     public void setTagName(String tagName) {
+        freezeCheck();
         this.tagName = tagName;
     }
 
@@ -433,6 +464,7 @@ public abstract class GitService implements Releaser, CommitAuthorAware, OwnerAw
     }
 
     public void setPreviousTagName(String previousTagName) {
+        freezeCheck();
         this.previousTagName = previousTagName;
     }
 
@@ -441,6 +473,7 @@ public abstract class GitService implements Releaser, CommitAuthorAware, OwnerAw
     }
 
     public void setReleaseName(String releaseName) {
+        freezeCheck();
         this.releaseName = releaseName;
     }
 
@@ -449,6 +482,7 @@ public abstract class GitService implements Releaser, CommitAuthorAware, OwnerAw
     }
 
     public void setBranch(String branch) {
+        freezeCheck();
         this.branch = branch;
     }
 
@@ -459,7 +493,7 @@ public abstract class GitService implements Releaser, CommitAuthorAware, OwnerAw
 
     @Override
     public void setCommitAuthor(CommitAuthor commitAuthor) {
-        this.commitAuthor.setAll(commitAuthor);
+        this.commitAuthor.merge(commitAuthor);
     }
 
     public Prerelease getPrerelease() {
@@ -467,7 +501,7 @@ public abstract class GitService implements Releaser, CommitAuthorAware, OwnerAw
     }
 
     public void setPrerelease(Prerelease prerelease) {
-        this.prerelease.setAll(prerelease);
+        this.prerelease.merge(prerelease);
     }
 
     public boolean isSign() {
@@ -475,6 +509,7 @@ public abstract class GitService implements Releaser, CommitAuthorAware, OwnerAw
     }
 
     public void setSign(Boolean sign) {
+        freezeCheck();
         this.sign = sign;
     }
 
@@ -483,7 +518,7 @@ public abstract class GitService implements Releaser, CommitAuthorAware, OwnerAw
     }
 
     public void setChangelog(Changelog changelog) {
-        this.changelog.setAll(changelog);
+        this.changelog.merge(changelog);
     }
 
     public Milestone getMilestone() {
@@ -491,7 +526,15 @@ public abstract class GitService implements Releaser, CommitAuthorAware, OwnerAw
     }
 
     public void setMilestone(Milestone milestone) {
-        this.milestone.setAll(milestone);
+        this.milestone.merge(milestone);
+    }
+
+    public Issues getIssues() {
+        return issues;
+    }
+
+    public void setIssues(Issues issues) {
+        this.issues.merge(issues);
     }
 
     public boolean isSkipTag() {
@@ -499,6 +542,7 @@ public abstract class GitService implements Releaser, CommitAuthorAware, OwnerAw
     }
 
     public void setSkipTag(Boolean skipTag) {
+        freezeCheck();
         this.skipTag = skipTag;
     }
 
@@ -511,6 +555,7 @@ public abstract class GitService implements Releaser, CommitAuthorAware, OwnerAw
     }
 
     public void setSkipRelease(Boolean skipRelease) {
+        freezeCheck();
         this.skipRelease = skipRelease;
     }
 
@@ -523,6 +568,7 @@ public abstract class GitService implements Releaser, CommitAuthorAware, OwnerAw
     }
 
     public void setOverwrite(Boolean overwrite) {
+        freezeCheck();
         this.overwrite = overwrite;
     }
 
@@ -535,7 +581,7 @@ public abstract class GitService implements Releaser, CommitAuthorAware, OwnerAw
     }
 
     public void setUpdate(Update update) {
-        this.update.setAll(update);
+        this.update.merge(update);
     }
 
     public String getApiEndpoint() {
@@ -543,26 +589,29 @@ public abstract class GitService implements Releaser, CommitAuthorAware, OwnerAw
     }
 
     public void setApiEndpoint(String apiEndpoint) {
+        freezeCheck();
         this.apiEndpoint = apiEndpoint;
     }
 
     @Override
-    public int getConnectTimeout() {
+    public Integer getConnectTimeout() {
         return connectTimeout;
     }
 
     @Override
-    public void setConnectTimeout(int connectTimeout) {
+    public void setConnectTimeout(Integer connectTimeout) {
+        freezeCheck();
         this.connectTimeout = connectTimeout;
     }
 
     @Override
-    public int getReadTimeout() {
+    public Integer getReadTimeout() {
         return readTimeout;
     }
 
     @Override
-    public void setReadTimeout(int readTimeout) {
+    public void setReadTimeout(Integer readTimeout) {
+        freezeCheck();
         this.readTimeout = readTimeout;
     }
 
@@ -575,6 +624,7 @@ public abstract class GitService implements Releaser, CommitAuthorAware, OwnerAw
     }
 
     public void setArtifacts(Boolean artifacts) {
+        freezeCheck();
         this.artifacts = artifacts;
     }
 
@@ -587,6 +637,7 @@ public abstract class GitService implements Releaser, CommitAuthorAware, OwnerAw
     }
 
     public void setFiles(Boolean files) {
+        freezeCheck();
         this.files = files;
     }
 
@@ -599,6 +650,7 @@ public abstract class GitService implements Releaser, CommitAuthorAware, OwnerAw
     }
 
     public void setChecksums(Boolean checksums) {
+        freezeCheck();
         this.checksums = checksums;
     }
 
@@ -611,6 +663,7 @@ public abstract class GitService implements Releaser, CommitAuthorAware, OwnerAw
     }
 
     public void setSignatures(Boolean signatures) {
+        freezeCheck();
         this.signatures = signatures;
     }
 
@@ -619,11 +672,12 @@ public abstract class GitService implements Releaser, CommitAuthorAware, OwnerAw
     }
 
     public void setUploadAssets(Active uploadAssets) {
+        freezeCheck();
         this.uploadAssets = uploadAssets;
     }
 
     public void setUploadAssets(String str) {
-        this.uploadAssets = Active.of(str);
+        setUploadAssets(Active.of(str));
     }
 
     public boolean isUploadAssetsSet() {
@@ -673,6 +727,7 @@ public abstract class GitService implements Releaser, CommitAuthorAware, OwnerAw
         props.put("changelog", changelog.asMap(full));
         if (releaseSupported) {
             props.put("milestone", milestone.asMap(full));
+            props.put("issues", issues.asMap(full));
         }
         props.put("prerelease", prerelease.asMap(full));
         return props;
@@ -685,8 +740,9 @@ public abstract class GitService implements Releaser, CommitAuthorAware, OwnerAw
         props.putAll(model.getEnvironment().getProperties());
         props.putAll(model.getEnvironment().getSourcedProperties());
         props.put(Constants.KEY_PROJECT_NAME, project.getName());
-        props.put(Constants.KEY_PROJECT_NAME_CAPITALIZED, getClassNameForLowerCaseHyphenSeparatedName(project.getName()));
+        props.put(Constants.KEY_PROJECT_NAME_CAPITALIZED, getCapitalizedName(project.getName()));
         props.put(Constants.KEY_PROJECT_VERSION, project.getVersion());
+        props.put(Constants.KEY_PROJECT_STEREOTYPE, project.getStereotype());
         props.put(Constants.KEY_PROJECT_EFFECTIVE_VERSION, project.getEffectiveVersion());
         props.put(Constants.KEY_PROJECT_SNAPSHOT, String.valueOf(project.isSnapshot()));
         if (isNotBlank(project.getDescription())) {
@@ -695,17 +751,11 @@ public abstract class GitService implements Releaser, CommitAuthorAware, OwnerAw
         if (isNotBlank(project.getLongDescription())) {
             props.put(Constants.KEY_PROJECT_LONG_DESCRIPTION, MustacheUtils.passThrough(project.getLongDescription()));
         }
-        if (isNotBlank(project.getWebsite())) {
-            props.put(Constants.KEY_PROJECT_WEBSITE, project.getWebsite());
-        }
         if (isNotBlank(project.getLicense())) {
             props.put(Constants.KEY_PROJECT_LICENSE, project.getLicense());
         }
-        if (isNotBlank(project.getLicense())) {
-            props.put(Constants.KEY_PROJECT_LICENSE_URL, project.getLicenseUrl());
-        }
-        if (isNotBlank(project.getDocsUrl())) {
-            props.put(Constants.KEY_PROJECT_DOCS_URL, project.getDocsUrl());
+        if (null != project.getInceptionYear()) {
+            props.put(Constants.KEY_PROJECT_INCEPTION_YEAR, project.getInceptionYear());
         }
         if (isNotBlank(project.getCopyright())) {
             props.put(Constants.KEY_PROJECT_COPYRIGHT, project.getCopyright());
@@ -713,6 +763,7 @@ public abstract class GitService implements Releaser, CommitAuthorAware, OwnerAw
         if (isNotBlank(project.getVendor())) {
             props.put(Constants.KEY_PROJECT_VENDOR, project.getVendor());
         }
+        project.getLinks().fillProps(props);
 
         if (project.getJava().isEnabled()) {
             props.putAll(project.getJava().getResolvedExtraProperties());
@@ -775,13 +826,15 @@ public abstract class GitService implements Releaser, CommitAuthorAware, OwnerAw
         props.put(Constants.KEY_ISSUE_TRACKER_URL, getResolvedIssueTrackerUrl(model));
     }
 
-    public static class Update implements Domain {
+    public static class Update extends AbstractModelObject<Update> implements Domain {
         private final Set<UpdateSection> sections = new LinkedHashSet<>();
         private Boolean enabled;
 
-        void setAll(Update update) {
-            this.enabled = update.enabled;
-            setSections(update.sections);
+        @Override
+        public void merge(Update update) {
+            freezeCheck();
+            this.enabled = merge(this.enabled, update.enabled);
+            setSections(merge(this.sections, update.sections));
         }
 
         public boolean isEnabled() {
@@ -789,6 +842,7 @@ public abstract class GitService implements Releaser, CommitAuthorAware, OwnerAw
         }
 
         public void setEnabled(Boolean enabled) {
+            freezeCheck();
             this.enabled = enabled;
         }
 
@@ -797,10 +851,11 @@ public abstract class GitService implements Releaser, CommitAuthorAware, OwnerAw
         }
 
         public Set<UpdateSection> getSections() {
-            return sections;
+            return freezeWrap(sections);
         }
 
         public void setSections(Set<UpdateSection> sections) {
+            freezeCheck();
             this.sections.clear();
             this.sections.addAll(sections);
         }
@@ -814,13 +869,15 @@ public abstract class GitService implements Releaser, CommitAuthorAware, OwnerAw
         }
     }
 
-    public static class Prerelease implements Domain {
+    public static class Prerelease extends AbstractModelObject<Prerelease> implements Domain {
         private Boolean enabled;
         private String pattern;
 
-        void setAll(Prerelease prerelease) {
-            this.enabled = prerelease.enabled;
-            this.pattern = prerelease.pattern;
+        @Override
+        public void merge(Prerelease prerelease) {
+            freezeCheck();
+            this.enabled = merge(this.enabled, prerelease.enabled);
+            this.pattern = merge(this.pattern, prerelease.pattern);
         }
 
         public void disable() {
@@ -832,6 +889,7 @@ public abstract class GitService implements Releaser, CommitAuthorAware, OwnerAw
         }
 
         public void setEnabled(Boolean enabled) {
+            freezeCheck();
             this.enabled = enabled;
         }
 
@@ -849,7 +907,7 @@ public abstract class GitService implements Releaser, CommitAuthorAware, OwnerAw
         }
 
         public String getConfiguredPattern() {
-            return Env.resolve(PRERELEASE_PATTERN, pattern);
+            return Env.env(PRERELEASE_PATTERN, pattern);
         }
 
         public String getPattern() {
@@ -857,6 +915,7 @@ public abstract class GitService implements Releaser, CommitAuthorAware, OwnerAw
         }
 
         public void setPattern(String pattern) {
+            freezeCheck();
             this.pattern = pattern;
         }
 
@@ -869,7 +928,7 @@ public abstract class GitService implements Releaser, CommitAuthorAware, OwnerAw
         }
     }
 
-    public static class Milestone implements Domain {
+    public static class Milestone extends AbstractModelObject<Milestone> implements Domain {
         public static final String MILESTONE_NAME = "MILESTONE_NAME";
 
         private Boolean close;
@@ -878,13 +937,15 @@ public abstract class GitService implements Releaser, CommitAuthorAware, OwnerAw
         @JsonIgnore
         private String cachedName;
 
-        void setAll(Milestone changelog) {
-            this.close = changelog.close;
-            this.name = changelog.name;
+        @Override
+        public void merge(Milestone milestone) {
+            freezeCheck();
+            this.close = merge(this.close, milestone.close);
+            this.name = merge(this.name, milestone.name);
         }
 
         public String getConfiguredName() {
-            return Env.resolve(MILESTONE_NAME, cachedName);
+            return Env.env(MILESTONE_NAME, cachedName);
         }
 
         public String getResolvedName(Map<String, Object> props) {
@@ -910,6 +971,7 @@ public abstract class GitService implements Releaser, CommitAuthorAware, OwnerAw
         }
 
         public void setClose(Boolean close) {
+            freezeCheck();
             this.close = close;
         }
 
@@ -922,6 +984,7 @@ public abstract class GitService implements Releaser, CommitAuthorAware, OwnerAw
         }
 
         public void setName(String name) {
+            freezeCheck();
             this.name = name;
         }
 
@@ -931,6 +994,118 @@ public abstract class GitService implements Releaser, CommitAuthorAware, OwnerAw
             map.put("name", name);
             map.put("close", isClose());
             return map;
+        }
+    }
+
+    public static class Issues extends AbstractModelObject<Issues> implements Domain, EnabledAware {
+        private final Label label = new Label();
+        private String comment;
+        private Boolean enabled;
+
+        @Override
+        public void freeze() {
+            super.freeze();
+            label.freeze();
+        }
+
+        @Override
+        public void merge(Issues source) {
+            freezeCheck();
+            this.comment = merge(this.comment, source.comment);
+            this.enabled = merge(this.enabled, source.enabled);
+            setLabel(source.label);
+        }
+
+        @Override
+        public boolean isEnabled() {
+            return enabled != null && enabled;
+        }
+
+        @Override
+        public void setEnabled(Boolean enabled) {
+            freezeCheck();
+            this.enabled = enabled;
+        }
+
+        @Override
+        public boolean isEnabledSet() {
+            return enabled != null;
+        }
+
+        public String getComment() {
+            return comment;
+        }
+
+        public void setComment(String comment) {
+            freezeCheck();
+            this.comment = comment;
+        }
+
+        public Label getLabel() {
+            return label;
+        }
+
+        public void setLabel(Label label) {
+            this.label.merge(label);
+        }
+
+        @Override
+        public Map<String, Object> asMap(boolean full) {
+            Map<String, Object> map = new LinkedHashMap<>();
+            map.put("enabled", isEnabled());
+            map.put("comment", comment);
+            map.put("label", label.asMap(full));
+            return map;
+        }
+
+        public static class Label extends AbstractModelObject<Label> implements Domain {
+            private String name;
+            private String color;
+            private String description;
+
+            @Override
+            public void merge(Label source) {
+                freezeCheck();
+                this.name = merge(this.name, source.name);
+                this.color = merge(this.color, source.color);
+                this.description = merge(this.description, source.description);
+            }
+
+            public String getName() {
+                return name;
+            }
+
+            public void setName(String name) {
+                freezeCheck();
+                this.name = name;
+            }
+
+            public String getColor() {
+                return color;
+            }
+
+            public void setColor(String color) {
+                freezeCheck();
+                this.color = color;
+            }
+
+            public String getDescription() {
+                return description;
+            }
+
+            public void setDescription(String description) {
+                freezeCheck();
+                this.description = description;
+            }
+
+            @Override
+            public Map<String, Object> asMap(boolean full) {
+                Map<String, Object> map = new LinkedHashMap<>();
+                map.put("name", name);
+                map.put("color", color);
+                map.put("description", description);
+                return map;
+            }
         }
     }
 }

@@ -30,7 +30,7 @@ import static org.jreleaser.model.Distribution.DistributionType.JLINK;
 import static org.jreleaser.model.Distribution.DistributionType.NATIVE_IMAGE;
 import static org.jreleaser.model.Distribution.DistributionType.NATIVE_PACKAGE;
 import static org.jreleaser.model.Distribution.DistributionType.SINGLE_JAR;
-import static org.jreleaser.util.CollectionUtils.newSet;
+import static org.jreleaser.util.CollectionUtils.setOf;
 import static org.jreleaser.util.FileType.JAR;
 import static org.jreleaser.util.FileType.MSI;
 import static org.jreleaser.util.FileType.ZIP;
@@ -41,20 +41,20 @@ import static org.jreleaser.util.StringUtils.isFalse;
  * @author Andres Almiray
  * @since 0.1.0
  */
-public class Scoop extends AbstractRepositoryPackager {
+public class Scoop extends AbstractRepositoryPackager<Scoop> {
     public static final String TYPE = "scoop";
     public static final String SKIP_SCOOP = "skipScoop";
 
     private static final Map<Distribution.DistributionType, Set<String>> SUPPORTED = new LinkedHashMap<>();
 
     static {
-        Set<String> extensions = newSet(ZIP.extension());
+        Set<String> extensions = setOf(ZIP.extension());
         SUPPORTED.put(BINARY, extensions);
         SUPPORTED.put(JAVA_BINARY, extensions);
         SUPPORTED.put(JLINK, extensions);
         SUPPORTED.put(NATIVE_IMAGE, extensions);
-        SUPPORTED.put(NATIVE_PACKAGE, newSet(MSI.extension()));
-        SUPPORTED.put(SINGLE_JAR, newSet(JAR.extension()));
+        SUPPORTED.put(NATIVE_PACKAGE, setOf(MSI.extension()));
+        SUPPORTED.put(SINGLE_JAR, setOf(JAR.extension()));
     }
 
     private final ScoopBucket bucket = new ScoopBucket();
@@ -66,11 +66,19 @@ public class Scoop extends AbstractRepositoryPackager {
         super(TYPE);
     }
 
-    void setAll(Scoop scoop) {
-        super.setAll(scoop);
-        this.packageName = scoop.packageName;
-        this.checkverUrl = scoop.checkverUrl;
-        this.autoupdateUrl = scoop.autoupdateUrl;
+    @Override
+    public void freeze() {
+        super.freeze();
+        bucket.freeze();
+    }
+
+    @Override
+    public void merge(Scoop scoop) {
+        freezeCheck();
+        super.merge(scoop);
+        this.packageName = merge(this.packageName, scoop.packageName);
+        this.checkverUrl = merge(this.checkverUrl, scoop.checkverUrl);
+        this.autoupdateUrl = merge(this.autoupdateUrl, scoop.autoupdateUrl);
         setBucket(scoop.bucket);
     }
 
@@ -79,6 +87,7 @@ public class Scoop extends AbstractRepositoryPackager {
     }
 
     public void setPackageName(String packageName) {
+        freezeCheck();
         this.packageName = packageName;
     }
 
@@ -87,6 +96,7 @@ public class Scoop extends AbstractRepositoryPackager {
     }
 
     public void setCheckverUrl(String checkverUrl) {
+        freezeCheck();
         this.checkverUrl = checkverUrl;
     }
 
@@ -95,6 +105,7 @@ public class Scoop extends AbstractRepositoryPackager {
     }
 
     public void setAutoupdateUrl(String autoupdateUrl) {
+        freezeCheck();
         this.autoupdateUrl = autoupdateUrl;
     }
 
@@ -103,7 +114,7 @@ public class Scoop extends AbstractRepositoryPackager {
     }
 
     public void setBucket(ScoopBucket bucket) {
-        this.bucket.setAll(bucket);
+        this.bucket.merge(bucket);
     }
 
     @Override
@@ -132,7 +143,7 @@ public class Scoop extends AbstractRepositoryPackager {
 
     @Override
     public Set<String> getSupportedExtensions(Distribution distribution) {
-        return SUPPORTED.getOrDefault(distribution.getType(), Collections.emptySet());
+        return Collections.unmodifiableSet(SUPPORTED.getOrDefault(distribution.getType(), Collections.emptySet()));
     }
 
     @Override
@@ -140,7 +151,7 @@ public class Scoop extends AbstractRepositoryPackager {
         return isFalse(artifact.getExtraProperties().get(SKIP_SCOOP));
     }
 
-    public static class ScoopBucket extends AbstractRepositoryTap {
+    public static class ScoopBucket extends AbstractRepositoryTap<ScoopBucket> {
         public ScoopBucket() {
             super("scoop", "scoop");
         }

@@ -21,12 +21,16 @@ import org.jreleaser.bundle.RB;
 import org.jreleaser.model.JReleaserContext;
 import org.jreleaser.model.releaser.spi.AbstractReleaser;
 import org.jreleaser.model.releaser.spi.Asset;
+import org.jreleaser.model.releaser.spi.Release;
 import org.jreleaser.model.releaser.spi.ReleaseException;
 import org.jreleaser.model.releaser.spi.Repository;
 import org.jreleaser.model.releaser.spi.User;
+import org.jreleaser.sdk.git.ChangelogProvider;
 import org.jreleaser.sdk.git.ReleaseUtils;
+import org.jreleaser.util.JReleaserException;
 
 import java.io.IOException;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -41,14 +45,27 @@ public class GenericGitReleaser extends AbstractReleaser {
     }
 
     @Override
+    public String generateReleaseNotes() throws IOException {
+        try {
+            return ChangelogProvider.getChangelog(context).trim();
+        } catch (IOException e) {
+            throw new JReleaserException(RB.$("ERROR_unexpected_error_changelog"), e);
+        }
+    }
+
+    @Override
     protected void createTag() throws ReleaseException {
-        ReleaseUtils.createTag(context);
+        if (context.getModel().getRelease().getGitService().isMatch()) {
+            ReleaseUtils.createTag(context);
+        }
     }
 
     @Override
     protected void createRelease() throws ReleaseException {
         context.getLogger().info(RB.$("generic.git.warning"));
-        ReleaseUtils.createTag(context);
+        if (context.getModel().getRelease().getGitService().isMatch()) {
+            ReleaseUtils.createTag(context);
+        }
     }
 
     @Override
@@ -59,5 +76,10 @@ public class GenericGitReleaser extends AbstractReleaser {
     @Override
     public Optional<User> findUser(String email, String name) {
         return Optional.empty();
+    }
+
+    @Override
+    public List<Release> listReleases(String owner, String repo) throws IOException {
+        return Collections.emptyList();
     }
 }

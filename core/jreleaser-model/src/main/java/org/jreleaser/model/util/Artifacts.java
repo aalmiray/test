@@ -355,7 +355,7 @@ public class Artifacts {
 
         if (isBlank(downloadUrl)) {
             context.getLogger().warn(RB.$("ERROR_artifacts_download_url_missing",
-                artifact.getEffectivePath(context, distribution).getFileName().toString()),
+                    artifact.getEffectivePath(context, distribution).getFileName().toString()),
                 service.getServiceName());
             // assume artifact is available from Git
             downloadUrl = service.getDownloadUrl();
@@ -442,7 +442,8 @@ public class Artifacts {
         } catch (IOException e) {
             throw new JReleaserException(RB.$("ERROR_artifacts_unexpected_error_copying",
                 context.relativizeToBasedir(src),
-                context.relativizeToBasedir(dest)));
+                context.relativizeToBasedir(dest),
+                e.toString()));
         }
     }
 

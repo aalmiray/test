@@ -36,11 +36,14 @@ import java.util.stream.Collectors;
 
 import static java.util.stream.Collectors.groupingBy;
 import static org.jreleaser.model.GitService.KEY_SKIP_RELEASE_SIGNATURES;
+import static org.jreleaser.model.validation.AppImageValidator.validateAppImage;
+import static org.jreleaser.model.validation.AsdfValidator.validateAsdf;
 import static org.jreleaser.model.validation.BrewValidator.postValidateBrew;
 import static org.jreleaser.model.validation.BrewValidator.validateBrew;
 import static org.jreleaser.model.validation.ChocolateyValidator.postValidateChocolatey;
 import static org.jreleaser.model.validation.ChocolateyValidator.validateChocolatey;
 import static org.jreleaser.model.validation.DockerValidator.validateDocker;
+import static org.jreleaser.model.validation.FlatpakValidator.validateFlatpak;
 import static org.jreleaser.model.validation.GofishValidator.validateGofish;
 import static org.jreleaser.model.validation.JbangValidator.postValidateJBang;
 import static org.jreleaser.model.validation.JbangValidator.validateJbang;
@@ -59,12 +62,8 @@ import static org.jreleaser.util.StringUtils.isNotBlank;
  */
 public abstract class DistributionsValidator extends Validator {
     public static void validateDistributions(JReleaserContext context, JReleaserContext.Mode mode, Errors errors) {
-        if (!mode.validateConfig()) {
-            return;
-        }
-
-        context.getLogger().debug("distributions");
         Map<String, Distribution> distributions = context.getModel().getDistributions();
+        if (!distributions.isEmpty()) context.getLogger().debug("distributions");
 
         for (Map.Entry<String, Distribution> e : distributions.entrySet()) {
             Distribution distribution = e.getValue();
@@ -72,11 +71,17 @@ public abstract class DistributionsValidator extends Validator {
                 distribution.setName(e.getKey());
             }
             if (context.isDistributionIncluded(distribution)) {
-                validateDistribution(context, distribution, errors);
+                if (mode.validateConfig()) {
+                    validateDistribution(context, mode, distribution, errors);
+                }
             } else {
                 distribution.setActive(Active.NEVER);
                 distribution.resolveEnabled(context.getModel().getProject());
             }
+        }
+
+        if (!mode.validateConfig()) {
+            return;
         }
 
         postValidateBrew(context, errors);
@@ -84,27 +89,37 @@ public abstract class DistributionsValidator extends Validator {
         postValidateSdkman(context, errors);
     }
 
-    private static void validateDistribution(JReleaserContext context, Distribution distribution, Errors errors) {
+    private static void validateDistribution(JReleaserContext context, JReleaserContext.Mode mode, Distribution distribution, Errors errors) {
         context.getLogger().debug("distribution.{}", distribution.getName());
 
         if (!distribution.isActiveSet()) {
             distribution.setActive(Active.ALWAYS);
         }
-        if (!distribution.resolveEnabled(context.getModel().getProject())) return;
+        if (!distribution.resolveEnabled(context.getModel().getProject())) {
+            context.getLogger().debug(RB.$("validation.disabled"));
+            return;
+        }
 
         if (!selectArtifactsByPlatform(context, distribution)) {
             distribution.setActive(Active.NEVER);
+            context.getLogger().debug(RB.$("validation.disabled.no.artifacts"));
             distribution.disable();
             return;
         }
 
         if (isBlank(distribution.getName())) {
             errors.configuration(RB.$("validation_must_not_be_blank", "distribution.name"));
+            context.getLogger().debug(RB.$("validation.disabled.error"));
+            distribution.disable();
             return;
         }
         if (null == distribution.getType()) {
             errors.configuration(RB.$("validation_must_not_be_null", "distribution." + distribution.getName() + ".type"));
+            distribution.disable();
             return;
+        }
+        if (null == distribution.getStereotype()) {
+            distribution.setStereotype(context.getModel().getProject().getStereotype());
         }
         if (isBlank(distribution.getExecutable().getName())) {
             distribution.getExecutable().setName(distribution.getName());
@@ -139,6 +154,8 @@ public abstract class DistributionsValidator extends Validator {
 
         if (null == distribution.getArtifacts() || distribution.getArtifacts().isEmpty()) {
             errors.configuration(RB.$("validation_is_empty", "distribution." + distribution.getName() + ".artifacts"));
+            context.getLogger().debug(RB.$("validation.disabled.no.artifacts"));
+            distribution.disable();
             return;
         }
 
@@ -167,7 +184,7 @@ public abstract class DistributionsValidator extends Validator {
         byPlatform.forEach((p, artifacts) -> {
             String platform = "<nil>".equals(p) ? "no" : p;
             artifacts.stream()
-                .collect(groupingBy(artifact -> FileType.getFileType(artifact.getPath())))
+                .collect(groupingBy(artifact -> FileType.getType(artifact.getPath())))
                 .forEach((ext, matches) -> {
                     if (matches.size() > 1) {
                         errors.configuration(RB.$("validation_distributions_multiple",
@@ -176,9 +193,12 @@ public abstract class DistributionsValidator extends Validator {
                 });
         });
 
+        validateAppImage(context, mode, distribution, distribution.getAppImage(), errors);
+        validateAsdf(context, distribution, distribution.getAsdf(), errors);
         validateBrew(context, distribution, distribution.getBrew(), errors);
         validateChocolatey(context, distribution, distribution.getChocolatey(), errors);
         validateDocker(context, distribution, distribution.getDocker(), errors);
+        validateFlatpak(context, mode, distribution, distribution.getFlatpak(), errors);
         validateGofish(context, distribution, distribution.getGofish(), errors);
         validateJbang(context, distribution, distribution.getJbang(), errors);
         validateMacports(context, distribution, distribution.getMacports(), errors);

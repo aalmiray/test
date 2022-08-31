@@ -2,7 +2,7 @@ environment:
   properties:
     jdkPathPrefix: 'apps/jreleaser/build/jdks'
     jdkFilePrefix: 'zulu17.32.13-ca-jdk17.0.2'
-    graalFilePrefix: 'graalvm-ce-java17-22.0.0.2'
+    graalFilePrefix: 'graalvm-ce-java17-22.2.0'
     nativeImageDir: out/jreleaser/assemble/jreleaser-native/native-image
     jpackageDir: out/jreleaser/assemble/jreleaser-installer/jpackage
     skipJpackageResolver: true
@@ -21,16 +21,27 @@ project:
     Distribution files may additionally be published to be consumed by popular package managers
     such as Homebrew, Chocolatey, Snapcraft, or get ready to be launched via JBang. Releases
     may be announced in a variety of channels such as Twitter, Zulip, SDKMAN!, and more.
-  website: https://jreleaser.org
+  links:
+    homepage: https://jreleaser.org
+    faq: https://{{repoHost}}/{{repoOwner}}/{{repoName}}/discussions
+    donation: https://opencollective.com/jreleaser
+    documentation: https://jreleaser.org/guide/latest
   authors:
     - Andres Almiray
   license: Apache-2.0
+  inceptionYear: 2020
+  stereotype: cli
+  screenshots:
+    - url: https://jreleaser.org/images/app-full-release-command.png
+      caption: JReleaser in action
+  icons:
+    - url: https://raw.githubusercontent.com/jreleaser/jreleaser/main/src/media/icon_256x256.png
+      width: 256
+      height: 256
   java:
     groupId: org.jreleaser
     version: 8
     multiProject: true
-  extraProperties:
-    inceptionYear: 2020
   tags:
     - 'jreleaser'
     - 'release'
@@ -44,82 +55,56 @@ platform:
 
 release:
   github:
+    owner: aalmiray
+    name: test
     overwrite: true
-    sign: true
     discussionCategoryName: Announcements
     changelog:
       formatted: ALWAYS
+      preset: conventional-commits
       format: '- {{commitShortHash}} {{commitTitle}}'
       contributors:
         format: '- {{contributorName}}{{#contributorUsernameAsLink}} ({{.}}){{/contributorUsernameAsLink}}'
       contentTemplate: 'src/jreleaser/changelog.tpl'
       labelers:
-        - label: 'merge_pull'
-          title: 'Merge pull'
-        - label: 'merge_branch'
-          title: 'Merge branch'
-        - label: 'translation'
-          title: '[translation]'
-        - label: 'task'
-          title: '[chore]'
+        - label: 'i18n'
+          title: 'regex:^(?:i18n(?:\(.*\))?!?):\s.*'
+          order: 120
         - label: 'dependencies'
-          title: '[deps]'
-        - label: 'build'
-          title: '[build]'
-        - label: 'feature'
-          title: 'Resolves #'
-          body: 'Resolves #'
-        - label: 'issue'
-          title: 'Fixes #'
-          body: 'Fixes #'
-        - label: 'issue'
-          title: 'Relates to #'
-          body: 'Relates to #'
-        - label: 'allcontributors'
-          title: 'docs: update'
+          title: 'regex:^(?:deps(?:\(.*\))?!?):\s.*'
+          order: 130
+        - label: 'allcontributors1'
+          title: 'regex:^docs: update .all-contributorsrc.*'
+          order: -1
+        - label: 'allcontributors2'
+          title: 'regex:^docs: update CONTRIBUTORS.md.*'
+          order: -2
       categories:
-        - title: 'Merge'
-          labels:
-            - 'merge_pull'
-            - 'merge_branch'
-        - title: '🚀 Features'
-          labels:
-            - 'feature'
-        - title: '✅ Issues'
-          labels:
-            - 'issue'
-        - title: '🧰 Tasks'
-          labels:
-            - 'task'
         - title: '🌐 Translation'
+          key: 'i18n'
+          order: 70
           labels:
-            - 'translation'
+            - 'i18n'
         - title: '⚙️  Dependencies'
+          key: 'dependencies'
+          order: 80
           labels:
             - 'dependencies'
-        - title: '🛠  Build'
-          labels:
-            - 'build'
         - title: 'allcontributors'
+          order: 59
           labels:
-            - 'allcontributors'
+            - 'allcontributors1'
+            - 'allcontributors2'
       hide:
         categories:
-          - 'Merge'
+          - 'merge'
           - 'allcontributors'
         contributors:
           - 'GitHub'
           - 'allcontributors'
       replacers:
-        - search: '\[chore\] '
-        - search: '\[deps\] '
-        - search: '\[translation\] '
-        - search: '\[build\] '
-
-signing:
-  active: always
-  armored: true
-  files: false
+        - search: 'i18n: '
+        - search: 'deps: '
 
 checksum:
   files: false
@@ -127,14 +112,14 @@ checksum:
 announce:
   twitter:
     active: release
-    status: 🚀 JReleaser {{projectVersion}} has been released! {{releaseNotesUrl}}
+    statusTemplate: src/jreleaser/twitter.tpl
 
 assemble:
   jlink:
     jreleaser-standalone:
       active: always
       java:
-        version: 17
+        version: 11
         mainClass: org.jreleaser.cli.Main
       imageName: '{{distributionName}}-{{projectEffectiveVersion}}'
       executable: jreleaser
@@ -216,8 +201,8 @@ assemble:
           platform: 'osx-x86_64'
         - path: '{{jdkPathPrefix}}/graal17Linux/{{graalFilePrefix}}'
           platform: 'linux-x86_64'
-        - path: '{{jdkPathPrefix}}/graal17LinuxArm/{{graalFilePrefix}}'
-          platform: 'linux-aarch_64'
+        #- path: '{{jdkPathPrefix}}/graal17LinuxArm/{{graalFilePrefix}}'
+        #  platform: 'linux-aarch_64'
         - path: '{{jdkPathPrefix}}/graal17Windows/{{graalFilePrefix}}'
           platform: 'windows-x86_64'
       upx:
@@ -225,7 +210,7 @@ assemble:
         version: '3.96'
       args:
         - '-Duser.language=en'
-        - '-H:IncludeLocales=en,ca,de,es,fr,hi,it,ja,nl,pt_BR,zh_TW,ru'
+        - '-H:IncludeLocales=en,ca,de,es,fr,hi,it,ja,nl,pt_BR,zh_TW,ru,ko'
         - '-H:Optimize=2'
         - '-H:+RemoveUnusedSymbols'
 
@@ -233,56 +218,6 @@ distributions:
   jreleaser:
     java:
       mainClass: org.jreleaser.cli.Main
-    chocolatey:
-      active: never
-      remoteBuild: true
-      title: JReleaser
-      iconUrl: 'https://rawcdn.githack.com/jreleaser/jreleaser/0934fa1fa3f0bd09c0c8c39fbdeb5df2ce507457/src/media/icon_128x128.png'
-      bucket:
-        active: never
-    jbang:
-      active: never
-    macports:
-      active: never
-      categories:
-        - devel
-        - java
-      maintainers:
-        - '@aalmiray'
-      repository:
-        active: never
-        name: jreleaser-macports
-    scoop:
-      active: never
-      bucket:
-        active: never
-    sdkman:
-      active: never
-    snap:
-      active: never
-      remoteBuild: true
-      base: core18
-      architectures:
-        - buildOn: [ amd64, arm64 ]
-      plugs:
-        - name: dot-config-files
-          attributes:
-            interface: personal-files
-          writes:
-            - $HOME/.jreleaser
-          reads:
-            - $HOME/.gnupg
-            - $HOME/.gitconfig
-            - $HOME/.config/jgit
-      localPlugs:
-        - network
-        - home
-        - dot-config-files
-    spec:
-      active: never
-      repository:
-        active: never
-        name: jreleaser-copr
     artifacts:
       - path: apps/{{distributionName}}/build/distributions/{{distributionName}}-{{projectVersion}}.zip
         transform: '{{distributionName}}/{{distributionName}}-{{projectEffectiveVersion}}.zip'
@@ -290,6 +225,8 @@ distributions:
           skipSpec: true
       - path: apps/{{distributionName}}/build/distributions/{{distributionName}}-{{projectVersion}}.tar
         transform: '{{distributionName}}/{{distributionName}}-{{projectEffectiveVersion}}.tar'
+        extraProperties:
+          skipFlatpak: true
 
   jreleaser-ant-tasks:
     artifacts:
@@ -301,51 +238,6 @@ distributions:
     artifacts:
       - path: apps/{{distributionName}}/build/libs/{{distributionName}}-{{projectVersion}}.jar
         transform: '{{distributionName}}/{{distributionName}}-{{projectEffectiveVersion}}.jar'
-
-  jreleaser-standalone:
-    brew:
-      active: never
-      formulaName: jreleaser
-      multiPlatform: true
-      tap:
-        active: never
-        commitMessage: 'jreleaser {{tagName}}'
-    docker:
-      active: never
-      repository:
-        active: never
-        commitMessage: 'jreleaser {{tagName}}'
-      registries:
-        - serverName: DEFAULT
-          username: jreleaser
-      labels:
-        'org.opencontainers.image.title': 'jreleaser'
-      postCommands:
-        - 'VOLUME /workspace'
-      specs:
-        slim:
-          imageNames:
-            - 'jreleaser/jreleaser-{{dockerSpecName}}:{{tagName}}'
-            - 'jreleaser/jreleaser-{{dockerSpecName}}:latest'
-          matchers:
-            platform: 'linux-x86_64'
-          preCommands:
-            - 'ARG DEBIAN_FRONTEND=noninteractive'
-            - 'ENV TZ=Europe/Zurich'
-            - 'RUN apt-get update && apt-get install -y unzip binutils fakeroot rpm'
-        alpine:
-          imageNames:
-            - 'jreleaser/jreleaser-{{dockerSpecName}}:{{tagName}}'
-            - 'jreleaser/jreleaser-{{dockerSpecName}}:latest'
-          matchers:
-            platform: 'linux_musl-x86_64'
-          preCommands:
-            - 'RUN apk add unzip binutils fakeroot rpm'
-    gofish:
-      active: never
-      repository:
-        active: never
-        commitMessage: 'jreleaser {{tagName}}'
 
   jreleaser-installer:
     type: NATIVE_PACKAGE
@@ -374,10 +266,10 @@ distributions:
         platform: 'osx-x86_64'
       - path: '{{nativeImageDir}}/{{distributionName}}-{{projectEffectiveVersion}}-linux-x86_64.zip'
         platform: 'linux-x86_64'
-      - path: '{{nativeImageDir}}/{{distributionName}}-{{projectEffectiveVersion}}-linux-aarch64.zip'
-        platform: 'linux-aarch_64'
-      #- path: '{{nativeImageDir}}/{{distributionName}}-{{projectEffectiveVersion}}-windows-x86_64.zip'
-      #  platform: 'windows-x86_64'
+      #- path: '{{nativeImageDir}}/{{distributionName}}-{{projectEffectiveVersion}}-linux-aarch64.zip'
+      #  platform: 'linux-aarch_64'
+      - path: '{{nativeImageDir}}/{{distributionName}}-{{projectEffectiveVersion}}-windows-x86_64.zip'
+        platform: 'windows-x86_64'
 
 files:
   artifacts:

@@ -27,26 +27,28 @@ import java.util.Map;
  * @author Andres Almiray
  * @since 0.1.0
  */
-abstract class AbstractAnnouncer implements Announcer {
-    private final Map<String, Object> extraProperties = new LinkedHashMap<>();
+abstract class AbstractAnnouncer<S extends AbstractAnnouncer<S>> extends AbstractModelObject<S> implements Announcer {
+    protected final Map<String, Object> extraProperties = new LinkedHashMap<>();
     @JsonIgnore
     protected String name;
     @JsonIgnore
     protected boolean enabled;
     protected Active active;
-    private int connectTimeout;
-    private int readTimeout;
+    protected Integer connectTimeout;
+    protected Integer readTimeout;
 
     protected AbstractAnnouncer(String name) {
         this.name = name;
     }
 
-    void setAll(AbstractAnnouncer announcer) {
-        this.active = announcer.active;
-        this.enabled = announcer.enabled;
-        this.connectTimeout = announcer.connectTimeout;
-        this.readTimeout = announcer.readTimeout;
-        setExtraProperties(announcer.extraProperties);
+    @Override
+    public void merge(S announcer) {
+        freezeCheck();
+        this.active = merge(this.active, announcer.active);
+        this.enabled = merge(this.enabled, announcer.enabled);
+        this.connectTimeout = merge(this.connectTimeout, announcer.connectTimeout);
+        this.readTimeout = merge(this.readTimeout, announcer.readTimeout);
+        setExtraProperties(merge(this.extraProperties, announcer.extraProperties));
     }
 
     @Override
@@ -83,12 +85,13 @@ abstract class AbstractAnnouncer implements Announcer {
 
     @Override
     public void setActive(Active active) {
+        freezeCheck();
         this.active = active;
     }
 
     @Override
     public void setActive(String str) {
-        this.active = Active.of(str);
+        setActive(Active.of(str));
     }
 
     @Override
@@ -107,38 +110,42 @@ abstract class AbstractAnnouncer implements Announcer {
     }
 
     @Override
-    public int getConnectTimeout() {
+    public Integer getConnectTimeout() {
         return connectTimeout;
     }
 
     @Override
-    public void setConnectTimeout(int connectTimeout) {
+    public void setConnectTimeout(Integer connectTimeout) {
+        freezeCheck();
         this.connectTimeout = connectTimeout;
     }
 
     @Override
-    public int getReadTimeout() {
+    public Integer getReadTimeout() {
         return readTimeout;
     }
 
     @Override
-    public void setReadTimeout(int readTimeout) {
+    public void setReadTimeout(Integer readTimeout) {
+        freezeCheck();
         this.readTimeout = readTimeout;
     }
 
     @Override
     public Map<String, Object> getExtraProperties() {
-        return extraProperties;
+        return freezeWrap(extraProperties);
     }
 
     @Override
     public void setExtraProperties(Map<String, Object> extraProperties) {
+        freezeCheck();
         this.extraProperties.clear();
         this.extraProperties.putAll(extraProperties);
     }
 
     @Override
     public void addExtraProperties(Map<String, Object> extraProperties) {
+        freezeCheck();
         this.extraProperties.putAll(extraProperties);
     }
 

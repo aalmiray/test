@@ -26,6 +26,8 @@ buildscript {
         classpath "org.kordamp.gradle:java-project-gradle-plugin:$kordampPluginVersion"
         classpath "org.kordamp.gradle:groovy-project-gradle-plugin:$kordampPluginVersion"
         classpath "org.kordamp.gradle:plugin-gradle-plugin:$kordampPluginVersion"
+        classpath "org.kordamp.gradle:checkstyle-gradle-plugin:$kordampPluginVersion"
+        classpath "org.kordamp.gradle:pmd-gradle-plugin:$kordampPluginVersion"
         classpath "org.kordamp.gradle:kordamp-parentbuild:$kordampBuildVersion"
         classpath "org.jreleaser:jdks-gradle-plugin:$jdksPluginVersion"
         classpath 'de.undercouch:gradle-download-task:4.1.1'
@@ -48,6 +50,8 @@ projects {
         }
         path(':') {
             id 'org.kordamp.gradle.java-project'
+            id 'org.kordamp.gradle.checkstyle'
+            id 'org.kordamp.gradle.pmd'
         }
         dirs(['infra', 'apps', 'core', 'sdks', 'plugins']) {
             id 'java-library'
@@ -64,8 +68,9 @@ enforce {
             "org.codehaus.plexus:plexus-utils:$plexusVersion",
             "org.codehaus.plexus:plexus-classworlds:$classworldsVersion",
             "org.codehaus.plexus:plexus-component-annotations:2.1.0",
+            "com.fasterxml.jackson:jackson-bom:$jacksonVersion",
             "com.fasterxml.jackson.core:jackson-core:$jacksonVersion",
-            "com.fasterxml.jackson.core:jackson-databind:$jacksonVersion",
+            "com.fasterxml.jackson.core:jackson-databind:$jacksonDatabindVersion",
             "com.fasterxml.jackson.core:jackson-annotations:$jacksonVersion",
             "com.fasterxml.jackson.jaxrs:jackson-jaxrs-json-provider:$jacksonVersion",
             "com.fasterxml.jackson.dataformat:jackson-dataformat-cbor:$jacksonVersion",
@@ -80,7 +85,9 @@ enforce {
             "org.yaml:snakeyaml:$snakeYamlVersion",
             "info.picocli:picocli:$picocliVersion",
             "org.bouncycastle:bcpg-jdk15on:$bouncyCastleVersion",
+            "org.bouncycastle:bcpkix-jdk15on:$bouncyCastleVersion",
             "org.bouncycastle:bcprov-jdk15on:$bouncyCastleVersion",
+            "org.bouncycastle:bcutil-jdk15on:$bouncyCastleVersion",
             "org.apache.maven:maven-core:$mavenVersion",
             "org.apache.maven:maven-plugin-api:$mavenVersion",
             "org.apache.maven:maven-model:$mavenVersion",
@@ -90,6 +97,7 @@ enforce {
             "junit:junit:$junitVersion",
             "org.hamcrest:hamcrest:$hamcrestVersion",
             "org.apache.httpcomponents:httpclient:$httpclientVersion",
-            "com.sun.mail:jakarta.mail:$mailApiVersion"
+            "com.sun.mail:jakarta.mail:$mailApiVersion",
+            "net.bytebuddy:byte-buddy:$bytebuddyVersion"
     }
 }

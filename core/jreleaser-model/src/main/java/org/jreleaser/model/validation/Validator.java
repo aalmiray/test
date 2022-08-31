@@ -26,15 +26,18 @@ import org.jreleaser.model.Environment;
 import org.jreleaser.model.FileSet;
 import org.jreleaser.model.GitService;
 import org.jreleaser.model.Glob;
+import org.jreleaser.model.Icon;
 import org.jreleaser.model.JReleaserContext;
 import org.jreleaser.model.OwnerAware;
 import org.jreleaser.model.Packager;
 import org.jreleaser.model.RepositoryTap;
+import org.jreleaser.model.Screenshot;
 import org.jreleaser.model.TimeoutAware;
 import org.jreleaser.util.Env;
 import org.jreleaser.util.Errors;
 
 import java.util.Collection;
+import java.util.List;
 
 import static org.jreleaser.util.StringUtils.isBlank;
 import static org.jreleaser.util.StringUtils.isNotBlank;
@@ -58,6 +61,15 @@ class Validator {
         String dsl = context.getConfigurer().toString();
         String configFilePath = environment.getPropertiesFile().toAbsolutePath().normalize().toString();
         return Env.check(key, environment.getVariable(key), property, dsl, configFilePath, dryrun ? new Errors() : errors);
+    }
+
+    static Integer checkProperty(JReleaserContext context, String key, String property, Integer value, Errors errors, boolean dryrun) {
+        if (null != value) return value;
+        Environment environment = context.getModel().getEnvironment();
+        String dsl = context.getConfigurer().toString();
+        String configFilePath = environment.getPropertiesFile().toAbsolutePath().normalize().toString();
+        String val = Env.check(key, environment.getVariable(key), property, dsl, configFilePath, dryrun ? new Errors() : errors);
+        return isNotBlank(val) ? Integer.parseInt(val) : null;
     }
 
     static String checkProperty(JReleaserContext context, String key, String property, String value, String defaultValue) {
@@ -90,6 +102,61 @@ class Validator {
         return !errors.hasErrors() ? result : (null != defaultValue ? defaultValue.name() : null);
     }
 
+    static String checkProperty(JReleaserContext context, Collection<String> keys, String property, String value, Errors errors) {
+        if (isNotBlank(value)) return value;
+        Environment environment = context.getModel().getEnvironment();
+        String dsl = context.getConfigurer().toString();
+        String configFilePath = environment.getPropertiesFile().toAbsolutePath().normalize().toString();
+        return Env.check(keys, environment.getVars(), property, dsl, configFilePath, errors);
+    }
+
+    static String checkProperty(JReleaserContext context, Collection<String> keys, String property, String value, Errors errors, boolean dryrun) {
+        if (isNotBlank(value)) return value;
+        Environment environment = context.getModel().getEnvironment();
+        String dsl = context.getConfigurer().toString();
+        String configFilePath = environment.getPropertiesFile().toAbsolutePath().normalize().toString();
+        return Env.check(keys, environment.getVars(), property, dsl, configFilePath, dryrun ? new Errors() : errors);
+    }
+
+    static Integer checkProperty(JReleaserContext context, Collection<String> keys, String property, Integer value, Errors errors, boolean dryrun) {
+        if (null != value) return value;
+        Environment environment = context.getModel().getEnvironment();
+        String dsl = context.getConfigurer().toString();
+        String configFilePath = environment.getPropertiesFile().toAbsolutePath().normalize().toString();
+        String val = Env.check(keys, environment.getVars(), property, dsl, configFilePath, dryrun ? new Errors() : errors);
+        return isNotBlank(val) ? Integer.parseInt(val) : null;
+    }
+
+    static String checkProperty(JReleaserContext context, Collection<String> keys, String property, String value, String defaultValue) {
+        if (isNotBlank(value)) return value;
+        Environment environment = context.getModel().getEnvironment();
+        String dsl = context.getConfigurer().toString();
+        String configFilePath = environment.getPropertiesFile().toAbsolutePath().normalize().toString();
+        Errors errors = new Errors();
+        String result = Env.check(keys, environment.getVars(), property, dsl, configFilePath, errors);
+        return !errors.hasErrors() ? result : defaultValue;
+    }
+
+    static boolean checkProperty(JReleaserContext context, Collection<String> keys, String property, Boolean value, boolean defaultValue) {
+        if (null != value) return value;
+        Environment environment = context.getModel().getEnvironment();
+        String dsl = context.getConfigurer().toString();
+        String configFilePath = environment.getPropertiesFile().toAbsolutePath().normalize().toString();
+        Errors errors = new Errors();
+        String result = Env.check(keys, environment.getVars(), property, dsl, configFilePath, errors);
+        return !errors.hasErrors() ? Boolean.parseBoolean(result) : defaultValue;
+    }
+
+    static <T extends Enum<T>> String checkProperty(JReleaserContext context, Collection<String> keys, String property, T value, T defaultValue) {
+        if (null != value) return value.name();
+        Environment environment = context.getModel().getEnvironment();
+        String dsl = context.getConfigurer().toString();
+        String configFilePath = environment.getPropertiesFile().toAbsolutePath().normalize().toString();
+        Errors errors = new Errors();
+        String result = Env.check(keys, environment.getVars(), property, dsl, configFilePath, errors);
+        return !errors.hasErrors() ? result : (null != defaultValue ? defaultValue.name() : null);
+    }
+
     static void validateOwner(OwnerAware self, OwnerAware other) {
         if (isBlank(self.getOwner())) self.setOwner(other.getOwner());
     }
@@ -110,10 +177,10 @@ class Validator {
     }
 
     static void validateTimeout(TimeoutAware self) {
-        if (self.getConnectTimeout() <= 0 || self.getConnectTimeout() > 300) {
+        if (null == self.getConnectTimeout() || (self.getConnectTimeout() <= 0 || self.getConnectTimeout() > 300)) {
             self.setConnectTimeout(20);
         }
-        if (self.getReadTimeout() <= 0 || self.getReadTimeout() > 300) {
+        if (null == self.getReadTimeout() || (self.getReadTimeout() <= 0 || self.getReadTimeout() > 300)) {
             self.setReadTimeout(60);
         }
     }
@@ -178,10 +245,73 @@ class Validator {
     }
 
     static void validateFileSet(JReleaserContext context, JReleaserContext.Mode mode, Assembler assembler, FileSet fileSet, int index, Errors errors) {
-        if (mode != JReleaserContext.Mode.ASSEMBLE) return;
-
-        if (isBlank(fileSet.getInput())) {
+        if (mode.validateStandalone() && isBlank(fileSet.getInput())) {
             errors.configuration(RB.$("validation_must_not_be_null", assembler.getType() + "." + assembler.getName() + ".fileSet[" + index + "].input"));
+        }
+    }
+
+    static void validateScreenshots(JReleaserContext context, JReleaserContext.Mode mode, List<Screenshot> screenshots, Errors errors, String base) {
+        if (screenshots.size() == 1) {
+            screenshots.get(0).setPrimary(true);
+        }
+
+        if (screenshots.stream()
+            .mapToInt(s -> s.isPrimary() ? 1 : 0)
+            .sum() > 1) {
+            errors.configuration(RB.$("validation_multiple_primary_screenshots", base));
+        }
+
+        for (int i = 0; i < screenshots.size(); i++) {
+            Screenshot screenshot = screenshots.get(i);
+            if (isBlank(screenshot.getUrl())) {
+                errors.configuration(RB.$("validation_must_not_be_blank", base + ".screenshots[" + i + "].url"));
+            }
+
+            if (screenshot.getType() == Screenshot.Type.THUMBNAIL) {
+                if (null == screenshot.getWidth()) {
+                    errors.configuration(RB.$("validation_must_not_be_null", base + ".screenshots[" + i + "].width"));
+                }
+                if (null == screenshot.getHeight()) {
+                    errors.configuration(RB.$("validation_must_not_be_null", base + ".screenshots[" + i + "].height"));
+                }
+            } else {
+                if (null == screenshot.getWidth() && null != screenshot.getHeight()) {
+                    errors.configuration(RB.$("validation_must_not_be_null", base + ".screenshots[" + i + "].width"));
+                } else if (null != screenshot.getWidth() && null == screenshot.getHeight()) {
+                    errors.configuration(RB.$("validation_must_not_be_null", base + ".screenshots[" + i + "].height"));
+                }
+            }
+        }
+    }
+
+    static void validateIcons(JReleaserContext context, JReleaserContext.Mode mode, List<Icon> icons, Errors errors, String base) {
+        validateIcons(context, mode, icons, errors, base, true);
+    }
+
+    static void validateIcons(JReleaserContext context, JReleaserContext.Mode mode, List<Icon> icons, Errors errors, String base, boolean validatePrimary) {
+        if (validatePrimary) {
+            if (icons.size() == 1) {
+                icons.get(0).setPrimary(true);
+            }
+
+            if (icons.stream()
+                .mapToInt(s -> s.isPrimary() ? 1 : 0)
+                .sum() > 1) {
+                errors.configuration(RB.$("validation_multiple_primary_icons", base));
+            }
+        }
+
+        for (int i = 0; i < icons.size(); i++) {
+            Icon icon = icons.get(i);
+            if (isBlank(icon.getUrl())) {
+                errors.configuration(RB.$("validation_must_not_be_blank", base + ".icons[" + i + "].url"));
+            }
+            if (null == icon.getWidth()) {
+                errors.configuration(RB.$("validation_must_not_be_null", base + ".icons[" + i + "].width"));
+            }
+            if (null == icon.getHeight()) {
+                errors.configuration(RB.$("validation_must_not_be_null", base + ".icons[" + i + "].height"));
+            }
         }
     }
 }

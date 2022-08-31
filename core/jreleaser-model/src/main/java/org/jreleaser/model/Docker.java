@@ -23,6 +23,7 @@ import org.jreleaser.util.PlatformUtils;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -36,7 +37,7 @@ import static org.jreleaser.model.Distribution.DistributionType.JAVA_BINARY;
 import static org.jreleaser.model.Distribution.DistributionType.JLINK;
 import static org.jreleaser.model.Distribution.DistributionType.NATIVE_IMAGE;
 import static org.jreleaser.model.Distribution.DistributionType.SINGLE_JAR;
-import static org.jreleaser.util.CollectionUtils.newSet;
+import static org.jreleaser.util.CollectionUtils.setOf;
 import static org.jreleaser.util.FileType.JAR;
 import static org.jreleaser.util.FileType.ZIP;
 import static org.jreleaser.util.StringUtils.isBlank;
@@ -46,18 +47,18 @@ import static org.jreleaser.util.StringUtils.isFalse;
  * @author Andres Almiray
  * @since 0.1.0
  */
-public class Docker extends AbstractDockerConfiguration implements RepositoryPackager {
+public class Docker extends AbstractDockerConfiguration<Docker> implements RepositoryPackager {
     public static final String SKIP_DOCKER = "skipDocker";
 
     private static final Map<Distribution.DistributionType, Set<String>> SUPPORTED = new LinkedHashMap<>();
 
     static {
-        Set<String> extensions = newSet(ZIP.extension());
+        Set<String> extensions = setOf(ZIP.extension());
         SUPPORTED.put(BINARY, extensions);
         SUPPORTED.put(JAVA_BINARY, extensions);
         SUPPORTED.put(JLINK, extensions);
         SUPPORTED.put(NATIVE_IMAGE, extensions);
-        SUPPORTED.put(SINGLE_JAR, newSet(JAR.extension()));
+        SUPPORTED.put(SINGLE_JAR, setOf(JAR.extension()));
     }
 
     private final Map<String, DockerSpec> specs = new LinkedHashMap<>();
@@ -69,12 +70,22 @@ public class Docker extends AbstractDockerConfiguration implements RepositoryPac
     @JsonIgnore
     private boolean failed;
 
-    void setAll(Docker docker) {
-        super.setAll(docker);
-        this.continueOnError = docker.continueOnError;
-        this.downloadUrl = docker.downloadUrl;
+    @Override
+    public void freeze() {
+        super.freeze();
+        specs.values().forEach(DockerSpec::freeze);
+        commitAuthor.freeze();
+        repository.freeze();
+    }
+
+    @Override
+    public void merge(Docker docker) {
+        freezeCheck();
+        super.merge(docker);
+        this.continueOnError = merge(this.continueOnError, docker.continueOnError);
+        this.downloadUrl = merge(this.downloadUrl, docker.downloadUrl);
         this.failed = docker.failed;
-        setSpecs(docker.specs);
+        setSpecs(mergeModel(this.specs, docker.specs));
         setCommitAuthor(docker.commitAuthor);
         setRepository(docker.repository);
     }
@@ -96,6 +107,7 @@ public class Docker extends AbstractDockerConfiguration implements RepositoryPac
 
     @Override
     public void setContinueOnError(Boolean continueOnError) {
+        freezeCheck();
         this.continueOnError = continueOnError;
     }
 
@@ -111,6 +123,7 @@ public class Docker extends AbstractDockerConfiguration implements RepositoryPac
 
     @Override
     public void setDownloadUrl(String downloadUrl) {
+        freezeCheck();
         this.downloadUrl = downloadUrl;
     }
 
@@ -126,7 +139,12 @@ public class Docker extends AbstractDockerConfiguration implements RepositoryPac
 
     @Override
     public Set<String> getSupportedExtensions(Distribution distribution) {
-        return SUPPORTED.getOrDefault(distribution.getType(), Collections.emptySet());
+        return Collections.unmodifiableSet(SUPPORTED.getOrDefault(distribution.getType(), Collections.emptySet()));
+    }
+
+    @Override
+    public Set<Stereotype> getSupportedStereotypes() {
+        return EnumSet.allOf(Stereotype.class);
     }
 
     @Override
@@ -140,7 +158,7 @@ public class Docker extends AbstractDockerConfiguration implements RepositoryPac
             .filter(artifact -> supportsPlatform(artifact.getPlatform()))
             .filter(this::isNotSkipped)
             .sorted(Artifact.comparatorByPlatform().thenComparingInt(artifact -> {
-                String ext = FileType.getFileNameExtension(artifact.getResolvedPath(context, distribution));
+                String ext = FileType.getExtension(artifact.getResolvedPath(context, distribution));
                 return fileExtensions.indexOf(ext);
             }))
             .collect(toList());
@@ -167,7 +185,7 @@ public class Docker extends AbstractDockerConfiguration implements RepositoryPac
 
     @Override
     public void setCommitAuthor(CommitAuthor commitAuthor) {
-        this.commitAuthor.setAll(commitAuthor);
+        this.commitAuthor.merge(commitAuthor);
     }
 
     public List<DockerSpec> getActiveSpecs() {
@@ -177,19 +195,22 @@ public class Docker extends AbstractDockerConfiguration implements RepositoryPac
     }
 
     public Map<String, DockerSpec> getSpecs() {
-        return specs;
+        return freezeWrap(specs);
     }
 
     public void setSpecs(Map<String, DockerSpec> specs) {
+        freezeCheck();
         this.specs.clear();
         this.specs.putAll(specs);
     }
 
     public void addSpecs(Map<String, DockerSpec> specs) {
+        freezeCheck();
         this.specs.putAll(specs);
     }
 
     public void addSpec(DockerSpec spec) {
+        freezeCheck();
         this.specs.put(spec.getName(), spec);
     }
 
@@ -221,7 +242,7 @@ public class Docker extends AbstractDockerConfiguration implements RepositoryPac
     }
 
     public void setRepository(DockerRepository repository) {
-        this.repository.setAll(repository);
+        this.repository.merge(repository);
     }
 
     @Override
@@ -229,7 +250,7 @@ public class Docker extends AbstractDockerConfiguration implements RepositoryPac
         return repository;
     }
 
-    public static class DockerRepository extends AbstractRepositoryTap {
+    public static class DockerRepository extends AbstractRepositoryTap<DockerRepository> {
         private Boolean versionedSubfolders;
 
         public DockerRepository() {
@@ -237,9 +258,10 @@ public class Docker extends AbstractDockerConfiguration implements RepositoryPac
         }
 
         @Override
-        void setAll(AbstractRepositoryTap tap) {
-            super.setAll(tap);
-            this.versionedSubfolders = ((DockerRepository) tap).versionedSubfolders;
+        public void merge(DockerRepository tap) {
+            freezeCheck();
+            super.merge(tap);
+            this.versionedSubfolders = this.merge(this.versionedSubfolders, tap.versionedSubfolders);
         }
 
         public boolean isVersionedSubfolders() {
@@ -247,6 +269,7 @@ public class Docker extends AbstractDockerConfiguration implements RepositoryPac
         }
 
         public void setVersionedSubfolders(Boolean versionedSubfolders) {
+            freezeCheck();
             this.versionedSubfolders = versionedSubfolders;
         }
 

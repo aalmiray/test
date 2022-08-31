@@ -37,7 +37,7 @@ import static org.jreleaser.util.StringUtils.isNotBlank;
  * @author Andres Almiray
  * @since 0.2.0
  */
-public class Teams extends AbstractAnnouncer {
+public class Teams extends AbstractAnnouncer<Teams> {
     public static final String NAME = "teams";
     public static final String TEAMS_WEBHOOK = "TEAMS_WEBHOOK";
 
@@ -48,10 +48,12 @@ public class Teams extends AbstractAnnouncer {
         super(NAME);
     }
 
-    void setAll(Teams teams) {
-        super.setAll(teams);
-        this.webhook = teams.webhook;
-        this.messageTemplate = teams.messageTemplate;
+    @Override
+    public void merge(Teams teams) {
+        freezeCheck();
+        super.merge(teams);
+        this.webhook = merge(this.webhook, teams.webhook);
+        this.messageTemplate = merge(this.messageTemplate, teams.messageTemplate);
     }
 
     public String getResolvedMessageTemplate(JReleaserContext context, Map<String, Object> extraProps) {
@@ -72,7 +74,7 @@ public class Teams extends AbstractAnnouncer {
     }
 
     public String getResolvedWebhook() {
-        return Env.resolve(TEAMS_WEBHOOK, webhook);
+        return Env.env(TEAMS_WEBHOOK, webhook);
     }
 
     public String getWebhook() {
@@ -80,6 +82,7 @@ public class Teams extends AbstractAnnouncer {
     }
 
     public void setWebhook(String webhook) {
+        freezeCheck();
         this.webhook = webhook;
     }
 
@@ -88,6 +91,7 @@ public class Teams extends AbstractAnnouncer {
     }
 
     public void setMessageTemplate(String messageTemplate) {
+        freezeCheck();
         this.messageTemplate = messageTemplate;
     }
 

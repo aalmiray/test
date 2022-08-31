@@ -42,13 +42,16 @@ import static org.jreleaser.util.StringUtils.isBlank;
 public abstract class SigningValidator extends Validator {
     public static void validateSigning(JReleaserContext context, JReleaserContext.Mode mode, Errors errors) {
         if (!mode.validateConfig()) {
-            return;
+            errors = new Errors();
         }
 
         context.getLogger().debug("signing");
         Signing signing = context.getModel().getSigning();
 
-        if (!signing.resolveEnabled(context.getModel().getProject())) return;
+        if (!signing.resolveEnabled(context.getModel().getProject())) {
+            context.getLogger().debug(RB.$("validation.disabled"));
+            return;
+        }
 
         if (!signing.isArmoredSet()) {
             signing.setArmored(true);

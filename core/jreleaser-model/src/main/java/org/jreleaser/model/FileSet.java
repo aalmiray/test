@@ -18,7 +18,6 @@
 package org.jreleaser.model;
 
 import org.jreleaser.bundle.RB;
-import org.jreleaser.util.CollectionUtils;
 import org.jreleaser.util.JReleaserLogger;
 
 import java.io.IOException;
@@ -38,12 +37,13 @@ import static java.nio.file.FileVisitResult.CONTINUE;
 import static java.nio.file.FileVisitResult.SKIP_SUBTREE;
 import static java.util.stream.Collectors.toSet;
 import static org.jreleaser.model.util.Artifacts.resolveForFileSet;
+import static org.jreleaser.util.CollectionUtils.setOf;
 
 /**
  * @author Andres Almiray
  * @since 0.8.0
  */
-public class FileSet implements Domain, ExtraProperties {
+public class FileSet extends AbstractModelObject<FileSet> implements Domain, ExtraProperties {
     private static final String GLOB_PREFIX = "glob:";
 
     private final Map<String, Object> extraProperties = new LinkedHashMap<>();
@@ -54,13 +54,15 @@ public class FileSet implements Domain, ExtraProperties {
     private String output;
     private Boolean failOnMissingInput;
 
-    void setAll(FileSet fileSet) {
-        this.input = fileSet.input;
-        this.output = fileSet.output;
-        this.failOnMissingInput = fileSet.failOnMissingInput;
-        setIncludes(fileSet.includes);
-        setExcludes(fileSet.excludes);
-        setExtraProperties(fileSet.extraProperties);
+    @Override
+    public void merge(FileSet fileSet) {
+        freezeCheck();
+        this.input = merge(this.input, fileSet.input);
+        this.output = merge(this.output, fileSet.output);
+        this.failOnMissingInput = merge(this.failOnMissingInput, fileSet.failOnMissingInput);
+        setIncludes(merge(this.includes, fileSet.includes));
+        setExcludes(merge(this.excludes, fileSet.excludes));
+        setExtraProperties(merge(this.extraProperties, fileSet.extraProperties));
     }
 
     @Override
@@ -89,19 +91,21 @@ public class FileSet implements Domain, ExtraProperties {
     }
 
     public Set<String> getIncludes() {
-        return includes;
+        return freezeWrap(includes);
     }
 
     public void setIncludes(Set<String> includes) {
+        freezeCheck();
         this.includes.clear();
         this.includes.addAll(includes);
     }
 
     public Set<String> getExcludes() {
-        return excludes;
+        return freezeWrap(excludes);
     }
 
     public void setExcludes(Set<String> excludes) {
+        freezeCheck();
         this.excludes.clear();
         this.excludes.addAll(excludes);
     }
@@ -111,6 +115,7 @@ public class FileSet implements Domain, ExtraProperties {
     }
 
     public void setInput(String input) {
+        freezeCheck();
         this.input = input;
     }
 
@@ -119,6 +124,7 @@ public class FileSet implements Domain, ExtraProperties {
     }
 
     public void setOutput(String output) {
+        freezeCheck();
         this.output = output;
     }
 
@@ -127,6 +133,7 @@ public class FileSet implements Domain, ExtraProperties {
     }
 
     public void setFailOnMissingInput(Boolean failOnMissingInput) {
+        freezeCheck();
         this.failOnMissingInput = failOnMissingInput;
     }
 
@@ -136,17 +143,19 @@ public class FileSet implements Domain, ExtraProperties {
 
     @Override
     public Map<String, Object> getExtraProperties() {
-        return extraProperties;
+        return freezeWrap(extraProperties);
     }
 
     @Override
     public void setExtraProperties(Map<String, Object> extraProperties) {
+        freezeCheck();
         this.extraProperties.clear();
         this.extraProperties.putAll(extraProperties);
     }
 
     @Override
     public void addExtraProperties(Map<String, Object> extraProperties) {
+        freezeCheck();
         this.extraProperties.putAll(extraProperties);
     }
 
@@ -167,7 +176,7 @@ public class FileSet implements Domain, ExtraProperties {
 
         Set<String> resolvedIncludes = getResolvedIncludes(context);
         if (resolvedIncludes.isEmpty()) {
-            resolvedIncludes = CollectionUtils.newSet("**/*");
+            resolvedIncludes = setOf("**/*");
         }
         resolvedIncludes = resolvedIncludes.stream()
             .map(s -> GLOB_PREFIX + s)

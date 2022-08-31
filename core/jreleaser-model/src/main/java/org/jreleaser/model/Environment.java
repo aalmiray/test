@@ -43,7 +43,7 @@ import static org.jreleaser.util.StringUtils.isNotBlank;
  * @author Andres Almiray
  * @since 0.1.0
  */
-public class Environment implements Domain {
+public class Environment extends AbstractModelObject<Environment> implements Domain {
     private final Map<String, Object> properties = new LinkedHashMap<>();
     @JsonIgnore
     private final Map<String, Object> sourcedProperties = new LinkedHashMap<>();
@@ -55,14 +55,20 @@ public class Environment implements Domain {
     @JsonIgnore
     private Path propertiesFile;
 
-    void setAll(Environment environment) {
-        this.variables = environment.variables;
-        setProperties(environment.properties);
-        setPropertiesSource(environment.propertiesSource);
+    @Override
+    public void merge(Environment environment) {
+        freezeCheck();
+        this.variables = merge(this.variables, environment.variables);
+        setProperties(merge(this.properties, environment.properties));
+        setPropertiesSource(merge(this.propertiesSource, environment.propertiesSource));
+    }
+
+    public Properties getVars() {
+        return freezeWrap(vars);
     }
 
     public String getVariable(String key) {
-        return vars.getProperty(Env.prefix(key));
+        return vars.getProperty(Env.envKey(key));
     }
 
     public boolean isSet() {
@@ -75,6 +81,7 @@ public class Environment implements Domain {
     }
 
     public void setPropertiesSource(PropertiesSource propertiesSource) {
+        freezeCheck();
         this.propertiesSource = propertiesSource;
         if (null != this.propertiesSource) {
             sourcedProperties.putAll(propertiesSource.getProperties());
@@ -86,19 +93,21 @@ public class Environment implements Domain {
     }
 
     public void setVariables(String variables) {
+        freezeCheck();
         this.variables = variables;
     }
 
     public Map<String, Object> getProperties() {
-        return properties;
-    }
-
-    public Map<String, Object> getSourcedProperties() {
-        return sourcedProperties;
+        return freezeWrap(properties);
     }
 
     public void setProperties(Map<String, Object> properties) {
+        freezeCheck();
         this.properties.putAll(properties);
+    }
+
+    public Map<String, Object> getSourcedProperties() {
+        return freezeWrap(sourcedProperties);
     }
 
     public Path getPropertiesFile() {
@@ -172,8 +181,9 @@ public class Environment implements Domain {
     }
 
     public boolean getBooleanProperty(String key) {
-        return (properties.containsKey(key) && Boolean.parseBoolean(String.valueOf(properties.get(key)))) ||
-            (sourcedProperties.containsKey(key) && Boolean.parseBoolean(String.valueOf(sourcedProperties.get(key))));
+        boolean keyInProperties = properties.containsKey(key) && Boolean.parseBoolean(String.valueOf(properties.get(key)));
+        boolean keyInSourcedProperties = sourcedProperties.containsKey(key) && Boolean.parseBoolean(String.valueOf(sourcedProperties.get(key)));
+        return keyInProperties || keyInSourcedProperties;
     }
 
     public interface PropertiesSource {

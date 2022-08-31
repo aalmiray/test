@@ -20,9 +20,12 @@ package org.jreleaser.gradle.plugin.internal.dsl
 import groovy.transform.CompileStatic
 import org.gradle.api.Action
 import org.gradle.api.model.ObjectFactory
+import org.jreleaser.gradle.plugin.dsl.AppImage
+import org.jreleaser.gradle.plugin.dsl.Asdf
 import org.jreleaser.gradle.plugin.dsl.Brew
 import org.jreleaser.gradle.plugin.dsl.Chocolatey
 import org.jreleaser.gradle.plugin.dsl.Docker
+import org.jreleaser.gradle.plugin.dsl.Flatpak
 import org.jreleaser.gradle.plugin.dsl.Gofish
 import org.jreleaser.gradle.plugin.dsl.Jbang
 import org.jreleaser.gradle.plugin.dsl.Macports
@@ -42,9 +45,12 @@ import javax.inject.Inject
  */
 @CompileStatic
 class PackagersImpl implements Packagers {
+    final AppImageImpl appImage
+    final AsdfImpl asdf
     final BrewImpl brew
     final ChocolateyImpl chocolatey
     final DockerImpl docker
+    final FlatpakImpl flatpak
     final GofishImpl gofish
     final JbangImpl jbang
     final MacportsImpl macports
@@ -55,9 +61,12 @@ class PackagersImpl implements Packagers {
 
     @Inject
     PackagersImpl(ObjectFactory objects) {
+        appImage = objects.newInstance(AppImageImpl, objects)
+        asdf = objects.newInstance(AsdfImpl, objects)
         brew = objects.newInstance(BrewImpl, objects)
         chocolatey = objects.newInstance(ChocolateyImpl, objects)
         docker = objects.newInstance(DockerImpl, objects)
+        flatpak = objects.newInstance(FlatpakImpl, objects)
         gofish = objects.newInstance(GofishImpl, objects)
         jbang = objects.newInstance(JbangImpl, objects)
         macports = objects.newInstance(MacportsImpl, objects)
@@ -65,6 +74,16 @@ class PackagersImpl implements Packagers {
         sdkman = objects.newInstance(SdkmanImpl, objects)
         snap = objects.newInstance(SnapImpl, objects)
         spec = objects.newInstance(SpecImpl, objects)
+    }
+
+    @Override
+    void appImage(Action<? super AppImage> action) {
+        action.execute(appImage)
+    }
+
+    @Override
+    void asdf(Action<? super Asdf> action) {
+        action.execute(asdf)
     }
 
     @Override
@@ -80,6 +99,11 @@ class PackagersImpl implements Packagers {
     @Override
     void docker(Action<? super Docker> action) {
         action.execute(docker)
+    }
+
+    @Override
+    void flatpak(Action<? super Flatpak> action) {
+        action.execute(flatpak)
     }
 
     @Override
@@ -118,6 +142,16 @@ class PackagersImpl implements Packagers {
     }
 
     @Override
+    void appImage(@DelegatesTo(strategy = Closure.DELEGATE_FIRST, value = AppImage) Closure<Void> action) {
+        ConfigureUtil.configure(action, appImage)
+    }
+
+    @Override
+    void asdf(@DelegatesTo(strategy = Closure.DELEGATE_FIRST, value = Asdf) Closure<Void> action) {
+        ConfigureUtil.configure(action, asdf)
+    }
+
+    @Override
     void brew(@DelegatesTo(strategy = Closure.DELEGATE_FIRST, value = Brew) Closure<Void> action) {
         ConfigureUtil.configure(action, brew)
     }
@@ -130,6 +164,11 @@ class PackagersImpl implements Packagers {
     @Override
     void docker(@DelegatesTo(strategy = Closure.DELEGATE_FIRST, value = Docker) Closure<Void> action) {
         ConfigureUtil.configure(action, docker)
+    }
+
+    @Override
+    void flatpak(@DelegatesTo(strategy = Closure.DELEGATE_FIRST, value = Flatpak) Closure<Void> action) {
+        ConfigureUtil.configure(action, flatpak)
     }
 
     @Override
@@ -169,9 +208,12 @@ class PackagersImpl implements Packagers {
 
     org.jreleaser.model.Packagers toModel() {
         org.jreleaser.model.Packagers packagers = new org.jreleaser.model.Packagers()
+        if (appImage.isSet()) packagers.appImage = appImage.toModel()
+        if (asdf.isSet()) packagers.asdf = asdf.toModel()
         if (brew.isSet()) packagers.brew = brew.toModel()
         if (chocolatey.isSet()) packagers.chocolatey = chocolatey.toModel()
         if (docker.isSet()) packagers.docker = docker.toModel()
+        if (flatpak.isSet()) packagers.flatpak = flatpak.toModel()
         if (gofish.isSet()) packagers.gofish = gofish.toModel()
         if (jbang.isSet()) packagers.jbang = jbang.toModel()
         if (macports.isSet()) packagers.macports = macports.toModel()

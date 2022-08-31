@@ -28,7 +28,7 @@ import static org.jreleaser.model.Distribution.DistributionType.BINARY;
 import static org.jreleaser.model.Distribution.DistributionType.JAVA_BINARY;
 import static org.jreleaser.model.Distribution.DistributionType.JLINK;
 import static org.jreleaser.model.Distribution.DistributionType.NATIVE_IMAGE;
-import static org.jreleaser.util.CollectionUtils.newSet;
+import static org.jreleaser.util.CollectionUtils.setOf;
 import static org.jreleaser.util.FileType.TAR;
 import static org.jreleaser.util.FileType.TAR_GZ;
 import static org.jreleaser.util.FileType.TAR_XZ;
@@ -42,14 +42,14 @@ import static org.jreleaser.util.StringUtils.isFalse;
  * @author Andres Almiray
  * @since 0.10.0
  */
-public class Gofish extends AbstractRepositoryPackager {
+public class Gofish extends AbstractRepositoryPackager<Gofish> {
     public static final String TYPE = "gofish";
     public static final String SKIP_GOFISH = "skipGofish";
 
     private static final Map<Distribution.DistributionType, Set<String>> SUPPORTED = new LinkedHashMap<>();
 
     static {
-        Set<String> extensions = newSet(
+        Set<String> extensions = setOf(
             TAR_GZ.extension(),
             TAR_XZ.extension(),
             TGZ.extension(),
@@ -69,8 +69,10 @@ public class Gofish extends AbstractRepositoryPackager {
         super(TYPE);
     }
 
-    void setAll(Gofish spec) {
-        super.setAll(spec);
+    @Override
+    public void merge(Gofish spec) {
+        freezeCheck();
+        super.merge(spec);
         setRepository(spec.repository);
     }
 
@@ -79,7 +81,7 @@ public class Gofish extends AbstractRepositoryPackager {
     }
 
     public void setRepository(GofishRepository repository) {
-        this.repository.setAll(repository);
+        this.repository.merge(repository);
     }
 
     @Override
@@ -98,7 +100,7 @@ public class Gofish extends AbstractRepositoryPackager {
         return isBlank(platform) ||
             PlatformUtils.isMac(platform) ||
             PlatformUtils.isWindows(platform) ||
-            (PlatformUtils.isLinux(platform) && !PlatformUtils.isAlpineLinux(platform));
+            PlatformUtils.isLinux(platform) && !PlatformUtils.isAlpineLinux(platform);
     }
 
     @Override
@@ -108,7 +110,7 @@ public class Gofish extends AbstractRepositoryPackager {
 
     @Override
     public Set<String> getSupportedExtensions(Distribution distribution) {
-        return SUPPORTED.getOrDefault(distribution.getType(), Collections.emptySet());
+        return Collections.unmodifiableSet(SUPPORTED.getOrDefault(distribution.getType(), Collections.emptySet()));
     }
 
     @Override
@@ -116,7 +118,7 @@ public class Gofish extends AbstractRepositoryPackager {
         return isFalse(artifact.getExtraProperties().get(SKIP_GOFISH));
     }
 
-    public static class GofishRepository extends AbstractRepositoryTap {
+    public static class GofishRepository extends AbstractRepositoryTap<GofishRepository> {
         public GofishRepository() {
             super("gofish", "fish-food");
         }

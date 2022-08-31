@@ -23,6 +23,7 @@ import org.jreleaser.model.Active;
 import org.jreleaser.model.Changelog;
 import org.jreleaser.model.GenericGit;
 import org.jreleaser.model.GitService;
+import org.jreleaser.model.Github;
 import org.jreleaser.model.JReleaserContext;
 import org.jreleaser.model.JReleaserModel;
 import org.jreleaser.model.Project;
@@ -35,6 +36,7 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
@@ -68,10 +70,11 @@ public abstract class GitServiceValidator extends Validator {
         }
 
         if (!service.isEnabled()) {
+            context.getLogger().debug(RB.$("validation.disabled"));
             return;
         }
 
-        if (mode != JReleaserContext.Mode.ASSEMBLE) {
+        if (!mode.validateStandalone()) {
             if (isBlank(service.getOwner()) && !(service instanceof GenericGit)) {
                 errors.configuration(RB.$("validation_must_not_be_blank", service.getServiceName() + ".owner"));
             }
@@ -83,17 +86,17 @@ public abstract class GitServiceValidator extends Validator {
 
         service.setUsername(
             checkProperty(context,
-                service.getServiceName().toUpperCase() + "_USERNAME",
+                service.getServiceName().toUpperCase(Locale.ENGLISH) + "_USERNAME",
                 service.getServiceName() + ".username",
                 service.getUsername(),
                 service.getOwner()));
 
         service.setToken(
             checkProperty(context,
-                service.getServiceName().toUpperCase() + "_TOKEN",
+                service.getServiceName().toUpperCase(Locale.ENGLISH) + "_TOKEN",
                 service.getServiceName() + ".token",
                 service.getToken(),
-                mode != JReleaserContext.Mode.ASSEMBLE ? errors : new Errors()));
+                !mode.validateStandalone() ? errors : new Errors()));
 
         service.setTagName(
             checkProperty(context,
@@ -163,14 +166,34 @@ public abstract class GitServiceValidator extends Validator {
         if (isBlank(service.getTagName())) {
             service.setTagName("v" + project.getVersion());
         }
+
         if (service.isReleaseSupported()) {
             if (isBlank(service.getReleaseName())) {
                 service.setReleaseName("Release {{ tagName }}");
             }
+
+            service.getMilestone().setName(
+                checkProperty(context,
+                    MILESTONE_NAME,
+                    service.getServiceName() + ".milestone.name",
+                    service.getMilestone().getName(),
+                    "{{tagName}}"));
+
+            GitService.Issues issues = service.getIssues();
+            if (isBlank(issues.getComment())) {
+                issues.setComment("Released in {{tagName}} -> {{releaseNotesUrl}}");
+            }
+            if (isBlank(issues.getLabel().getName())) {
+                issues.getLabel().setName("released");
+            }
+            if (isBlank(issues.getLabel().getColor())) {
+                issues.getLabel().setColor("#FF0000");
+            }
+            if (isBlank(issues.getLabel().getDescription())) {
+                issues.getLabel().setDescription("Issue has been released");
+            }
         }
-        if (!service.getChangelog().isEnabledSet()) {
-            service.getChangelog().setEnabled(true);
-        }
+
         if (isBlank(service.getCommitAuthor().getName())) {
             service.getCommitAuthor().setName("jreleaserbot");
         }
@@ -180,16 +203,6 @@ public abstract class GitServiceValidator extends Validator {
 
         validateTimeout(service);
 
-        if (service.isReleaseSupported()) {
-            // milestone
-            service.getMilestone().setName(
-                checkProperty(context,
-                    MILESTONE_NAME,
-                    service.getServiceName() + ".milestone.name",
-                    service.getMilestone().getName(),
-                    "{{tagName}}"));
-        }
-
         // eager resolve
         service.getResolvedTagName(context.getModel());
         if (service.isReleaseSupported()) {
@@ -198,15 +211,36 @@ public abstract class GitServiceValidator extends Validator {
         }
 
         if (project.isSnapshot()) {
-            service.getChangelog().setEnabled(true);
-            service.getChangelog().setExternal(null);
-            service.getChangelog().setSort(Changelog.Sort.DESC);
+            boolean generate = false;
+            if (service instanceof Github) {
+                Github gh = (Github) service;
+                generate = gh.getReleaseNotes().isEnabled();
+            }
+
+            if (!generate) {
+                service.getChangelog().setEnabled(true);
+                service.getChangelog().setExternal(null);
+                service.getChangelog().setSort(Changelog.Sort.DESC);
+            }
             if (service.isReleaseSupported()) {
                 service.setOverwrite(true);
             }
+            service.getIssues().setEnabled(false);
         }
 
-        if (mode != JReleaserContext.Mode.ASSEMBLE) {
+        if (!service.getChangelog().isEnabledSet()) {
+            boolean generate = false;
+            if (service instanceof Github) {
+                Github gh = (Github) service;
+                generate = gh.getReleaseNotes().isEnabled();
+            }
+
+            if (!generate) {
+                service.getChangelog().setEnabled(true);
+            }
+        }
+
+        if (!mode.validateStandalone()) {
             validateChangelog(context, service, errors);
         }
 
@@ -232,10 +266,30 @@ public abstract class GitServiceValidator extends Validator {
         Changelog changelog = service.getChangelog();
 
         if (isNotBlank(changelog.getExternal())) {
+            changelog.setEnabled(true);
             changelog.setFormatted(Active.NEVER);
         }
 
+        if (!changelog.isEnabledSet() && changelog.isSet()) {
+            changelog.setEnabled(true);
+        }
+
+        // Special case for GitHub
+        if (service instanceof Github) {
+            Github gh = (Github) service;
+            boolean generate = gh.getReleaseNotes().isEnabled();
+
+            if (generate && changelog.isEnabled()) {
+                errors.configuration(RB.$("validation_github_releasenotes_changelog"));
+                return;
+            }
+        }
+
         if (!changelog.resolveFormatted(context.getModel().getProject())) return;
+
+        if (null == changelog.getSort()) {
+            changelog.setSort(Changelog.Sort.DESC);
+        }
 
         if (isBlank(changelog.getFormat())) {
             changelog.setFormat("- {{commitShortHash}} {{commitTitle}} ({{commitAuthor}})");
@@ -321,7 +375,7 @@ public abstract class GitServiceValidator extends Validator {
 
     private static void loadPreset(JReleaserContext context, Changelog changelog, Errors errors) {
         try {
-            String preset = changelog.getPreset().toLowerCase().trim();
+            String preset = changelog.getPreset().toLowerCase(Locale.ENGLISH).trim();
             String presetFileName = "META-INF/jreleaser/changelog/preset-" + preset + ".yml";
 
             InputStream inputStream = GitServiceValidator.class.getClassLoader()

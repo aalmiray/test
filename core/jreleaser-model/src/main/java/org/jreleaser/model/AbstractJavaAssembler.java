@@ -32,7 +32,7 @@ import static org.jreleaser.util.StringUtils.isNotBlank;
  * @author Andres Almiray
  * @since 0.8.0
  */
-abstract class AbstractJavaAssembler extends AbstractAssembler implements JavaAssembler {
+abstract class AbstractJavaAssembler<S extends AbstractJavaAssembler<S>> extends AbstractAssembler<S> implements JavaAssembler {
     protected final Artifact mainJar = new Artifact();
     protected final List<Glob> jars = new ArrayList<>();
     protected final List<Glob> files = new ArrayList<>();
@@ -45,14 +45,25 @@ abstract class AbstractJavaAssembler extends AbstractAssembler implements JavaAs
         super(type);
     }
 
-    void setAll(AbstractJavaAssembler assembler) {
-        super.setAll(assembler);
-        this.executable = assembler.executable;
-        this.templateDirectory = assembler.templateDirectory;
+    @Override
+    public void freeze() {
+        super.freeze();
+        mainJar.freeze();
+        jars.forEach(Glob::freeze);
+        files.forEach(Glob::freeze);
+        java.freeze();
+    }
+
+    @Override
+    public void merge(S assembler) {
+        freezeCheck();
+        super.merge(assembler);
+        this.executable = merge(this.executable, assembler.executable);
+        this.templateDirectory = merge(this.templateDirectory, assembler.templateDirectory);
         setJava(assembler.java);
         setMainJar(assembler.mainJar);
-        setJars(assembler.jars);
-        setFiles(assembler.files);
+        setJars(merge(this.jars, assembler.jars));
+        setFiles(merge(this.files, assembler.files));
     }
 
     @Override
@@ -89,6 +100,7 @@ abstract class AbstractJavaAssembler extends AbstractAssembler implements JavaAs
 
     @Override
     public void setExecutable(String executable) {
+        freezeCheck();
         this.executable = executable;
     }
 
@@ -99,6 +111,7 @@ abstract class AbstractJavaAssembler extends AbstractAssembler implements JavaAs
 
     @Override
     public void setTemplateDirectory(String templateDirectory) {
+        freezeCheck();
         this.templateDirectory = templateDirectory;
     }
 
@@ -109,7 +122,7 @@ abstract class AbstractJavaAssembler extends AbstractAssembler implements JavaAs
 
     @Override
     public void setJava(Java java) {
-        this.java.setAll(java);
+        this.java.merge(java);
     }
 
     @Override
@@ -119,27 +132,30 @@ abstract class AbstractJavaAssembler extends AbstractAssembler implements JavaAs
 
     @Override
     public void setMainJar(Artifact mainJar) {
-        this.mainJar.setAll(mainJar);
+        this.mainJar.merge(mainJar);
     }
 
     @Override
     public List<Glob> getJars() {
-        return jars;
+        return freezeWrap(jars);
     }
 
     @Override
     public void setJars(List<Glob> jars) {
+        freezeCheck();
         this.jars.clear();
         this.jars.addAll(jars);
     }
 
     @Override
     public void addJars(List<Glob> jars) {
+        freezeCheck();
         this.jars.addAll(jars);
     }
 
     @Override
     public void addJar(Glob jar) {
+        freezeCheck();
         if (null != jar) {
             this.jars.add(jar);
         }
@@ -147,22 +163,25 @@ abstract class AbstractJavaAssembler extends AbstractAssembler implements JavaAs
 
     @Override
     public List<Glob> getFiles() {
-        return files;
+        return freezeWrap(files);
     }
 
     @Override
     public void setFiles(List<Glob> files) {
+        freezeCheck();
         this.files.clear();
         this.files.addAll(files);
     }
 
     @Override
     public void addFiles(List<Glob> files) {
+        freezeCheck();
         this.files.addAll(files);
     }
 
     @Override
     public void addFile(Glob file) {
+        freezeCheck();
         if (null != file) {
             this.files.add(file);
         }

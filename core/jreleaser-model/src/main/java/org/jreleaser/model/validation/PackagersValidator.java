@@ -38,7 +38,7 @@ import static org.jreleaser.util.StringUtils.isBlank;
 public abstract class PackagersValidator extends Validator {
     public static void validatePackagers(JReleaserContext context, JReleaserContext.Mode mode, Errors errors) {
         if (!mode.validateConfig()) {
-            return;
+            errors = new Errors();
         }
 
         context.getLogger().debug("packagers");
@@ -46,6 +46,30 @@ public abstract class PackagersValidator extends Validator {
         JReleaserModel model = context.getModel();
         Packagers packagers = model.getPackagers();
         Project project = model.getProject();
+        GitService gitService = model.getRelease().getGitService();
+
+        packagers.getAppImage().resolveEnabled(project);
+        packagers.getAppImage().getRepository().resolveEnabled(project);
+        validatePackager(context,
+            packagers.getAppImage(),
+            packagers.getAppImage().getRepository(),
+            errors);
+        if (packagers.getAppImage().getScreenshots().isEmpty()) {
+            packagers.getAppImage().setScreenshots(project.getScreenshots());
+        }
+        if (packagers.getAppImage().getIcons().isEmpty()) {
+            packagers.getAppImage().setIcons(project.getIcons());
+        }
+        if (isBlank(packagers.getAppImage().getDeveloperName())) {
+            packagers.getAppImage().setDeveloperName(String.join(", ", project.getAuthors()));
+        }
+
+        packagers.getAsdf().resolveEnabled(project);
+        packagers.getAsdf().getRepository().resolveEnabled(project);
+        validatePackager(context,
+            packagers.getAsdf(),
+            packagers.getAsdf().getRepository(),
+            errors);
 
         packagers.getBrew().resolveEnabled(project);
         packagers.getBrew().getTap().resolveEnabled(project);
@@ -72,6 +96,22 @@ public abstract class PackagersValidator extends Validator {
             errors.configuration(RB.$("validation_packagers_docker_specs"));
         }
 
+        packagers.getFlatpak().resolveEnabled(project);
+        packagers.getFlatpak().getRepository().resolveEnabled(project);
+        validatePackager(context,
+            packagers.getFlatpak(),
+            packagers.getFlatpak().getRepository(),
+            errors);
+        if (packagers.getFlatpak().getScreenshots().isEmpty()) {
+            packagers.getFlatpak().setScreenshots(project.getScreenshots());
+        }
+        if (packagers.getFlatpak().getIcons().isEmpty()) {
+            packagers.getFlatpak().setIcons(project.getIcons());
+        }
+        if (isBlank(packagers.getFlatpak().getDeveloperName())) {
+            packagers.getFlatpak().setDeveloperName(String.join(", ", project.getAuthors()));
+        }
+
         packagers.getGofish().resolveEnabled(project);
         packagers.getGofish().getRepository().resolveEnabled(project);
         validatePackager(context,
@@ -80,9 +120,9 @@ public abstract class PackagersValidator extends Validator {
             errors);
 
         if (isBlank(packagers.getGofish().getRepository().getName())) {
-            packagers.getGofish().getRepository().setName(model.getRelease().getGitService().getOwner() + "-fish-food");
+            packagers.getGofish().getRepository().setName(gitService.getOwner() + "-fish-food");
         }
-        packagers.getGofish().getRepository().setTapName(model.getRelease().getGitService().getOwner() + "-fish-food");
+        packagers.getGofish().getRepository().setTapName(gitService.getOwner() + "-fish-food");
 
         packagers.getJbang().resolveEnabled(project);
         packagers.getJbang().getCatalog().resolveEnabled(project);
@@ -97,6 +137,9 @@ public abstract class PackagersValidator extends Validator {
             packagers.getMacports(),
             packagers.getMacports().getRepository(),
             errors);
+        if (packagers.getMacports().getMaintainers().isEmpty()) {
+            packagers.getMacports().getMaintainers().addAll(project.getMaintainers());
+        }
 
         packagers.getScoop().resolveEnabled(project);
         packagers.getScoop().getBucket().resolveEnabled(project);
@@ -106,9 +149,9 @@ public abstract class PackagersValidator extends Validator {
             errors);
 
         if (isBlank(packagers.getScoop().getBucket().getName())) {
-            packagers.getScoop().getBucket().setName("scoop-" + model.getRelease().getGitService().getOwner());
+            packagers.getScoop().getBucket().setName("scoop-" + gitService.getOwner());
         }
-        packagers.getScoop().getBucket().setTapName("scoop-" + model.getRelease().getGitService().getOwner());
+        packagers.getScoop().getBucket().setTapName("scoop-" + gitService.getOwner());
 
         packagers.getSnap().resolveEnabled(project);
         packagers.getSnap().getSnap().resolveEnabled(project);
@@ -125,9 +168,9 @@ public abstract class PackagersValidator extends Validator {
             errors);
 
         if (isBlank(packagers.getSpec().getRepository().getName())) {
-            packagers.getSpec().getRepository().setName(model.getRelease().getGitService().getOwner() + "-spec");
+            packagers.getSpec().getRepository().setName(gitService.getOwner() + "-spec");
         }
-        packagers.getSpec().getRepository().setTapName(model.getRelease().getGitService().getOwner() + "-spec");
+        packagers.getSpec().getRepository().setTapName(gitService.getOwner() + "-spec");
 
         validateSdkman(context, packagers.getSdkman(), errors);
     }

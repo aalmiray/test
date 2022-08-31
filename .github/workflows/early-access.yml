@@ -11,13 +11,15 @@ env:
 jobs:
   precheck:
     name: Precheck
-    if: startsWith(github.event.head_commit.message, 'Releasing version') != true
+    if: github.repository == 'aalmiray/test' && startsWith(github.event.head_commit.message, 'Releasing version') != true
     runs-on: ubuntu-latest
     outputs:
       VERSION: ${{ steps.vars.outputs.VERSION }}
+      JAVA_VERSION: ${{ env.JAVA_VERSION }}
+      JAVA_DISTRO: ${{ env.JAVA_DISTRO }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - uses: n1hility/cancel-previous-runs@v2
         with:
@@ -30,363 +32,79 @@ jobs:
           echo ::set-output name=VERSION::$(cat VERSION)
 
   jlink:
-    name: Jlink
-    needs: precheck
+    needs: [precheck]
     if: endsWith(${{ needs.precheck.outputs.VERSION }}, '-SNAPSHOT')
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v2
-
-      - name: Setup Java
-        uses: actions/setup-java@v2
-        with:
-          java-version: ${{ env.JAVA_VERSION }}
-          distribution: ${{ env.JAVA_DISTRO }}
-
-      - uses: actions/cache@v2
-        with:
-          path: ~/.gradle/caches
-          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle') }}-${{ hashFiles('**/gradle.properties') }}
-          restore-keys: |
-            ${{ runner.os }}-gradle-
-
-      - uses: actions/cache@v2
-        with:
-          path: ~/.gradle/wrapper
-          key: ${{ runner.os }}-gradlew-${{ hashFiles('**/gradlew') }}
-          restore-keys: |
-            ${{ runner.os }}-gradlew-
-
-      - name: Build
-        run: ./gradlew -Prelease=true build -S
-
-      - name: Jlink
-        uses: jreleaser/release-action@v1
-        with:
-          version: early-access
-          arguments: assemble -s jlink
-        env:
-          JRELEASER_PROJECT_VERSION: ${{ needs.precheck.outputs.VERSION }}
-          JRELEASER_GITHUB_TOKEN: ${{ secrets.GIT_ACCESS_TOKEN }}
-
-      - name: JReleaser output
-        if: always()
-        uses: actions/upload-artifact@v2
-        with:
-          name: jreleaser-jlink
-          path: |
-            out/jreleaser/trace.log
-            out/jreleaser/output.properties
-
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v2
-        with:
-          retention-days: 1
-          name: artifacts
-          path: |
-            apps/jreleaser/build/libs/
-            apps/jreleaser/build/dependencies/
-            apps/jreleaser/build/distributions/
-            apps/jreleaser-tool-provider/build/libs/*.jar
-            plugins/jreleaser-ant-tasks/build/distributions/*.zip
-
-      - name: Upload jlink
-        uses: actions/upload-artifact@v2
-        with:
-          retention-days: 1
-          name: jlink
-          path: |
-            out/jreleaser/assemble/jreleaser-standalone/jlink/
+    uses: jreleaser/jreleaser/.github/workflows/step-jlink.yml@main
+    with:
+      java-version: ${{ needs.precheck.outputs.JAVA_VERSION }}
+      java-distro: ${{ needs.precheck.outputs.JAVA_DISTRO }}
+      project-version: ${{ needs.precheck.outputs.VERSION }}
 
   jpackage:
-    name: 'JPackage on ${{ matrix.os }}'
     needs: [precheck, jlink]
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macOS-latest, windows-latest]
-    runs-on: ${{ matrix.os }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v2
-
-      - name: Download artifacts
-        uses: actions/download-artifact@v2
-        with:
-          name: artifacts
-
-      - name: Download jlink
-        uses: actions/download-artifact@v2
-        with:
-          name: jlink
-          path: out/jreleaser/assemble/jreleaser-standalone/jlink
-
-      - name: Setup Java
-        uses: actions/setup-java@v2
-        with:
-          java-version: ${{ env.JAVA_VERSION }}
-          distribution: ${{ env.JAVA_DISTRO }}
-
-      - uses: actions/cache@v2
-        with:
-          path: ~/.gradle/caches
-          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle') }}-${{ hashFiles('**/gradle.properties') }}
-          restore-keys: |
-            ${{ runner.os }}-gradle-
-
-      - uses: actions/cache@v2
-        with:
-          path: ~/.gradle/wrapper
-          key: ${{ runner.os }}-gradlew-${{ hashFiles('**/gradlew') }}
-          restore-keys: |
-            ${{ runner.os }}-gradlew-
-
-      - name: Build
-        run: ./gradlew :jreleaser:copyJdksFromCache :jreleaser:setupJdks
-
-      - name: Jpackage
-        uses: jreleaser/release-action@v1
-        with:
-          version: early-access
-          arguments: assemble -s jpackage -scp
-        env:
-          JRELEASER_PROJECT_VERSION: ${{ needs.precheck.outputs.VERSION }}
-          JRELEASER_GITHUB_TOKEN: ${{ secrets.GIT_ACCESS_TOKEN }}
-
-      - name: JReleaser output
-        if: always()
-        uses: actions/upload-artifact@v2
-        with:
-          name: jreleaser-jpackage-${{ runner.os }}
-          path: |
-            out/jreleaser/trace.log
-            out/jreleaser/output.properties
-
-      - name: Upload jpackage
-        uses: actions/upload-artifact@v2
-        with:
-          retention-days: 1
-          name: jpackage
-          path: |
-            out/jreleaser/assemble/jreleaser-installer/jpackage/*.pkg
-            out/jreleaser/assemble/jreleaser-installer/jpackage/*.msi
-            out/jreleaser/assemble/jreleaser-installer/jpackage/*.exe
-            out/jreleaser/assemble/jreleaser-installer/jpackage/*.deb
-            out/jreleaser/assemble/jreleaser-installer/jpackage/*.rpm
+    uses: jreleaser/jreleaser/.github/workflows/step-jpackage.yml@main
+    with:
+      java-version: ${{ needs.precheck.outputs.JAVA_VERSION }}
+      java-distro: ${{ needs.precheck.outputs.JAVA_DISTRO }}
+      project-version: ${{ needs.precheck.outputs.VERSION }}
 
   native-image:
-    name: 'NativeImage on ${{ matrix.os }}'
     needs: [precheck, jlink]
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macOS-latest] #, windows-latest]
-    runs-on: ${{ matrix.os }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v2
-
-      - name: Download artifacts
-        uses: actions/download-artifact@v2
-        with:
-          name: artifacts
-
-      - name: Download jlink
-        uses: actions/download-artifact@v2
-        with:
-          name: jlink
-          path: out/jreleaser/assemble/jreleaser-standalone/jlink
-
-      - name: Setup Java
-        uses: actions/setup-java@v2
-        with:
-          java-version: ${{ env.JAVA_VERSION }}
-          distribution: ${{ env.JAVA_DISTRO }}
-
-      - uses: actions/cache@v2
-        with:
-          path: ~/.gradle/caches
-          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle') }}-${{ hashFiles('**/gradle.properties') }}
-          restore-keys: |
-            ${{ runner.os }}-gradle-
-
-      - uses: actions/cache@v2
-        with:
-          path: ~/.gradle/wrapper
-          key: ${{ runner.os }}-gradlew-${{ hashFiles('**/gradlew') }}
-          restore-keys: |
-            ${{ runner.os }}-gradlew-
-
-      - name: Build
-        run: ./gradlew :jreleaser:copyJdksFromCache :jreleaser:setupJdks
-
-      - name: Install upx
-        run: brew install upx
-        if: ${{ runner.os == 'macOS' }}
-
-      - name: NativeImage
-        uses: jreleaser/release-action@v1
-        with:
-          version: early-access
-          arguments: assemble -s native-image -scp
-        env:
-          JRELEASER_PROJECT_VERSION: ${{ needs.precheck.outputs.VERSION }}
-          JRELEASER_GITHUB_TOKEN: ${{ secrets.GIT_ACCESS_TOKEN }}
-
-      - name: JReleaser output
-        if: always()
-        uses: actions/upload-artifact@v2
-        with:
-          name: jreleaser-native-image-${{ runner.os }}
-          path: |
-            out/jreleaser/trace.log
-            out/jreleaser/output.properties
-
-      - name: Upload native-image
-        uses: actions/upload-artifact@v2
-        with:
-          retention-days: 1
-          name: native-image
-          path: |
-            out/jreleaser/assemble/jreleaser-native/native-image/*.zip
-
-  native-image-arm:
-    name: 'NativeImage on linux-arm'
-    needs: [precheck, jlink]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v2
-
-      - name: Download artifacts
-        uses: actions/download-artifact@v2
-        with:
-          name: artifacts
-
-      - name: Download jlink
-        uses: actions/download-artifact@v2
-        with:
-          name: jlink
-          path: out/jreleaser/assemble/jreleaser-standalone/jlink
-
-      - name: Setup Java
-        uses: actions/setup-java@v2
-        with:
-          java-version: ${{ env.JAVA_VERSION }}
-          distribution: ${{ env.JAVA_DISTRO }}
-
-      - uses: actions/cache@v2
-        with:
-          path: ~/.gradle/caches
-          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle') }}-${{ hashFiles('**/gradle.properties') }}
-          restore-keys: |
-            ${{ runner.os }}-gradle-
-
-      - uses: actions/cache@v2
-        with:
-          path: ~/.gradle/wrapper
-          key: ${{ runner.os }}-gradlew-${{ hashFiles('**/gradlew') }}
-          restore-keys: |
-            ${{ runner.os }}-gradlew-
-
-      - name: Build
-        run: ./gradlew :jreleaser:copyJdksFromCache :jreleaser:setupJdks
-
-      - name: NativeImage
-        uses: uraimo/run-on-arch-action@v2
-        with:
-          arch: aarch64
-          distro: ubuntu20.04
-          githubToken: ${{ secrets.GITHUB_TOKEN }}
-          dockerRunArgs: |
-            --volume "${PWD}:/workspace"
-          env: |
-            JRELEASER_PROJECT_VERSION: ${{ needs.precheck.outputs.VERSION }}
-          shell: /bin/sh
-          install: |
-             apt-get update -q -y && apt-get install -q -y git gcc build-essential libz-dev curl unzip cross-gcc-dev g++
-             cd /home && curl -L https://cdn.azul.com/zulu/bin/zulu17.32.13-ca-jdk17.0.2-linux_aarch64.tar.gz --output zulu17.32.13-ca-jdk17.0.2-linux_aarch64.tar.gz
-             tar xfz zulu17.32.13-ca-jdk17.0.2-linux_aarch64.tar.gz
-          run: |
-            export JAVA_HOME=/home/zulu17.32.13-ca-jdk17.0.2-linux_aarch64
-            export PATH=$JAVA_HOME/bin:$PATH
-            cd /home && curl -sL https://git.io/get-jreleaser > get_jreleaser.java
-            java get_jreleaser.java early-access
-            cd /workspace && java -jar /home/jreleaser-cli.jar -Djdk.lang.Process.launchMechanism=vfork assemble -s native-image
-
-      - name: JReleaser output
-        if: always()
-        uses: actions/upload-artifact@v2
-        with:
-          name: jreleaser-native-image-linux-arm
-          path: |
-            out/jreleaser/trace.log
-            out/jreleaser/output.properties
-      
-      - name: Upload native-image
-        uses: actions/upload-artifact@v2
-        with:
-          retention-days: 1
-          name: native-image
-          path: |
-            out/jreleaser/assemble/jreleaser-native/native-image/*.zip
+    uses: jreleaser/jreleaser/.github/workflows/step-native-image.yml@main
+    with:
+      java-version: ${{ needs.precheck.outputs.JAVA_VERSION }}
+      java-distro: ${{ needs.precheck.outputs.JAVA_DISTRO }}
+      project-version: ${{ needs.precheck.outputs.VERSION }}
 
   release:
     name: Release
-    needs: [precheck, jlink, jpackage, native-image, native-image-arm]
+    needs: [precheck, jlink, jpackage, native-image]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
       - name: Download artifacts
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
         with:
           name: artifacts
 
       - name: Download jlink
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
         with:
           name: jlink
           path: out/jreleaser/assemble/jreleaser-standalone/jlink
 
       - name: Download jpackage
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
         with:
           name: jpackage
           path: out/jreleaser/assemble/jreleaser-installer/jpackage
 
       - name: Download native-image
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
         with:
           name: native-image
           path: out/jreleaser/assemble/jreleaser-native/native-image
 
-      - name: Setup Java
-        uses: actions/setup-java@v2
-        with:
-          java-version: ${{ env.JAVA_VERSION }}
-          distribution: ${{ env.JAVA_DISTRO }}
-
       - name: Release
-        uses: jreleaser/release-action@v1
+        uses: jreleaser/release-action@v2
         with:
           version: early-access
-          arguments: release
+          arguments: full-release
         env:
           JRELEASER_PROJECT_VERSION: ${{ needs.precheck.outputs.VERSION }}
           JRELEASER_GITHUB_TOKEN: ${{ secrets.GIT_ACCESS_TOKEN }}
           JRELEASER_GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
           JRELEASER_GPG_PUBLIC_KEY: ${{ secrets.GPG_PUBLIC_KEY }}
           JRELEASER_GPG_SECRET_KEY: ${{ secrets.GPG_SECRET_KEY }}
-          #JRELEASER_DOCKER_DEFAULT_PASSWORD: ${{ secrets.JRELEASER_DOCKER_PASSWORD }}
+          JRELEASER_DOCKER_DEFAULT_PASSWORD: ${{ secrets.JRELEASER_DOCKER_PASSWORD }}
 
-      - name: JReleaser output
+      - name: JReleaser release output
         if: always()
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: jreleaser-release
           path: |

@@ -26,17 +26,25 @@ import java.util.Map;
  * @author Andres Almiray
  * @since 0.4.0
  */
-public class DockerSpec extends AbstractDockerConfiguration {
+public class DockerSpec extends AbstractDockerConfiguration<DockerSpec> {
     private final Map<String, Object> matchers = new LinkedHashMap<>();
     private Artifact artifact;
 
     private String name;
 
-    void setAll(DockerSpec docker) {
-        super.setAll(docker);
-        this.name = docker.name;
+    @Override
+    public void freeze() {
+        super.freeze();
+        if (null != artifact) artifact.freeze();
+    }
+
+    @Override
+    public void merge(DockerSpec docker) {
+        freezeCheck();
+        super.merge(docker);
+        this.name = merge(this.name, docker.name);
         this.artifact = docker.artifact;
-        setMatchers(docker.matchers);
+        setMatchers(merge(this.matchers, docker.matchers));
     }
 
     public Artifact getArtifact() {
@@ -44,6 +52,7 @@ public class DockerSpec extends AbstractDockerConfiguration {
     }
 
     public void setArtifact(Artifact artifact) {
+        freezeCheck();
         this.artifact = artifact;
         this.artifact.activate();
     }
@@ -53,18 +62,16 @@ public class DockerSpec extends AbstractDockerConfiguration {
     }
 
     public void setName(String name) {
+        freezeCheck();
         this.name = name;
     }
 
     public Map<String, Object> getMatchers() {
-        return matchers;
+        return freezeWrap(matchers);
     }
 
     public void setMatchers(Map<String, Object> matchers) {
-        this.matchers.putAll(matchers);
-    }
-
-    public void addMatchers(Map<String, Object> matchers) {
+        freezeCheck();
         this.matchers.putAll(matchers);
     }
 
@@ -84,7 +91,7 @@ public class DockerSpec extends AbstractDockerConfiguration {
     @Override
     protected void asMap(boolean full, Map<String, Object> props) {
         props.put("matchers", matchers);
-        if(artifact!= null) {
+        if (artifact != null) {
             props.put("artifact", artifact.asMap(full));
         }
     }

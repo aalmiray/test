@@ -38,7 +38,7 @@ import static org.jreleaser.util.Templates.resolveTemplate;
  * @author Andres Almiray
  * @since 0.4.0
  */
-public class Mattermost extends AbstractAnnouncer {
+public class Mattermost extends AbstractAnnouncer<Mattermost> {
     public static final String NAME = "mattermost";
     public static final String MATTERMOST_WEBHOOK = "MATTERMOST_WEBHOOK";
 
@@ -50,11 +50,13 @@ public class Mattermost extends AbstractAnnouncer {
         super(NAME);
     }
 
-    void setAll(Mattermost mattermost) {
-        super.setAll(mattermost);
-        this.webhook = mattermost.webhook;
-        this.message = mattermost.message;
-        this.messageTemplate = mattermost.messageTemplate;
+    @Override
+    public void merge(Mattermost mattermost) {
+        freezeCheck();
+        super.merge(mattermost);
+        this.webhook = merge(this.webhook, mattermost.webhook);
+        this.message = merge(this.message, mattermost.message);
+        this.messageTemplate = merge(this.messageTemplate, mattermost.messageTemplate);
     }
 
     public String getResolvedMessage(JReleaserContext context) {
@@ -81,7 +83,7 @@ public class Mattermost extends AbstractAnnouncer {
     }
 
     public String getResolvedWebhook() {
-        return Env.resolve(MATTERMOST_WEBHOOK, webhook);
+        return Env.env(MATTERMOST_WEBHOOK, webhook);
     }
 
     public String getWebhook() {
@@ -89,6 +91,7 @@ public class Mattermost extends AbstractAnnouncer {
     }
 
     public void setWebhook(String webhook) {
+        freezeCheck();
         this.webhook = webhook;
     }
 
@@ -97,6 +100,7 @@ public class Mattermost extends AbstractAnnouncer {
     }
 
     public void setMessage(String message) {
+        freezeCheck();
         this.message = message;
     }
 
@@ -105,6 +109,7 @@ public class Mattermost extends AbstractAnnouncer {
     }
 
     public void setMessageTemplate(String messageTemplate) {
+        freezeCheck();
         this.messageTemplate = messageTemplate;
     }
 

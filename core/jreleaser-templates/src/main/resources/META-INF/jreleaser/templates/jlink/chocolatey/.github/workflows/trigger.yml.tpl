@@ -8,7 +8,7 @@ jobs:
     runs-on: windows-latest
     
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       
       - uses: actions/setup-dotnet@v1
         with:
@@ -27,5 +27,5 @@ jobs:
       - name: Publish
         shell: powershell
         run: |
-          choco apikey -k ${{=<% %>=}}{{ secrets.CHOCOLATEY_API_KEY  }}<%={{ }}=%> -s {{chocolateySource}}
+          choco apikey -k ${{=<% %>=}}{{ secrets.CHOCOLATEY_API_KEY }}<%={{ }}=%> -s {{chocolateySource}}
           choco push $(ls *.nupkg | % {$_.FullName}) -s {{chocolateySource}}

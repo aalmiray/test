@@ -26,7 +26,7 @@ import java.util.Set;
  * @author Andres Almiray
  * @since 0.6.0
  */
-public class Article extends AbstractAnnouncer implements CommitAuthorAware {
+public class Article extends AbstractAnnouncer<Article> implements CommitAuthorAware {
     public static final String NAME = "article";
     private final Set<Artifact> files = new LinkedHashSet<>();
     private final CommitAuthor commitAuthor = new CommitAuthor();
@@ -38,28 +38,41 @@ public class Article extends AbstractAnnouncer implements CommitAuthorAware {
         super(NAME);
     }
 
-    void setAll(Article article) {
-        super.setAll(article);
-        this.templateDirectory = article.templateDirectory;
-        setFiles(article.files);
+    @Override
+    public void freeze() {
+        super.freeze();
+        files.forEach(Artifact::freeze);
+        commitAuthor.freeze();
+        repository.freeze();
+    }
+
+    @Override
+    public void merge(Article article) {
+        freezeCheck();
+        super.merge(article);
+        this.templateDirectory = merge(this.templateDirectory, article.templateDirectory);
+        setFiles(merge(this.files, article.files));
         setCommitAuthor(article.commitAuthor);
         setRepository(article.repository);
     }
 
     public Set<Artifact> getFiles() {
-        return Artifact.sortArtifacts(files);
+        return freezeWrap(Artifact.sortArtifacts(files));
     }
 
     public void setFiles(Set<Artifact> files) {
+        freezeCheck();
         this.files.clear();
         this.files.addAll(files);
     }
 
     public void addFiles(Set<Artifact> files) {
+        freezeCheck();
         this.files.addAll(files);
     }
 
     public void addFile(Artifact artifact) {
+        freezeCheck();
         if (null != artifact) {
             this.files.add(artifact);
         }
@@ -72,7 +85,7 @@ public class Article extends AbstractAnnouncer implements CommitAuthorAware {
 
     @Override
     public void setCommitAuthor(CommitAuthor commitAuthor) {
-        this.commitAuthor.setAll(commitAuthor);
+        this.commitAuthor.merge(commitAuthor);
     }
 
     public Repository getRepository() {
@@ -80,7 +93,7 @@ public class Article extends AbstractAnnouncer implements CommitAuthorAware {
     }
 
     public void setRepository(Repository repository) {
-        this.repository.setAll(repository);
+        this.repository.merge(repository);
     }
 
     public String getTemplateDirectory() {
@@ -88,6 +101,7 @@ public class Article extends AbstractAnnouncer implements CommitAuthorAware {
     }
 
     public void setTemplateDirectory(String templateDirectory) {
+        freezeCheck();
         this.templateDirectory = templateDirectory;
     }
 

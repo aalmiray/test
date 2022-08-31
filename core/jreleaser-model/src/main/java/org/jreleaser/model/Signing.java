@@ -27,6 +27,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 import static org.jreleaser.util.Constants.HIDE;
@@ -38,7 +39,7 @@ import static org.jreleaser.util.StringUtils.isNotBlank;
  * @author Andres Almiray
  * @since 0.1.0
  */
-public class Signing implements Domain, Activatable {
+public class Signing extends AbstractModelObject<Signing> implements Domain, Activatable {
     public static final String KEY_SKIP_SIGNING = "skipSigning";
     public static final String COSIGN_PASSWORD = "COSIGN_PASSWORD";
     public static final String COSIGN_PRIVATE_KEY = "COSIGN_PRIVATE_KEY";
@@ -51,7 +52,6 @@ public class Signing implements Domain, Activatable {
     public static final String GPG_HOMEDIR = "GPG_HOMEDIR";
     public static final String GPG_PUBLIC_KEYRING = "GPG_PUBLIC_KEYRING";
 
-    private final List<String> args = new ArrayList<>();
     private final Command command = new Command();
     private final Cosign cosign = new Cosign();
 
@@ -67,17 +67,26 @@ public class Signing implements Domain, Activatable {
     private Boolean files;
     private Boolean checksums;
 
-    void setAll(Signing signing) {
-        this.active = signing.active;
-        this.enabled = signing.enabled;
-        this.armored = signing.armored;
-        this.publicKey = signing.publicKey;
-        this.secretKey = signing.secretKey;
-        this.passphrase = signing.passphrase;
-        this.mode = signing.mode;
-        this.artifacts = signing.artifacts;
-        this.files = signing.files;
-        this.checksums = signing.checksums;
+    @Override
+    public void freeze() {
+        super.freeze();
+        command.freeze();
+        cosign.freeze();
+    }
+
+    @Override
+    public void merge(Signing signing) {
+        freezeCheck();
+        this.active = merge(this.active, signing.active);
+        this.enabled = merge(this.enabled, signing.enabled);
+        this.armored = merge(this.armored, signing.armored);
+        this.publicKey = merge(this.publicKey, signing.publicKey);
+        this.secretKey = merge(this.secretKey, signing.secretKey);
+        this.passphrase = merge(this.passphrase, signing.passphrase);
+        this.mode = merge(this.mode, signing.mode);
+        this.artifacts = merge(this.artifacts, signing.artifacts);
+        this.files = merge(this.files, signing.files);
+        this.checksums = merge(this.checksums, signing.checksums);
         setCommand(signing.command);
         setCosign(signing.cosign);
     }
@@ -94,7 +103,7 @@ public class Signing implements Domain, Activatable {
 
     public boolean resolveEnabled(Project project) {
         if (null == active) {
-            active = Active.NEVER;
+            setActive(Env.resolveOrDefault("signing.active", "", "NEVER"));
         }
         enabled = active.check(project);
         return enabled;
@@ -114,12 +123,13 @@ public class Signing implements Domain, Activatable {
 
     @Override
     public void setActive(Active active) {
+        freezeCheck();
         this.active = active;
     }
 
     @Override
     public void setActive(String str) {
-        this.active = Active.of(str);
+        setActive(Active.of(str));
     }
 
     @Override
@@ -128,19 +138,19 @@ public class Signing implements Domain, Activatable {
     }
 
     public String getResolvedPublicKey() {
-        return Env.resolve(GPG_PUBLIC_KEY, publicKey);
+        return Env.env(GPG_PUBLIC_KEY, publicKey);
     }
 
     public String getResolvedSecretKey() {
-        return Env.resolve(GPG_SECRET_KEY, secretKey);
+        return Env.env(GPG_SECRET_KEY, secretKey);
     }
 
     public String getResolvedPassphrase() {
-        return Env.resolve(GPG_PASSPHRASE, passphrase);
+        return Env.env(GPG_PASSPHRASE, passphrase);
     }
 
     public String getResolvedCosignPassword() {
-        return Env.resolve(COSIGN_PASSWORD, passphrase);
+        return Env.env(COSIGN_PASSWORD, passphrase);
     }
 
     public Boolean isArmored() {
@@ -148,6 +158,7 @@ public class Signing implements Domain, Activatable {
     }
 
     public void setArmored(Boolean armored) {
+        freezeCheck();
         this.armored = armored;
     }
 
@@ -160,6 +171,7 @@ public class Signing implements Domain, Activatable {
     }
 
     public void setPublicKey(String publicKey) {
+        freezeCheck();
         this.publicKey = publicKey;
     }
 
@@ -168,6 +180,7 @@ public class Signing implements Domain, Activatable {
     }
 
     public void setSecretKey(String secretKey) {
+        freezeCheck();
         this.secretKey = secretKey;
     }
 
@@ -176,6 +189,7 @@ public class Signing implements Domain, Activatable {
     }
 
     public void setPassphrase(String passphrase) {
+        freezeCheck();
         this.passphrase = passphrase;
     }
 
@@ -184,11 +198,12 @@ public class Signing implements Domain, Activatable {
     }
 
     public void setMode(Mode mode) {
+        freezeCheck();
         this.mode = mode;
     }
 
     public void setMode(String str) {
-        this.mode = Mode.of(str);
+        setMode(Mode.of(str));
     }
 
     public boolean isArtifactsSet() {
@@ -200,6 +215,7 @@ public class Signing implements Domain, Activatable {
     }
 
     public void setArtifacts(Boolean artifacts) {
+        freezeCheck();
         this.artifacts = artifacts;
     }
 
@@ -212,6 +228,7 @@ public class Signing implements Domain, Activatable {
     }
 
     public void setFiles(Boolean files) {
+        freezeCheck();
         this.files = files;
     }
 
@@ -224,6 +241,7 @@ public class Signing implements Domain, Activatable {
     }
 
     public void setChecksums(Boolean checksums) {
+        freezeCheck();
         this.checksums = checksums;
     }
 
@@ -232,7 +250,8 @@ public class Signing implements Domain, Activatable {
     }
 
     public void setCommand(Command command) {
-        this.command.setAll(command);
+        freezeCheck();
+        this.command.merge(command);
     }
 
     public Cosign getCosign() {
@@ -240,7 +259,7 @@ public class Signing implements Domain, Activatable {
     }
 
     public void setCosign(Cosign cosign) {
-        this.cosign.setAll(cosign);
+        this.cosign.merge(cosign);
     }
 
     @Override
@@ -286,16 +305,16 @@ public class Signing implements Domain, Activatable {
 
         @Override
         public String toString() {
-            return name().toLowerCase();
+            return name().toLowerCase(Locale.ENGLISH);
         }
 
         public static Mode of(String str) {
             if (isBlank(str)) return null;
-            return Mode.valueOf(str.toUpperCase().trim());
+            return Mode.valueOf(str.toUpperCase(Locale.ENGLISH).trim());
         }
     }
 
-    public static class Command implements Domain {
+    public static class Command extends AbstractModelObject<Command> implements Domain {
         private final List<String> args = new ArrayList<>();
 
         private String executable;
@@ -304,13 +323,15 @@ public class Signing implements Domain, Activatable {
         private String publicKeyring;
         private Boolean defaultKeyring;
 
-        void setAll(Command command) {
-            this.executable = command.executable;
-            this.keyName = command.keyName;
-            this.homeDir = command.homeDir;
-            this.publicKeyring = command.publicKeyring;
-            this.defaultKeyring = command.defaultKeyring;
-            setArgs(command.args);
+        @Override
+        public void merge(Command command) {
+            freezeCheck();
+            this.executable = merge(this.executable, command.executable);
+            this.keyName = merge(this.keyName, command.keyName);
+            this.homeDir = merge(this.homeDir, command.homeDir);
+            this.publicKeyring = merge(this.publicKeyring, command.publicKeyring);
+            this.defaultKeyring = merge(this.defaultKeyring, command.defaultKeyring);
+            setArgs(merge(this.args, command.args));
         }
 
         public String getExecutable() {
@@ -318,6 +339,7 @@ public class Signing implements Domain, Activatable {
         }
 
         public void setExecutable(String executable) {
+            freezeCheck();
             this.executable = executable;
         }
 
@@ -326,6 +348,7 @@ public class Signing implements Domain, Activatable {
         }
 
         public void setKeyName(String keyName) {
+            freezeCheck();
             this.keyName = keyName;
         }
 
@@ -334,6 +357,7 @@ public class Signing implements Domain, Activatable {
         }
 
         public void setHomeDir(String homeDir) {
+            freezeCheck();
             this.homeDir = homeDir;
         }
 
@@ -342,6 +366,7 @@ public class Signing implements Domain, Activatable {
         }
 
         public void setPublicKeyring(String publicKeyring) {
+            freezeCheck();
             this.publicKeyring = publicKeyring;
         }
 
@@ -354,32 +379,18 @@ public class Signing implements Domain, Activatable {
         }
 
         public void setDefaultKeyring(Boolean defaultKeyring) {
+            freezeCheck();
             this.defaultKeyring = defaultKeyring;
         }
 
         public List<String> getArgs() {
-            return args;
+            return freezeWrap(args);
         }
 
         public void setArgs(List<String> args) {
+            freezeCheck();
             this.args.clear();
             this.args.addAll(args);
-        }
-
-        public void addArgs(List<String> args) {
-            this.args.addAll(args);
-        }
-
-        public void addArg(String arg) {
-            if (isNotBlank(arg)) {
-                this.args.add(arg.trim());
-            }
-        }
-
-        public void removeArg(String arg) {
-            if (isNotBlank(arg)) {
-                this.args.remove(arg.trim());
-            }
         }
 
         @Override
@@ -397,23 +408,25 @@ public class Signing implements Domain, Activatable {
         }
     }
 
-    public static class Cosign implements Domain {
+    public static class Cosign extends AbstractModelObject<Cosign> implements Domain {
         private String version;
         private String privateKeyFile;
         private String publicKeyFile;
 
-        void setAll(Cosign cosign) {
-            this.version = cosign.version;
-            this.privateKeyFile = cosign.privateKeyFile;
-            this.publicKeyFile = cosign.publicKeyFile;
+        @Override
+        public void merge(Cosign cosign) {
+            freezeCheck();
+            this.version = merge(this.version, cosign.version);
+            this.privateKeyFile = merge(this.privateKeyFile, cosign.privateKeyFile);
+            this.publicKeyFile = merge(this.publicKeyFile, cosign.publicKeyFile);
         }
 
         public String getResolvedPrivateKeyFile() {
-            return Env.resolve(COSIGN_PRIVATE_KEY, privateKeyFile);
+            return Env.env(COSIGN_PRIVATE_KEY, privateKeyFile);
         }
 
         public String getResolvedPublicKeyFile() {
-            return Env.resolve(COSIGN_PUBLIC_KEY, publicKeyFile);
+            return Env.env(COSIGN_PUBLIC_KEY, publicKeyFile);
         }
 
         public String getVersion() {
@@ -421,6 +434,7 @@ public class Signing implements Domain, Activatable {
         }
 
         public void setVersion(String version) {
+            freezeCheck();
             this.version = version;
         }
 
@@ -429,6 +443,7 @@ public class Signing implements Domain, Activatable {
         }
 
         public void setPrivateKeyFile(String privateKeyFile) {
+            freezeCheck();
             this.privateKeyFile = privateKeyFile;
         }
 
@@ -437,6 +452,7 @@ public class Signing implements Domain, Activatable {
         }
 
         public void setPublicKeyFile(String publicKeyFile) {
+            freezeCheck();
             this.publicKeyFile = publicKeyFile;
         }
 

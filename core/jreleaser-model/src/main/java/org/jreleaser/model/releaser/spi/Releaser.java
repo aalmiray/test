@@ -18,6 +18,7 @@
 package org.jreleaser.model.releaser.spi;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -30,4 +31,8 @@ public interface Releaser {
     Repository maybeCreateRepository(String owner, String repo, String password) throws IOException;
 
     Optional<User> findUser(String email, String name);
+    
+    String generateReleaseNotes() throws IOException;
+
+    List<Release> listReleases(String owner, String repo) throws IOException;
 }

@@ -38,7 +38,7 @@ import static org.jreleaser.util.Templates.resolveTemplate;
  * @author Andres Almiray
  * @since 0.2.0
  */
-public class Discord extends AbstractAnnouncer {
+public class Discord extends AbstractAnnouncer<Discord> {
     public static final String NAME = "discord";
     public static final String DISCORD_WEBHOOK = "DISCORD_WEBHOOK";
 
@@ -50,11 +50,13 @@ public class Discord extends AbstractAnnouncer {
         super(NAME);
     }
 
-    void setAll(Discord discord) {
-        super.setAll(discord);
-        this.webhook = discord.webhook;
-        this.message = discord.message;
-        this.messageTemplate = discord.messageTemplate;
+    @Override
+    public void merge(Discord discord) {
+        freezeCheck();
+        super.merge(discord);
+        this.webhook = merge(this.webhook, discord.webhook);
+        this.message = merge(this.message, discord.message);
+        this.messageTemplate = merge(this.messageTemplate, discord.messageTemplate);
     }
 
     public String getResolvedMessage(JReleaserContext context) {
@@ -81,7 +83,7 @@ public class Discord extends AbstractAnnouncer {
     }
 
     public String getResolvedWebhook() {
-        return Env.resolve(DISCORD_WEBHOOK, webhook);
+        return Env.env(DISCORD_WEBHOOK, webhook);
     }
 
     public String getWebhook() {
@@ -89,6 +91,7 @@ public class Discord extends AbstractAnnouncer {
     }
 
     public void setWebhook(String webhook) {
+        freezeCheck();
         this.webhook = webhook;
     }
 
@@ -97,6 +100,7 @@ public class Discord extends AbstractAnnouncer {
     }
 
     public void setMessage(String message) {
+        freezeCheck();
         this.message = message;
     }
 
@@ -105,6 +109,7 @@ public class Discord extends AbstractAnnouncer {
     }
 
     public void setMessageTemplate(String messageTemplate) {
+        freezeCheck();
         this.messageTemplate = messageTemplate;
     }
 

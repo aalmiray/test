@@ -31,7 +31,7 @@ import java.util.stream.Collectors;
 
 import static java.util.Arrays.binarySearch;
 import static java.util.Collections.emptyList;
-import static org.jreleaser.util.CollectionUtils.newList;
+import static org.jreleaser.util.CollectionUtils.listOf;
 import static org.jreleaser.util.StringUtils.isBlank;
 import static org.jreleaser.util.StringUtils.isNotBlank;
 import static org.jreleaser.util.StringUtils.requireNonBlank;
@@ -239,18 +239,29 @@ public class CalVer implements Version<CalVer> {
 
     @Override
     public String toString() {
-        return pattern.replace(YEAR_LONG, year)
-            .replace(YEAR_SHORT, year)
-            .replace(YEAR_ZERO, year)
-            .replace(MONTH_SHORT, month)
-            .replace(MONTH_ZERO, month)
-            .replace(WEEK_SHORT, week)
-            .replace(WEEK_ZERO, week)
-            .replace(DAY_SHORT, day)
-            .replace(DAY_ZERO, day)
-            .replace(MINOR, String.valueOf(minor))
-            .replace(MICRO, String.valueOf(micro))
-            .replace(MODIFIER, modifier);
+        String str = safeReplace(pattern, YEAR_LONG, year);
+        str = safeReplace(str, YEAR_SHORT, year);
+        str = safeReplace(str, YEAR_ZERO, year);
+        str = safeReplace(str, MONTH_SHORT, month);
+        str = safeReplace(str, MONTH_ZERO, month);
+        str = safeReplace(str, WEEK_SHORT, week);
+        str = safeReplace(str, WEEK_ZERO, week);
+        str = safeReplace(str, DAY_SHORT, day);
+        str = safeReplace(str, DAY_ZERO, day);
+        str = safeReplace(str, MINOR, minor);
+        str = safeReplace(str, MICRO, micro);
+        str = safeReplace(str, MODIFIER, modifier);
+        str = safeReplace(str, "[", "");
+        str = safeReplace(str, "]", "");
+
+        return str;
+    }
+
+    private String safeReplace(String str, CharSequence target, CharSequence replacement) {
+        if (null != replacement) {
+            return str.replace(target, replacement);
+        }
+        return str;
     }
 
     @Override
@@ -312,7 +323,7 @@ public class CalVer implements Version<CalVer> {
 
         List<String> tokens = new ArrayList<>();
 
-        List<Character> delims = newList('.', '_', '-', '[');
+        List<Character> delims = listOf('.', '_', '-', '[');
         String f = format.trim();
         String y = null;
         String m = null;
@@ -465,7 +476,9 @@ public class CalVer implements Version<CalVer> {
             .replace(DAY_ZERO, "01")
             .replace(MINOR, "0")
             .replace(MICRO, "0")
-            .replace(MODIFIER, "A"));
+            .replace(MODIFIER, "A")
+            .replace("[", "")
+            .replace("]", ""));
     }
 
     private static Tuple take(String str, int index, List<Character> delims) {

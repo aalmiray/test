@@ -17,13 +17,19 @@
  */
 package org.jreleaser.model.validation;
 
+import org.jreleaser.bundle.RB;
 import org.jreleaser.model.JReleaserContext;
 import org.jreleaser.model.Upload;
 import org.jreleaser.util.Errors;
 
 import static org.jreleaser.model.validation.ArtifactoryValidator.validateArtifactory;
-import static org.jreleaser.model.validation.HttpValidator.validateHttp;
+import static org.jreleaser.model.validation.FtpUploaderValidator.validateFtpUploader;
+import static org.jreleaser.model.validation.GiteaUploaderValidator.validateGiteaUploader;
+import static org.jreleaser.model.validation.GitlabUploaderValidator.validateGitlabUploader;
+import static org.jreleaser.model.validation.HttpUploaderValidator.validateHttpUploader;
 import static org.jreleaser.model.validation.S3Validator.validateS3;
+import static org.jreleaser.model.validation.ScpUploaderValidator.validateScpUploader;
+import static org.jreleaser.model.validation.SftpUploaderValidator.validateSftpUploader;
 
 /**
  * @author Andres Almiray
@@ -31,17 +37,42 @@ import static org.jreleaser.model.validation.S3Validator.validateS3;
  */
 public abstract class UploadersValidator extends Validator {
     public static void validateUploaders(JReleaserContext context, JReleaserContext.Mode mode, Errors errors) {
+        Upload upload = context.getModel().getUpload();
         context.getLogger().debug("upload");
 
-        Upload upload = context.getModel().getUpload();
-        validateArtifactory(context, mode, errors);
-        validateHttp(context, mode, errors);
-        validateS3(context, mode, errors);
+        boolean skipValidation = !mode.validateConfig();
+        Errors errorCollector = skipValidation ? new Errors() : errors;
+        validateArtifactory(context, mode, errorCollector);
+        validateFtpUploader(context, mode, errorCollector);
+        validateGiteaUploader(context, mode, errorCollector);
+        validateGitlabUploader(context, mode, errorCollector);
+        validateHttpUploader(context, mode, errorCollector);
+        validateS3(context, mode, errorCollector);
+        validateScpUploader(context, mode, errorCollector);
+        validateSftpUploader(context, mode, errorCollector);
 
-        if (mode.validateConfig() && !upload.isEnabledSet()) {
-            upload.setEnabled(!upload.getActiveArtifactories().isEmpty() ||
+        if (skipValidation) {
+            context.getLogger().debug(RB.$("validation.disabled"));
+            return;
+        }
+
+        boolean activeSet = upload.isActiveSet();
+        upload.resolveEnabled(context.getModel().getProject());
+
+        if (mode.validateConfig() && upload.isEnabled()) {
+            boolean enabled = !upload.getActiveArtifactories().isEmpty() ||
+                !upload.getActiveFtps().isEmpty() ||
+                !upload.getActiveGiteas().isEmpty() ||
+                !upload.getActiveGitlabs().isEmpty() ||
                 !upload.getActiveHttps().isEmpty() ||
-                !upload.getActiveS3s().isEmpty());
+                !upload.getActiveS3s().isEmpty() ||
+                !upload.getActiveScps().isEmpty() ||
+                !upload.getActiveSftps().isEmpty();
+
+            if (!activeSet && !enabled) {
+                context.getLogger().debug(RB.$("validation.disabled"));
+                upload.disable();
+            }
         }
     }
 }

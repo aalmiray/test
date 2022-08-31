@@ -27,11 +27,17 @@ import org.gradle.api.Action
  */
 @CompileStatic
 interface Packagers {
+    AppImage getAppImage()
+
+    Asdf getAsdf()
+
     Brew getBrew()
 
     Chocolatey getChocolatey()
 
     Docker getDocker()
+
+    Flatpak getFlatpak()
 
     Gofish getGofish()
 
@@ -47,11 +53,17 @@ interface Packagers {
 
     Spec getSpec()
 
+    void appImage(Action<? super AppImage> action)
+
+    void asdf(Action<? super Asdf> action)
+
     void brew(Action<? super Brew> action)
 
     void chocolatey(Action<? super Chocolatey> action)
 
     void docker(Action<? super Docker> action)
+
+    void flatpak(Action<? super Flatpak> action)
 
     void gofish(Action<? super Gofish> action)
 
@@ -67,11 +79,17 @@ interface Packagers {
 
     void spec(Action<? super Spec> action)
 
+    void appImage(@DelegatesTo(strategy = Closure.DELEGATE_FIRST, value = AppImage) Closure<Void> action)
+
+    void asdf(@DelegatesTo(strategy = Closure.DELEGATE_FIRST, value = Asdf) Closure<Void> action)
+
     void brew(@DelegatesTo(strategy = Closure.DELEGATE_FIRST, value = Brew) Closure<Void> action)
 
     void chocolatey(@DelegatesTo(strategy = Closure.DELEGATE_FIRST, value = Chocolatey) Closure<Void> action)
 
     void docker(@DelegatesTo(strategy = Closure.DELEGATE_FIRST, value = Docker) Closure<Void> action)
+
+    void flatpak(@DelegatesTo(strategy = Closure.DELEGATE_FIRST, value = Flatpak) Closure<Void> action)
 
     void gofish(@DelegatesTo(strategy = Closure.DELEGATE_FIRST, value = Gofish) Closure<Void> action)
 

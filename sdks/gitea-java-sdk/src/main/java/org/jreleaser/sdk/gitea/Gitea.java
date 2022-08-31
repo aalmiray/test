@@ -35,23 +35,32 @@ import org.jreleaser.model.releaser.spi.User;
 import org.jreleaser.sdk.commons.ClientUtils;
 import org.jreleaser.sdk.commons.RestAPIException;
 import org.jreleaser.sdk.gitea.api.GiteaAPI;
+import org.jreleaser.sdk.gitea.api.GtAsset;
+import org.jreleaser.sdk.gitea.api.GtBranch;
+import org.jreleaser.sdk.gitea.api.GtIssue;
+import org.jreleaser.sdk.gitea.api.GtLabel;
 import org.jreleaser.sdk.gitea.api.GtMilestone;
 import org.jreleaser.sdk.gitea.api.GtOrganization;
 import org.jreleaser.sdk.gitea.api.GtRelease;
 import org.jreleaser.sdk.gitea.api.GtRepository;
 import org.jreleaser.sdk.gitea.api.GtSearchUser;
 import org.jreleaser.sdk.gitea.api.GtUser;
+import org.jreleaser.sdk.gitea.internal.Page;
+import org.jreleaser.sdk.gitea.internal.PaginatingDecoder;
 import org.jreleaser.util.CollectionUtils;
 import org.jreleaser.util.JReleaserLogger;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toList;
 import static org.jreleaser.util.StringUtils.requireNonBlank;
 
 /**
@@ -91,7 +100,7 @@ class Gitea {
         this.api = ClientUtils.builder(logger, connectTimeout, readTimeout)
             .client(new ApacheHttpClient())
             .encoder(new FormEncoder(new JacksonEncoder(objectMapper)))
-            .decoder(new JacksonDecoder(objectMapper))
+            .decoder(new PaginatingDecoder(new JacksonDecoder(objectMapper)))
             .requestInterceptor(template -> template.header("Authorization", String.format("token %s", token)))
             .target(GiteaAPI.class, endpoint);
     }
@@ -107,6 +116,76 @@ class Gitea {
             }
             throw e;
         }
+    }
+
+    List<org.jreleaser.model.releaser.spi.Release> listReleases(String owner, String repoName) throws IOException {
+        logger.debug(RB.$("git.list.releases"), owner, repoName);
+
+        List<org.jreleaser.model.releaser.spi.Release> releases = new ArrayList<>();
+
+        int pageCount = 0;
+        Map<String, Object> params = CollectionUtils.<String, Object>map()
+            .e("draft", false)
+            .e("prerelease", false)
+            .e("limit", 20);
+
+        boolean consume = true;
+        do {
+            params.put("page", ++pageCount);
+            Page<List<GtRelease>> page = api.listReleases(owner, repoName, params);
+            page.getContent().stream()
+                .map(r -> new org.jreleaser.model.releaser.spi.Release(
+                    r.getName(),
+                    r.getTagName(),
+                    r.getHtmlUrl(),
+                    r.getPublishedAt()
+                ))
+                .forEach(releases::add);
+
+            if (!page.hasLinks() || !page.getLinks().hasNext()) {
+                consume = false;
+            }
+        }
+        while (consume);
+
+        return releases;
+    }
+
+    List<String> listBranches(String owner, String repoName) throws IOException {
+        logger.debug(RB.$("git.list.branches"), owner, repoName);
+
+        List<String> branches = new ArrayList<>();
+
+        int pageCount = 0;
+        Map<String, Object> params = CollectionUtils.<String, Object>map()
+            .e("limit", 20);
+
+        boolean consume = true;
+        do {
+            params.put("page", ++pageCount);
+            Page<List<GtBranch>> page = api.listBranches(owner, repoName, params);
+            page.getContent().stream()
+                .map(GtBranch::getName)
+                .forEach(branches::add);
+
+            if (!page.hasLinks() || !page.getLinks().hasNext()) {
+                consume = false;
+            }
+        }
+        while (consume);
+
+        return branches;
+    }
+
+    Map<String, GtAsset> listAssets(String owner, String repo, GtRelease release) throws IOException {
+        logger.debug(RB.$("git.list.assets.github"), owner, repo, release.getId());
+
+        Map<String, GtAsset> assets = new LinkedHashMap<>();
+        for (GtAsset asset : api.listAssets(owner, repo, release.getId())) {
+            assets.put(asset.getName(), asset);
+        }
+
+        return assets;
     }
 
     Optional<GtMilestone> findMilestoneByName(String owner, String repo, String milestoneName) {
@@ -227,16 +306,113 @@ class Gitea {
         }
     }
 
+    void updateAssets(String owner, String repo, GtRelease release, List<Asset> assets, Map<String, GtAsset> existingAssets) throws IOException {
+        for (Asset asset : assets) {
+            if (0 == Files.size(asset.getPath()) || !Files.exists(asset.getPath())) {
+                // do not upload empty or non existent files
+                continue;
+            }
+
+            logger.debug(" " + RB.$("git.delete.asset"), asset.getFilename());
+            try {
+                api.deleteAsset(owner, repo, release.getId(), existingAssets.get(asset.getFilename()).getId());
+            } catch (RestAPIException e) {
+                logger.error(" " + RB.$("git.delete.asset.failure"), asset.getFilename());
+                throw e;
+            }
+
+            logger.info(" " + RB.$("git.update.asset"), asset.getFilename());
+            try {
+                api.uploadAsset(owner, repo, release.getId(), toFormData(asset.getPath()));
+            } catch (RestAPIException e) {
+                logger.error(" " + RB.$("git.upload.asset.failure"), asset.getFilename());
+                throw e;
+            }
+        }
+    }
+
     Optional<User> findUser(String email, String name, String host) throws RestAPIException {
         logger.debug(RB.$("git.user.lookup"), name, email);
 
-        GtSearchUser search = api.searchUser(CollectionUtils.<String, String>newMap("q", email));
+        GtSearchUser search = api.searchUser(CollectionUtils.<String, String>mapOf("q", email));
         if (null != search.getData() && !search.getData().isEmpty()) {
             GtUser user = search.getData().get(0);
             return Optional.of(new User(user.getUsername(), email, host + user.getUsername()));
         }
 
         return Optional.empty();
+    }
+
+    GtLabel getOrCreateLabel(String owner, String name, String labelName, String labelColor, String description) throws IOException {
+        logger.debug(RB.$("git.label.fetch", labelName));
+
+        List<GtLabel> labels = listLabels(owner, name);
+        Optional<GtLabel> label = labels.stream()
+            .filter(l -> l.getName().equals(labelName))
+            .findFirst();
+
+        if (label.isPresent()) {
+            return label.get();
+        }
+
+        logger.debug(RB.$("git.label.create", labelName));
+        return api.createLabel(owner, name, labelName, labelColor, description);
+    }
+
+    Optional<GtIssue> findIssue(String owner, String name, int issueNumber) throws IOException {
+        logger.debug(RB.$("git.issue.fetch", issueNumber));
+        try {
+            return Optional.of(api.findIssue(owner, name, issueNumber));
+        } catch (RestAPIException e) {
+            if (e.isNotFound()) {
+                return Optional.empty();
+            }
+            throw e;
+        }
+    }
+
+    void addLabelToIssue(String owner, String name, GtIssue issue, GtLabel label) throws IOException {
+        logger.debug(RB.$("git.issue.label", label.getName(), issue.getNumber()));
+
+        Map<String, List<Integer>> labels = new LinkedHashMap<>();
+        List<Integer> list = labels.computeIfAbsent("labels", k -> new ArrayList<>());
+        list.addAll(issue.getLabels().stream().map(GtLabel::getId).collect(toList()));
+        list.add(label.getId());
+
+        api.labelIssue(labels, owner, name, issue.getNumber());
+    }
+
+    void commentOnIssue(String owner, String name, GtIssue issue, String comment) throws IOException {
+        logger.debug(RB.$("git.issue.comment", issue.getNumber()));
+
+        Map<String, String> params = new LinkedHashMap<>();
+        params.put("body", comment);
+
+        api.commentIssue(params, owner, name, issue.getNumber());
+    }
+
+    private List<GtLabel> listLabels(String owner, String repoName) throws IOException {
+        logger.debug(RB.$("git.list.labels"), owner, repoName);
+
+        List<GtLabel> labels = new ArrayList<>();
+
+        int pageCount = 0;
+        Map<String, Object> params = CollectionUtils.<String, Object>map()
+            .e("limit", 20);
+
+        boolean consume = true;
+        do {
+            params.put("page", ++pageCount);
+            Page<List<GtLabel>> page = api.listLabels(owner, repoName, params);
+            labels.addAll(page.getContent());
+
+            if (!page.hasLinks() || !page.getLinks().hasNext()) {
+                consume = false;
+            }
+        }
+        while (consume);
+
+        return labels;
     }
 
     private FormData toFormData(Path asset) throws IOException {

@@ -71,12 +71,22 @@ public final class ClientUtils {
         // noop
     }
 
-    public static FormData toFormData(Path asset) throws IOException {
+    public static FormData toFormData(String fileName, String contentType, String content) throws IOException {
+        return toFormData(fileName, contentType, content.getBytes(UTF_8));
+    }
+
+    public static FormData toFormData(String fileName, String contentType, byte[] content) throws IOException {
         return FormData.builder()
-            .fileName(asset.getFileName().toString())
-            .contentType(MediaType.parse(TIKA.detect(asset)).toString())
-            .data(Files.readAllBytes(asset))
+            .fileName(fileName)
+            .contentType(contentType)
+            .data(content)
             .build();
+    }
+
+    public static FormData toFormData(Path asset) throws IOException {
+        return toFormData(asset.getFileName().toString(),
+            MediaType.parse(TIKA.detect(asset)).toString(),
+            Files.readAllBytes(asset));
     }
 
     public static Feign.Builder builder(JReleaserLogger logger,
@@ -154,17 +164,18 @@ public final class ClientUtils {
             int status = connection.getResponseCode();
             if (status >= 400) {
                 String reason = connection.getResponseMessage();
-                Reader reader = new InputStreamReader(connection.getErrorStream(), UTF_8);
-                message = IOUtils.toString(reader);
                 StringBuilder b = new StringBuilder("Webhook replied with: ")
                     .append(status);
                 if (isNotBlank(reason)) {
                     b.append(" reason: ")
-                        .append(reason)
-                        .append(",");
+                        .append(reason);
                 }
-                if (isNotBlank(message)) {
-                    b.append(message);
+                try (Reader reader = new InputStreamReader(connection.getErrorStream(), UTF_8)) {
+                    message = IOUtils.toString(reader);
+                    if (isNotBlank(message)) {
+                        b.append(",")
+                            .append(message);
+                    }
                 }
                 throw new AnnounceException(b.toString());
             }
@@ -245,17 +256,18 @@ public final class ClientUtils {
             int status = connection.getResponseCode();
             if (status >= 400) {
                 String reason = connection.getResponseMessage();
-                Reader reader = new InputStreamReader(connection.getErrorStream(), UTF_8);
-                String message = IOUtils.toString(reader);
                 StringBuilder b = new StringBuilder("Got ")
                     .append(status);
                 if (isNotBlank(reason)) {
                     b.append(" reason: ")
-                        .append(reason)
-                        .append(",");
+                        .append(reason);
                 }
-                if (isNotBlank(message)) {
-                    b.append(message);
+                try (Reader reader = new InputStreamReader(connection.getErrorStream(), UTF_8)) {
+                    String message = IOUtils.toString(reader);
+                    if (isNotBlank(message)) {
+                        b.append(", ")
+                            .append(message);
+                    }
                 }
                 throw new UploadException(b.toString());
             }
@@ -268,7 +280,7 @@ public final class ClientUtils {
     private static SSLSocketFactory nonValidatingSSLSocketFactory() {
         try {
             SSLContext sslContext = SSLContext.getInstance("SSL");
-            sslContext.init(null, new TrustManager[]{new NonValidatingTrustManager()}, null);
+            sslContext.init(null, new TrustManager[]{new NonValidatingTrustManager()}, null); // lgtm [java/insecure-trustmanager]
             return sslContext.getSocketFactory();
         } catch (Exception e) {
             throw new IllegalStateException(e);
