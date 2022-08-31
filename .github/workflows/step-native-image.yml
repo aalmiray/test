@@ -38,12 +38,6 @@ jobs:
           name: jlink
           path: out/jreleaser/assemble/jreleaser-standalone/jlink
 
-      #- name: Setup Java
-      #  uses: actions/setup-java@v3
-      #  with:
-      #    java-version: ${{ inputs.java-version }}
-      #    distribution: ${{ inputs.java-distro }}
-
       - name: 'Set up Graal'
         uses: graalvm/setup-graalvm@v1
         with:
@@ -51,6 +45,12 @@ jobs:
           java-version: '17 '
           components: 'native-image'
           github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Java
+        uses: actions/setup-java@v3
+        with:
+          java-version: ${{ inputs.java-version }}
+          distribution: ${{ inputs.java-distro }}
           
       - uses: actions/cache@v2
         with:
