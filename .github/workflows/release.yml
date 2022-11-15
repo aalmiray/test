@@ -83,27 +83,51 @@ jobs:
           fetch-depth: 0
 
       - name: Download artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/cache@v3
         with:
-          name: artifacts
+          key: artifacts-${{ inputs.cache-key }}
           path: plugins
 
       - name: Download jlink
         uses: actions/cache@v3
         with:
+          key: jlink-${{ inputs.cache-key }}
           path: out/jreleaser/assemble/jreleaser-standalone/jlink
-          key: jlink-${{ needs.precheck.outputs.CACHE_KEY }}
 
-      - name: Download jpackage
-        uses: actions/download-artifact@v3
+      - name: Download jpackage Linux
+        uses: actions/cache@v3
         with:
-          name: jpackage
+          key: jpackage-Linux-${{ needs.precheck.outputs.CACHE_KEY }}
           path: out/jreleaser/assemble/jreleaser-installer/jpackage
 
-      - name: Download native-image
-        uses: actions/download-artifact@v3
+      - name: Download jpackage Windows
+        uses: actions/cache@v3
         with:
-          name: native-image
+          key: jpackage-Windows-${{ needs.precheck.outputs.CACHE_KEY }}
+          path: out/jreleaser/assemble/jreleaser-installer/jpackage
+
+      - name: Download jpackage macOs
+        uses: actions/cache@v3
+        with:
+          key: jpackage-macOs-${{ needs.precheck.outputs.CACHE_KEY }}
+          path: out/jreleaser/assemble/jreleaser-installer/jpackage
+
+      - name: Download native-image Linux
+        uses: actions/cache@v3
+        with:
+          key: native-image-Linux-${{ needs.precheck.outputs.CACHE_KEY }}
+          path: out/jreleaser/assemble/jreleaser-native/native-image
+
+      - name: Download native-image Windows
+        uses: actions/cache@v3
+        with:
+          key: native-image-Windows-${{ needs.precheck.outputs.CACHE_KEY }}
+          path: out/jreleaser/assemble/jreleaser-native/native-image
+
+      - name: Download native-image macOs
+        uses: actions/cache@v3
+        with:
+          key: native-image-macOs-${{ needs.precheck.outputs.CACHE_KEY }}
           path: out/jreleaser/assemble/jreleaser-native/native-image
 
       - name: Setup Java

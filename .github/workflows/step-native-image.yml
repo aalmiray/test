@@ -67,16 +67,24 @@ jobs:
           restore-keys: ${{ runner.os }}-gradlew-
 
       - name: Download artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/cache@v3
         with:
-          name: artifacts
+          key: artifacts-${{ inputs.cache-key }}
           path: plugins
 
       - name: Download jlink
         uses: actions/cache@v3
         with:
-          path: out/jreleaser/assemble/jreleaser-standalone/jlink
           key: jlink-${{ inputs.cache-key }}
+          path: out/jreleaser/assemble/jreleaser-standalone/jlink
+
+      - name: Cache native-image
+        uses: actions/cache@v3
+        id: cache-native-image
+        with:
+          key: native-image-${{ runner.os }}-${{ inputs.cache-key }}
+          path: |
+            out/jreleaser/assemble/jreleaser-native/native-image/*.zip
 
       - name: Version
         if: endsWith(${{ inputs.project-version }}, '-SNAPSHOT') != true
@@ -84,6 +92,7 @@ jobs:
           echo ${{ inputs.project-version }} > VERSION
 
       - name: Build
+        if: steps.cache-native-image.outputs.cache-hit != 'true'
         run: ./gradlew :jreleaser:copyJdksFromCache :jreleaser:setupJdks
 
       - name: Install upx
@@ -92,6 +101,7 @@ jobs:
 
       - name: NativeImage
         uses: jreleaser/release-action@v1
+        if: steps.cache-native-image.outputs.cache-hit != 'true'
         with:
           version: early-access
           arguments: assemble -s native-image -scp
@@ -106,11 +116,3 @@ jobs:
           path: |
             out/jreleaser/trace.log
             out/jreleaser/output.properties
-
-      - name: Upload native-image
-        uses: actions/upload-artifact@v3
-        with:
-          retention-days: 1
-          name: native-image
-          path: |
-            out/jreleaser/assemble/jreleaser-native/native-image/*.zip
