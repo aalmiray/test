@@ -46,15 +46,9 @@ jobs:
           key: ${{ runner.os }}-gradlew-${{ hashFiles('**/gradlew') }}
           restore-keys: ${{ runner.os }}-gradlew-
 
-      - name: Cache plugins
-        uses: actions/cache@v3
-        id: cache
-        with:
-          path: plugins
-          key: plugins-${{ inputs.cache-key }}
-
       - name: Cache jlink
         uses: actions/cache@v3
+        id: cache
         with:
           path: out/jreleaser/assemble/jreleaser-standalone/jlink
           key: jlink-${{ inputs.cache-key }}
@@ -86,18 +80,18 @@ jobs:
             out/jreleaser/trace.log
             out/jreleaser/output.properties
 
-#      - name: Upload artifacts
-#        uses: actions/upload-artifact@v3
-#        with:
-#          retention-days: 1
-#          name: artifacts
-#          path: |
-#            plugins/jreleaser/build/libs/
-#            plugins/jreleaser/build/dependencies/
-#            plugins/jreleaser/build/distributions/
-#            plugins/jreleaser-tool-provider/build/libs/*.jar
-#            plugins/jreleaser-ant-tasks/build/distributions/*.zip
-#
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          retention-days: 1
+          name: artifacts
+          path: |
+            plugins/jreleaser/build/libs/
+            plugins/jreleaser/build/dependencies/
+            plugins/jreleaser/build/distributions/
+            plugins/jreleaser-tool-provider/build/libs/*.jar
+            plugins/jreleaser-ant-tasks/build/distributions/*.zip
+
 #      - name: Upload jlink
 #        uses: actions/upload-artifact@v3
 #        with:

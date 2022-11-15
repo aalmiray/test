@@ -50,18 +50,11 @@ jobs:
           key: ${{ runner.os }}-gradlew-${{ hashFiles('**/gradlew') }}
           restore-keys: ${{ runner.os }}-gradlew-
 
-      - name: Cache jpackage
-        uses: actions/cache@v3
-        id: cache
-        with:
-          path: out/jreleaser/assemble/jreleaser-installer/jpackage
-          key: jpackage-${{ runner.os }}-${{ inputs.cache-key }}
-
       - name: Download artifacts
-        uses: actions/cache@v3
+        uses: actions/download-artifact@v3
         with:
+          name: artifacts
           path: plugins
-          key: plugins-${{ inputs.cache-key }}
 
       - name: Download jlink
         uses: actions/cache@v3
@@ -78,7 +71,6 @@ jobs:
         run: ./gradlew :jreleaser:copyJdksFromCache :jreleaser:setupJdks
 
       - name: Jpackage
-        if: steps.cache.outputs.cache-hit != 'true'
         uses: jreleaser/release-action@v1
         with:
           version: early-access
@@ -95,14 +87,14 @@ jobs:
             out/jreleaser/trace.log
             out/jreleaser/output.properties
 
-#      - name: Upload jpackage
-#        uses: actions/upload-artifact@v3
-#        with:
-#          retention-days: 1
-#          name: jpackage
-#          path: |
-#            out/jreleaser/assemble/jreleaser-installer/jpackage/*.pkg
-#            out/jreleaser/assemble/jreleaser-installer/jpackage/*.msi
-#            out/jreleaser/assemble/jreleaser-installer/jpackage/*.exe
-#            out/jreleaser/assemble/jreleaser-installer/jpackage/*.deb
-#            out/jreleaser/assemble/jreleaser-installer/jpackage/*.rpm
+      - name: Upload jpackage
+        uses: actions/upload-artifact@v3
+        with:
+          retention-days: 1
+          name: jpackage
+          path: |
+            out/jreleaser/assemble/jreleaser-installer/jpackage/*.pkg
+            out/jreleaser/assemble/jreleaser-installer/jpackage/*.msi
+            out/jreleaser/assemble/jreleaser-installer/jpackage/*.exe
+            out/jreleaser/assemble/jreleaser-installer/jpackage/*.deb
+            out/jreleaser/assemble/jreleaser-installer/jpackage/*.rpm

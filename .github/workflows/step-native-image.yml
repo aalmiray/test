@@ -66,18 +66,11 @@ jobs:
           key: ${{ runner.os }}-gradlew-${{ hashFiles('**/gradlew') }}
           restore-keys: ${{ runner.os }}-gradlew-
 
-      - name: Cache native-image
-        uses: actions/cache@v3
-        id: cache
-        with:
-          path: out/jreleaser/assemble/jreleaser-native/native-image
-          key: native-image-${{ runner.os }}-${{ inputs.cache-key }}
-
       - name: Download artifacts
-        uses: actions/cache@v3
+        uses: actions/download-artifact@v3
         with:
+          name: artifacts
           path: plugins
-          key: plugins-${{ inputs.cache-key }}
 
       - name: Download jlink
         uses: actions/cache@v3
@@ -98,7 +91,6 @@ jobs:
         if: ${{ runner.os == 'macOS' }}
 
       - name: NativeImage
-        if: steps.cache.outputs.cache-hit != 'true'
         uses: jreleaser/release-action@v1
         with:
           version: early-access
@@ -115,10 +107,10 @@ jobs:
             out/jreleaser/trace.log
             out/jreleaser/output.properties
 
-#      - name: Upload native-image
-#        uses: actions/upload-artifact@v3
-#        with:
-#          retention-days: 1
-#          name: native-image
-#          path: |
-#            out/jreleaser/assemble/jreleaser-native/native-image/*.zip
+      - name: Upload native-image
+        uses: actions/upload-artifact@v3
+        with:
+          retention-days: 1
+          name: native-image
+          path: |
+            out/jreleaser/assemble/jreleaser-native/native-image/*.zip
