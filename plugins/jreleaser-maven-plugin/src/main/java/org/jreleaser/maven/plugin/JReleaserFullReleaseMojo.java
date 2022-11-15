@@ -21,7 +21,7 @@ import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
-import org.jreleaser.model.JReleaserContext;
+import org.jreleaser.model.internal.JReleaserContext;
 import org.jreleaser.workflow.Workflows;
 
 /**
@@ -32,6 +32,30 @@ import org.jreleaser.workflow.Workflows;
  */
 @Mojo(name = "full-release")
 public class JReleaserFullReleaseMojo extends AbstractPlatformAwareJReleaserMojo {
+    /**
+     * Include a deployer by type.
+     */
+    @Parameter(property = "jreleaser.deployers")
+    private String[] includedDeployers;
+
+    /**
+     * Exclude a deployer by type.
+     */
+    @Parameter(property = "jreleaser.excluded.deployers")
+    private String[] excludedDeployers;
+
+    /**
+     * Include a deployer by name.
+     */
+    @Parameter(property = "jreleaser.deployer.names")
+    private String[] includedDeployerNames;
+
+    /**
+     * Exclude a deployer by name.
+     */
+    @Parameter(property = "jreleaser.excluded.deployer.names")
+    private String[] excludedDeployerNames;
+
     /**
      * Include an uploader by type.
      */
@@ -107,11 +131,15 @@ public class JReleaserFullReleaseMojo extends AbstractPlatformAwareJReleaserMojo
         }
 
         JReleaserContext context = createContext();
+        context.setIncludedDeployerTypes(collectEntries(includedDeployers, true));
+        context.setIncludedDeployerNames(collectEntries(includedDeployerNames));
         context.setIncludedUploaderTypes(collectEntries(includedUploaders, true));
         context.setIncludedUploaderNames(collectEntries(includedUploaderNames));
         context.setIncludedDistributions(collectEntries(includedDistributions));
         context.setIncludedPackagers(collectEntries(includedPackagers, true));
         context.setIncludedAnnouncers(collectEntries(includedAnnouncers, true));
+        context.setExcludedDeployerTypes(collectEntries(excludedDeployers, true));
+        context.setExcludedDeployerNames(collectEntries(excludedDeployerNames));
         context.setExcludedUploaderTypes(collectEntries(excludedUploaders, true));
         context.setExcludedUploaderNames(collectEntries(excludedUploaderNames));
         context.setExcludedDistributions(collectEntries(excludedDistributions));

@@ -18,13 +18,18 @@
 package org.jreleaser.engine.assemble;
 
 import org.jreleaser.bundle.RB;
-import org.jreleaser.model.Assemble;
-import org.jreleaser.model.Assembler;
-import org.jreleaser.model.JReleaserContext;
-import org.jreleaser.model.assembler.spi.AssemblerProcessingException;
-import org.jreleaser.util.JReleaserException;
+import org.jreleaser.extensions.api.workflow.WorkflowListenerException;
+import org.jreleaser.model.JReleaserException;
+import org.jreleaser.model.api.JReleaserCommand;
+import org.jreleaser.model.api.hooks.ExecutionEvent;
+import org.jreleaser.model.internal.JReleaserContext;
+import org.jreleaser.model.internal.assemble.Assemble;
+import org.jreleaser.model.internal.assemble.Assembler;
+import org.jreleaser.model.spi.assemble.AssemblerProcessingException;
 
 import java.util.Map;
+
+import static org.jreleaser.model.internal.JReleaserSupport.supportedAssemblers;
 
 /**
  * @author Andres Almiray
@@ -41,12 +46,12 @@ public class Assemblers {
         if (!context.getIncludedAssemblers().isEmpty()) {
             for (String assemblerType : context.getIncludedAssemblers()) {
                 // check if the assemblerType is valid
-                if (!Assemble.supportedAssemblers().contains(assemblerType)) {
+                if (!supportedAssemblers().contains(assemblerType)) {
                     context.getLogger().warn(RB.$("ERROR_unsupported_assembler", assemblerType));
                     continue;
                 }
 
-                Map<String, Assembler> assemblers = assemble.findAssemblersByType(assemblerType);
+                Map<String, Assembler<?>> assemblers = assemble.findAssemblersByType(assemblerType);
 
                 if (assemblers.isEmpty()) {
                     context.getLogger().debug(RB.$("assemblers.no.match"), assemblerType);
@@ -80,7 +85,7 @@ public class Assemblers {
             }
         } else {
             context.getLogger().info(RB.$("assemblers.assemble.all.distributions"));
-            for (Assembler assembler : assemble.findAllAssemblers()) {
+            for (Assembler<?> assembler : assemble.findAllAssemblers()) {
                 String assemblerType = assembler.getType();
                 String distributionName = assembler.getName();
                 if (context.getExcludedAssemblers().contains(assemblerType) ||
@@ -94,24 +99,49 @@ public class Assemblers {
         }
     }
 
-    private static void assemble(JReleaserContext context, Assembler assembler) {
+    private static void assemble(JReleaserContext context, Assembler<?> assembler) {
         try {
             context.getLogger().increaseIndent();
             context.getLogger().setPrefix(assembler.getType());
+
+            fireAssembleEvent(ExecutionEvent.before(JReleaserCommand.ASSEMBLE.toStep()), context, assembler);
+
             DistributionAssembler processor = createDistributionAssembler(context, assembler);
             processor.assemble();
+
+            fireAssembleEvent(ExecutionEvent.success(JReleaserCommand.ASSEMBLE.toStep()), context, assembler);
+        } catch (AssemblerProcessingException e) {
+            fireAssembleEvent(ExecutionEvent.failure(JReleaserCommand.ASSEMBLE.toStep(), e), context, assembler);
+            throw new JReleaserException(e.getMessage(), e);
+        } finally {
             context.getLogger().restorePrefix();
             context.getLogger().decreaseIndent();
-        } catch (AssemblerProcessingException e) {
-            throw new JReleaserException(e.getMessage(), e);
         }
     }
 
     private static DistributionAssembler createDistributionAssembler(JReleaserContext context,
-                                                                     Assembler assembler) {
+                                                                     Assembler<?> assembler) {
         return DistributionAssembler.builder()
             .context(context)
             .assembler(assembler)
             .build();
+    }
+
+    private static void fireAssembleEvent(ExecutionEvent event, JReleaserContext context, Assembler<?> assembler) {
+        if (!assembler.isEnabled()) return;
+
+        try {
+            context.fireAssembleStepEvent(event, assembler.asImmutable());
+        } catch (WorkflowListenerException e) {
+            context.getLogger().error(RB.$("listener.failure", e.getListener().getClass().getName()));
+            context.getLogger().trace(e);
+            if (event.getType() != ExecutionEvent.Type.FAILURE && !e.getListener().isContinueOnError()) {
+                if (e.getCause() instanceof RuntimeException) {
+                    throw (RuntimeException) e.getCause();
+                } else {
+                    throw new JReleaserException(RB.$("ERROR_unexpected_error"), e.getCause());
+                }
+            }
+        }
     }
 }

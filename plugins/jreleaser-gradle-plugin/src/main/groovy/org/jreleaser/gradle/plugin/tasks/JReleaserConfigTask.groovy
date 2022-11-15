@@ -25,9 +25,15 @@ import org.gradle.api.tasks.TaskAction
 import org.gradle.api.tasks.options.Option
 import org.jreleaser.engine.context.ModelValidator
 import org.jreleaser.gradle.plugin.internal.JReleaserModelPrinter
-import org.jreleaser.model.JReleaserContext
+import org.jreleaser.model.internal.JReleaserContext
 
 import javax.inject.Inject
+
+import static org.jreleaser.model.api.JReleaserContext.Mode.ANNOUNCE
+import static org.jreleaser.model.api.JReleaserContext.Mode.ASSEMBLE
+import static org.jreleaser.model.api.JReleaserContext.Mode.CHANGELOG
+import static org.jreleaser.model.api.JReleaserContext.Mode.CONFIG
+import static org.jreleaser.model.api.JReleaserContext.Mode.DOWNLOAD
 
 /**
  *
@@ -40,7 +46,13 @@ abstract class JReleaserConfigTask extends AbstractPlatformAwareJReleaserTask {
     final Property<Boolean> full
 
     @Input
+    final Property<Boolean> announce
+
+    @Input
     final Property<Boolean> assembly
+
+    @Input
+    final Property<Boolean> changelog
 
     @Input
     final Property<Boolean> download
@@ -50,6 +62,8 @@ abstract class JReleaserConfigTask extends AbstractPlatformAwareJReleaserTask {
         super(objects)
         full = objects.property(Boolean).convention(false)
         assembly = objects.property(Boolean).convention(false)
+        announce = objects.property(Boolean).convention(false)
+        changelog = objects.property(Boolean).convention(false)
         download = objects.property(Boolean).convention(false)
     }
 
@@ -58,9 +72,19 @@ abstract class JReleaserConfigTask extends AbstractPlatformAwareJReleaserTask {
         this.full.set(full)
     }
 
+    @Option(option = 'announce', description = 'Display announce configuration (OPTIONAL).')
+    void setAnnounce(boolean announce) {
+        this.announce.set(announce)
+    }
+
     @Option(option = 'assembly', description = 'Display assembly configuration (OPTIONAL).')
     void setAssembly(boolean assembly) {
         this.assembly.set(assembly)
+    }
+
+    @Option(option = 'changelog', description = 'Display changelog configuration (OPTIONAL).')
+    void setChangelog(boolean changelog) {
+        this.changelog.set(changelog)
     }
 
     @Option(option = 'download', description = 'Display download configuration (OPTIONAL).')
@@ -71,11 +95,15 @@ abstract class JReleaserConfigTask extends AbstractPlatformAwareJReleaserTask {
     @TaskAction
     void displayConfig() {
         if (download.get()) {
-            mode = JReleaserContext.Mode.DOWNLOAD
+            mode = DOWNLOAD
+        } else if (announce.get()) {
+            mode = ANNOUNCE
         } else if (assembly.get()) {
-            mode = JReleaserContext.Mode.ASSEMBLE
+            mode = ASSEMBLE
+        } else if (changelog.get()) {
+            mode = CHANGELOG
         } else {
-            mode = JReleaserContext.Mode.CONFIG
+            mode = CONFIG
         }
 
         JReleaserContext context = createContext()

@@ -18,11 +18,11 @@
 package org.jreleaser.engine.download;
 
 import org.jreleaser.bundle.RB;
-import org.jreleaser.model.Downloader;
-import org.jreleaser.model.JReleaserContext;
-import org.jreleaser.model.downloader.spi.ArtifactDownloader;
-import org.jreleaser.model.downloader.spi.ArtifactDownloaderFactory;
-import org.jreleaser.util.JReleaserException;
+import org.jreleaser.model.JReleaserException;
+import org.jreleaser.model.internal.JReleaserContext;
+import org.jreleaser.model.internal.download.Downloader;
+import org.jreleaser.model.spi.download.ArtifactDownloader;
+import org.jreleaser.model.spi.download.ArtifactDownloaderFactory;
 
 import java.util.Map;
 import java.util.ServiceLoader;
@@ -34,13 +34,13 @@ import java.util.stream.StreamSupport;
  * @since 1.1.0
  */
 public class ArtifactDownloaders {
-    public static <D extends Downloader> ArtifactDownloader<D> findDownloader(JReleaserContext context, D downloader) {
-        Map<String, ArtifactDownloader> downloaders = StreamSupport.stream(ServiceLoader.load(ArtifactDownloaderFactory.class,
+    public static <A extends org.jreleaser.model.api.download.Downloader, D extends Downloader<A>> ArtifactDownloader<A, D> findDownloader(JReleaserContext context, D downloader) {
+        Map<String, ArtifactDownloader<?, ?>> downloaders = StreamSupport.stream(ServiceLoader.load(ArtifactDownloaderFactory.class,
                 ArtifactDownloaders.class.getClassLoader()).spliterator(), false)
             .collect(Collectors.toMap(ArtifactDownloaderFactory::getName, factory -> factory.getArtifactDownloader(context)));
 
         if (downloaders.containsKey(downloader.getType())) {
-            ArtifactDownloader<D> artifactDownloader = downloaders.get(downloader.getType());
+            ArtifactDownloader artifactDownloader = downloaders.get(downloader.getType());
             artifactDownloader.setDownloader(downloader);
             return artifactDownloader;
         }

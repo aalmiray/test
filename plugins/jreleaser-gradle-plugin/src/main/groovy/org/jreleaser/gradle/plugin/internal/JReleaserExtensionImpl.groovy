@@ -29,36 +29,41 @@ import org.gradle.api.provider.Property
 import org.gradle.api.provider.Provider
 import org.jreleaser.engine.context.ContextCreator
 import org.jreleaser.gradle.plugin.JReleaserExtension
-import org.jreleaser.gradle.plugin.dsl.Announce
-import org.jreleaser.gradle.plugin.dsl.Assemble
-import org.jreleaser.gradle.plugin.dsl.Checksum
-import org.jreleaser.gradle.plugin.dsl.Distribution
-import org.jreleaser.gradle.plugin.dsl.Download
-import org.jreleaser.gradle.plugin.dsl.Environment
-import org.jreleaser.gradle.plugin.dsl.Files
-import org.jreleaser.gradle.plugin.dsl.Hooks
-import org.jreleaser.gradle.plugin.dsl.Packagers
-import org.jreleaser.gradle.plugin.dsl.Platform
-import org.jreleaser.gradle.plugin.dsl.Project
-import org.jreleaser.gradle.plugin.dsl.Release
-import org.jreleaser.gradle.plugin.dsl.Signing
-import org.jreleaser.gradle.plugin.dsl.Upload
-import org.jreleaser.gradle.plugin.internal.dsl.AnnounceImpl
-import org.jreleaser.gradle.plugin.internal.dsl.AssembleImpl
-import org.jreleaser.gradle.plugin.internal.dsl.ChecksumImpl
-import org.jreleaser.gradle.plugin.internal.dsl.DistributionImpl
-import org.jreleaser.gradle.plugin.internal.dsl.DownloadImpl
-import org.jreleaser.gradle.plugin.internal.dsl.EnvironmentImpl
-import org.jreleaser.gradle.plugin.internal.dsl.FilesImpl
-import org.jreleaser.gradle.plugin.internal.dsl.HooksImpl
-import org.jreleaser.gradle.plugin.internal.dsl.PackagersImpl
-import org.jreleaser.gradle.plugin.internal.dsl.PlatformImpl
-import org.jreleaser.gradle.plugin.internal.dsl.ProjectImpl
-import org.jreleaser.gradle.plugin.internal.dsl.ReleaseImpl
-import org.jreleaser.gradle.plugin.internal.dsl.SigningImpl
-import org.jreleaser.gradle.plugin.internal.dsl.UploadImpl
-import org.jreleaser.model.JReleaserModel
-import org.jreleaser.util.JReleaserLogger
+import org.jreleaser.gradle.plugin.dsl.announce.Announce
+import org.jreleaser.gradle.plugin.dsl.assemble.Assemble
+import org.jreleaser.gradle.plugin.dsl.checksum.Checksum
+import org.jreleaser.gradle.plugin.dsl.deploy.Deploy
+import org.jreleaser.gradle.plugin.dsl.distributions.Distribution
+import org.jreleaser.gradle.plugin.dsl.download.Download
+import org.jreleaser.gradle.plugin.dsl.environment.Environment
+import org.jreleaser.gradle.plugin.dsl.extensions.Extension
+import org.jreleaser.gradle.plugin.dsl.files.Files
+import org.jreleaser.gradle.plugin.dsl.hooks.Hooks
+import org.jreleaser.gradle.plugin.dsl.packagers.Packagers
+import org.jreleaser.gradle.plugin.dsl.platform.Platform
+import org.jreleaser.gradle.plugin.dsl.project.Project
+import org.jreleaser.gradle.plugin.dsl.release.Release
+import org.jreleaser.gradle.plugin.dsl.signing.Signing
+import org.jreleaser.gradle.plugin.dsl.upload.Upload
+import org.jreleaser.gradle.plugin.internal.dsl.announce.AnnounceImpl
+import org.jreleaser.gradle.plugin.internal.dsl.assemble.AssembleImpl
+import org.jreleaser.gradle.plugin.internal.dsl.checksum.ChecksumImpl
+import org.jreleaser.gradle.plugin.internal.dsl.deploy.DeployImpl
+import org.jreleaser.gradle.plugin.internal.dsl.distributions.DistributionImpl
+import org.jreleaser.gradle.plugin.internal.dsl.download.DownloadImpl
+import org.jreleaser.gradle.plugin.internal.dsl.environment.EnvironmentImpl
+import org.jreleaser.gradle.plugin.internal.dsl.extensions.ExtensionImpl
+import org.jreleaser.gradle.plugin.internal.dsl.files.FilesImpl
+import org.jreleaser.gradle.plugin.internal.dsl.hooks.HooksImpl
+import org.jreleaser.gradle.plugin.internal.dsl.packagers.PackagersImpl
+import org.jreleaser.gradle.plugin.internal.dsl.platform.PlatformImpl
+import org.jreleaser.gradle.plugin.internal.dsl.project.ProjectImpl
+import org.jreleaser.gradle.plugin.internal.dsl.release.ReleaseImpl
+import org.jreleaser.gradle.plugin.internal.dsl.signing.SigningImpl
+import org.jreleaser.gradle.plugin.internal.dsl.upload.UploadImpl
+import org.jreleaser.logging.JReleaserLogger
+import org.jreleaser.model.internal.JReleaserModel
+import org.jreleaser.util.Env
 import org.kordamp.gradle.util.ConfigureUtil
 
 import javax.inject.Inject
@@ -77,11 +82,13 @@ class JReleaserExtensionImpl implements JReleaserExtension {
     final Property<Boolean> enabled
     final Property<Boolean> dryrun
     final Property<Boolean> gitRootSearch
+    final Property<Boolean> strict
     final EnvironmentImpl environment
     final HooksImpl hooks
     final ProjectImpl project
     final PlatformImpl platform
     final ReleaseImpl release
+    final DeployImpl deploy
     final UploadImpl upload
     final DownloadImpl download
     final PackagersImpl packagers
@@ -91,6 +98,7 @@ class JReleaserExtensionImpl implements JReleaserExtension {
     final SigningImpl signing
     final FilesImpl files
     final NamedDomainObjectContainer<Distribution> distributions
+    private final NamedDomainObjectContainer<Extension> extensions
 
     private final ProjectLayout layout
 
@@ -103,13 +111,15 @@ class JReleaserExtensionImpl implements JReleaserExtension {
         this.layout = layout
         configFile = objects.fileProperty()
         enabled = objects.property(Boolean).convention(true)
-        dryrun = objects.property(Boolean).convention(false)
-        gitRootSearch = objects.property(Boolean).convention(false)
+        dryrun = objects.property(Boolean).convention(resolveBoolean(org.jreleaser.model.api.JReleaserContext.DRY_RUN))
+        strict = objects.property(Boolean).convention(resolveBoolean(org.jreleaser.model.api.JReleaserContext.STRICT))
+        gitRootSearch = objects.property(Boolean).convention(resolveBoolean(org.jreleaser.model.api.JReleaserContext.GIT_ROOT_SEARCH))
         environment = objects.newInstance(EnvironmentImpl, objects)
         hooks = objects.newInstance(HooksImpl, objects)
         project = objects.newInstance(ProjectImpl, objects, nameProvider, descriptionProvider, versionProvider)
         platform = objects.newInstance(PlatformImpl, objects)
         release = objects.newInstance(ReleaseImpl, objects)
+        deploy = objects.newInstance(DeployImpl, objects)
         upload = objects.newInstance(UploadImpl, objects)
         download = objects.newInstance(DownloadImpl, objects)
         packagers = objects.newInstance(PackagersImpl, objects)
@@ -124,7 +134,16 @@ class JReleaserExtensionImpl implements JReleaserExtension {
             Distribution create(String name) {
                 DistributionImpl distribution = objects.newInstance(DistributionImpl, objects)
                 distribution.name = name
-                return distribution
+                distribution
+            }
+        })
+
+        extensions = objects.domainObjectContainer(Extension, new NamedDomainObjectFactory<Extension>() {
+            @Override
+            Extension create(String name) {
+                ExtensionImpl extension = objects.newInstance(ExtensionImpl, objects)
+                extension.name = name
+                extension
             }
         })
     }
@@ -163,6 +182,11 @@ class JReleaserExtensionImpl implements JReleaserExtension {
     @Override
     void release(Action<? super Release> action) {
         action.execute(release)
+    }
+
+    @Override
+    void deploy(Action<? super Deploy> action) {
+        action.execute(deploy)
     }
 
     @Override
@@ -206,6 +230,11 @@ class JReleaserExtensionImpl implements JReleaserExtension {
     }
 
     @Override
+    void extensions(Action<? super NamedDomainObjectContainer<Extension>> action) {
+        action.execute(extensions)
+    }
+
+    @Override
     void environment(@DelegatesTo(strategy = Closure.DELEGATE_FIRST, value = Environment) Closure<Void> action) {
         ConfigureUtil.configure(action, environment)
     }
@@ -233,6 +262,11 @@ class JReleaserExtensionImpl implements JReleaserExtension {
     @Override
     void release(@DelegatesTo(strategy = Closure.DELEGATE_FIRST, value = Release) Closure<Void> action) {
         ConfigureUtil.configure(action, release)
+    }
+
+    @Override
+    void deploy(@DelegatesTo(strategy = Closure.DELEGATE_FIRST, value = Deploy) Closure<Void> action) {
+        ConfigureUtil.configure(action, deploy)
     }
 
     @Override
@@ -275,6 +309,11 @@ class JReleaserExtensionImpl implements JReleaserExtension {
         ConfigureUtil.configure(action, distributions)
     }
 
+    @Override
+    void extensions(@DelegatesTo(strategy = Closure.DELEGATE_FIRST, value = NamedDomainObjectContainer) Closure<Void> action) {
+        ConfigureUtil.configure(action, extensions)
+    }
+
     @CompileDynamic
     JReleaserModel toModel(org.gradle.api.Project gradleProject, JReleaserLogger logger) {
         if (configFile.present) {
@@ -282,7 +321,7 @@ class JReleaserExtensionImpl implements JReleaserExtension {
             if (isBlank(jreleaser.project.name)) jreleaser.project.name = project.name.orNull
             if (isBlank(jreleaser.project.version)) jreleaser.project.version = project.version.orNull
             if (isBlank(jreleaser.project.description)) jreleaser.project.description = project.description.orNull
-            jreleaser.environment.propertiesSource = new org.jreleaser.model.Environment.MapPropertiesSource(
+            jreleaser.environment.propertiesSource = new org.jreleaser.model.internal.environment.Environment.MapPropertiesSource(
                 filterProperties(project.properties))
             return jreleaser
         }
@@ -293,6 +332,7 @@ class JReleaserExtensionImpl implements JReleaserExtension {
         jreleaser.project = project.toModel()
         jreleaser.platform = platform.toModel()
         jreleaser.release = release.toModel()
+        jreleaser.deploy = deploy.toModel()
         jreleaser.upload = upload.toModel()
         jreleaser.download = download.toModel()
         jreleaser.packagers = packagers.toModel()
@@ -302,6 +342,7 @@ class JReleaserExtensionImpl implements JReleaserExtension {
         jreleaser.checksum = checksum.toModel()
         jreleaser.files = files.toModel()
         distributions.each { jreleaser.addDistribution(((DistributionImpl) it).toModel()) }
+        extensions.each { jreleaser.addExtension(((ExtensionImpl) it).toModel()) }
         jreleaser
     }
 
@@ -326,5 +367,10 @@ class JReleaserExtensionImpl implements JReleaserExtension {
         }
 
         outputs
+    }
+
+    private boolean resolveBoolean(String key) {
+        String resolvedValue = Env.resolve(key, '')
+        return isNotBlank(resolvedValue) && Boolean.parseBoolean(resolvedValue)
     }
 }

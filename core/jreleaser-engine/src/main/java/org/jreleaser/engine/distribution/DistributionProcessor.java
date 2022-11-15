@@ -18,12 +18,12 @@
 package org.jreleaser.engine.distribution;
 
 import org.jreleaser.bundle.RB;
-import org.jreleaser.model.Distribution;
-import org.jreleaser.model.JReleaserContext;
-import org.jreleaser.model.Packager;
-import org.jreleaser.model.packager.spi.PackagerProcessingException;
-import org.jreleaser.model.packager.spi.PackagerProcessor;
-import org.jreleaser.util.Constants;
+import org.jreleaser.model.Constants;
+import org.jreleaser.model.internal.JReleaserContext;
+import org.jreleaser.model.internal.distributions.Distribution;
+import org.jreleaser.model.internal.packagers.Packager;
+import org.jreleaser.model.spi.packagers.PackagerProcessingException;
+import org.jreleaser.model.spi.packagers.PackagerProcessor;
 
 import java.util.Map;
 
@@ -57,13 +57,13 @@ public class DistributionProcessor {
 
     public void prepareDistribution() throws PackagerProcessingException {
         Distribution distribution = context.getModel().findDistribution(distributionName);
-        Packager packager = distribution.getPackager(packagerName);
+        Packager<?> packager = distribution.getPackager(packagerName);
         if (!packager.isEnabled()) {
             context.getLogger().debug(RB.$("distributions.skip.distribution"), distributionName);
             return;
         }
 
-        PackagerProcessor<Packager> packagerProcessor = PackagerProcessors.findProcessor(context, packager);
+        PackagerProcessor<Packager<?>> packagerProcessor = PackagerProcessors.findProcessor(context, packager);
         if (!packagerProcessor.supportsDistribution(distribution)) {
             context.getLogger().info(RB.$("distributions.not.supported.distribution"), distributionName, distribution.getType());
             return;
@@ -86,7 +86,7 @@ public class DistributionProcessor {
 
     public void packageDistribution() throws PackagerProcessingException {
         Distribution distribution = context.getModel().findDistribution(distributionName);
-        Packager packager = distribution.getPackager(packagerName);
+        Packager<?> packager = distribution.getPackager(packagerName);
         if (!packager.isEnabled()) {
             context.getLogger().debug(RB.$("distributions.skip.distribution"), distributionName);
             return;
@@ -96,7 +96,7 @@ public class DistributionProcessor {
             return;
         }
 
-        PackagerProcessor<Packager> packagerProcessor = PackagerProcessors.findProcessor(context, packager);
+        PackagerProcessor<Packager<?>> packagerProcessor = PackagerProcessors.findProcessor(context, packager);
         if (!packagerProcessor.supportsDistribution(distribution)) {
             context.getLogger().info(RB.$("distributions.not.supported.distribution"), distributionName, distribution.getType());
             return;
@@ -119,7 +119,7 @@ public class DistributionProcessor {
 
     public void publishDistribution() throws PackagerProcessingException {
         Distribution distribution = context.getModel().findDistribution(distributionName);
-        Packager packager = distribution.getPackager(packagerName);
+        Packager<?> packager = distribution.getPackager(packagerName);
         if (!packager.isEnabled()) {
             context.getLogger().debug(RB.$("distributions.skip.distribution"), distributionName);
             return;
@@ -129,7 +129,7 @@ public class DistributionProcessor {
             return;
         }
 
-        PackagerProcessor<Packager> packagerProcessor = PackagerProcessors.findProcessor(context, packager);
+        PackagerProcessor<Packager<?>> packagerProcessor = PackagerProcessors.findProcessor(context, packager);
         if (!packagerProcessor.supportsDistribution(distribution)) {
             context.getLogger().info(RB.$("distributions.not.supported.distribution"), distributionName, distribution.getType());
             return;
@@ -165,6 +165,40 @@ public class DistributionProcessor {
 
     public static DistributionProcessorBuilder builder() {
         return new DistributionProcessorBuilder();
+    }
+
+    public static class PackagingAction {
+        private final String text;
+        private final Type type;
+        private final PackagerProcessingFunction function;
+
+        public static PackagingAction of(String text, Type type, PackagerProcessingFunction function) {
+            return new PackagingAction(text, type, function);
+        }
+
+        private PackagingAction(String text, Type type, PackagerProcessingFunction function) {
+            this.text = text;
+            this.type = type;
+            this.function = function;
+        }
+
+        public String getText() {
+            return text;
+        }
+
+        public Type getType() {
+            return type;
+        }
+
+        public PackagerProcessingFunction getFunction() {
+            return function;
+        }
+
+        public enum Type {
+            PREPARE,
+            PACKAGE,
+            PUBLISH
+        }
     }
 
     public static class DistributionProcessorBuilder {

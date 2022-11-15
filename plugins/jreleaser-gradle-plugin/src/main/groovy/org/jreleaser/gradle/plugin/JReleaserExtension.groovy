@@ -22,20 +22,22 @@ import org.gradle.api.Action
 import org.gradle.api.NamedDomainObjectContainer
 import org.gradle.api.file.RegularFileProperty
 import org.gradle.api.provider.Property
-import org.jreleaser.gradle.plugin.dsl.Announce
-import org.jreleaser.gradle.plugin.dsl.Assemble
-import org.jreleaser.gradle.plugin.dsl.Checksum
-import org.jreleaser.gradle.plugin.dsl.Distribution
-import org.jreleaser.gradle.plugin.dsl.Download
-import org.jreleaser.gradle.plugin.dsl.Environment
-import org.jreleaser.gradle.plugin.dsl.Files
-import org.jreleaser.gradle.plugin.dsl.Hooks
-import org.jreleaser.gradle.plugin.dsl.Packagers
-import org.jreleaser.gradle.plugin.dsl.Platform
-import org.jreleaser.gradle.plugin.dsl.Project
-import org.jreleaser.gradle.plugin.dsl.Release
-import org.jreleaser.gradle.plugin.dsl.Signing
-import org.jreleaser.gradle.plugin.dsl.Upload
+import org.jreleaser.gradle.plugin.dsl.announce.Announce
+import org.jreleaser.gradle.plugin.dsl.assemble.Assemble
+import org.jreleaser.gradle.plugin.dsl.checksum.Checksum
+import org.jreleaser.gradle.plugin.dsl.deploy.Deploy
+import org.jreleaser.gradle.plugin.dsl.distributions.Distribution
+import org.jreleaser.gradle.plugin.dsl.download.Download
+import org.jreleaser.gradle.plugin.dsl.environment.Environment
+import org.jreleaser.gradle.plugin.dsl.extensions.Extension
+import org.jreleaser.gradle.plugin.dsl.files.Files
+import org.jreleaser.gradle.plugin.dsl.hooks.Hooks
+import org.jreleaser.gradle.plugin.dsl.packagers.Packagers
+import org.jreleaser.gradle.plugin.dsl.platform.Platform
+import org.jreleaser.gradle.plugin.dsl.project.Project
+import org.jreleaser.gradle.plugin.dsl.release.Release
+import org.jreleaser.gradle.plugin.dsl.signing.Signing
+import org.jreleaser.gradle.plugin.dsl.upload.Upload
 
 /**
  *
@@ -54,6 +56,8 @@ interface JReleaserExtension {
 
     Property<Boolean> getGitRootSearch()
 
+    Property<Boolean> getStrict()
+
     Environment getEnvironment()
 
     Hooks getHooks()
@@ -63,6 +67,8 @@ interface JReleaserExtension {
     Platform getPlatform()
 
     Release getRelease()
+
+    Deploy getDeploy()
 
     Upload getUpload()
 
@@ -78,6 +84,8 @@ interface JReleaserExtension {
 
     Checksum getChecksum()
 
+    // NamedDomainObjectContainer<Extension> getExtensions()
+
     NamedDomainObjectContainer<Distribution> getDistributions()
 
     void environment(Action<? super Environment> action)
@@ -91,6 +99,8 @@ interface JReleaserExtension {
     void files(Action<? super Files> action)
 
     void release(Action<? super Release> action)
+
+    void deploy(Action<? super Deploy> action)
 
     void upload(Action<? super Upload> action)
 
@@ -108,6 +118,8 @@ interface JReleaserExtension {
 
     void distributions(Action<? super NamedDomainObjectContainer<Distribution>> action)
 
+    void extensions(Action<? super NamedDomainObjectContainer<Extension>> action)
+
     void environment(@DelegatesTo(strategy = Closure.DELEGATE_FIRST, value = Environment) Closure<Void> action)
 
     void hooks(@DelegatesTo(strategy = Closure.DELEGATE_FIRST, value = Hooks) Closure<Void> action)
@@ -119,6 +131,8 @@ interface JReleaserExtension {
     void files(@DelegatesTo(strategy = Closure.DELEGATE_FIRST, value = Files) Closure<Void> action)
 
     void release(@DelegatesTo(strategy = Closure.DELEGATE_FIRST, value = Release) Closure<Void> action)
+
+    void deploy(@DelegatesTo(strategy = Closure.DELEGATE_FIRST, value = Deploy) Closure<Void> action)
 
     void upload(@DelegatesTo(strategy = Closure.DELEGATE_FIRST, value = Upload) Closure<Void> action)
 
@@ -135,4 +149,6 @@ interface JReleaserExtension {
     void checksum(@DelegatesTo(strategy = Closure.DELEGATE_FIRST, value = Checksum) Closure<Void> action)
 
     void distributions(@DelegatesTo(strategy = Closure.DELEGATE_FIRST, value = NamedDomainObjectContainer) Closure<Void> action)
+
+    void extensions(@DelegatesTo(strategy = Closure.DELEGATE_FIRST, value = NamedDomainObjectContainer) Closure<Void> action)
 }

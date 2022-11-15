@@ -23,11 +23,10 @@ import org.apache.maven.plugin.MojoFailureException;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.project.MavenProject;
+import org.jreleaser.logging.JReleaserLogger;
 import org.jreleaser.maven.plugin.internal.JReleaserLoggerAdapter;
-import org.jreleaser.model.Distribution;
 import org.jreleaser.templates.TemplateGenerationException;
 import org.jreleaser.templates.TemplateGenerator;
-import org.jreleaser.util.JReleaserLogger;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -66,7 +65,7 @@ public class JReleaserTemplateMojo extends AbstractMojo {
      * The type of the distribution.
      */
     @Parameter(property = "jreleaser.template.distribution.type", defaultValue = "JAVA_BINARY")
-    private final Distribution.DistributionType distributionType = Distribution.DistributionType.JAVA_BINARY;
+    private final org.jreleaser.model.Distribution.DistributionType distributionType = org.jreleaser.model.Distribution.DistributionType.JAVA_BINARY;
 
     /**
      * The name of the packager.
@@ -79,6 +78,12 @@ public class JReleaserTemplateMojo extends AbstractMojo {
      */
     @Parameter(property = "jreleaser.announcer.name")
     private String announcerName;
+
+    /**
+     * The type of the assembler.
+     */
+    @Parameter(property = "jreleaser.assembler.type")
+    private String assemblerType;
 
     /**
      * Overwrite existing files.
@@ -114,6 +119,8 @@ public class JReleaserTemplateMojo extends AbstractMojo {
                 .distributionType(distributionType)
                 .packagerName(packagerName)
                 .announcerName(announcerName)
+                .assemblerType(assemblerType)
+                .assemblerName(distributionName)
                 .outputDirectory(outputDirectory)
                 .overwrite(overwrite)
                 .snapshot(snapshot)

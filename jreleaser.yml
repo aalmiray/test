@@ -1,8 +1,8 @@
 environment:
   properties:
-    jdkPathPrefix: 'apps/jreleaser/build/jdks'
+    jdkPathPrefix: 'plugins/jreleaser/build/jdks'
     jdkFilePrefix: 'zulu17.32.13-ca-jdk17.0.2'
-    graalFilePrefix: 'graalvm-ce-java17-22.2.0'
+    graalFilePrefix: 'graalvm-ce-java17-22.3.0'
     nativeImageDir: out/jreleaser/assemble/jreleaser-native/native-image
     jpackageDir: out/jreleaser/assemble/jreleaser-installer/jpackage
     skipJpackageResolver: true
@@ -55,10 +55,11 @@ platform:
 
 release:
   github:
-    owner: aalmiray
-    name: test
     overwrite: true
+    sign: true
     discussionCategoryName: Announcements
+    issues:
+      enabled: true
     changelog:
       formatted: ALWAYS
       preset: conventional-commits
@@ -106,6 +107,11 @@ release:
         - search: 'i18n: '
         - search: 'deps: '
 
+signing:
+  active: always
+  armored: true
+  files: false
+
 checksum:
   files: false
 
@@ -113,6 +119,16 @@ announce:
   twitter:
     active: release
     statusTemplate: src/jreleaser/twitter.tpl
+  http:
+    noticeable:
+      active: release
+      url: https://api.noticeable.io/graphql
+      authorization: bearer
+      bearerKeyword: Apikey
+      method: POST
+      headers:
+        Accept: application/json
+        Content-Type: application/json
 
 assemble:
   jlink:
@@ -153,9 +169,9 @@ assemble:
         - path: '{{jdkPathPrefix}}/zulu17WindowsArm/{{jdkFilePrefix}}-win_aarch64'
           platform: 'windows-aarch_64'
       mainJar:
-        path: 'apps/jreleaser/build/libs/jreleaser-{{projectVersion}}.jar'
+        path: 'plugins/jreleaser/build/libs/jreleaser-{{projectVersion}}.jar'
       jars:
-        - pattern: 'apps/jreleaser/build/dependencies/flat/*.jar'
+        - pattern: 'plugins/jreleaser/build/dependencies/flat/*.jar'
 
   jpackage:
     jreleaser-installer:
@@ -193,9 +209,9 @@ assemble:
       imageName: '{{distributionName}}-{{projectEffectiveVersion}}'
       executable: jreleaser
       mainJar:
-        path: 'apps/jreleaser/build/libs/jreleaser-{{projectVersion}}.jar'
+        path: 'plugins/jreleaser/build/libs/jreleaser-{{projectVersion}}.jar'
       jars:
-        - pattern: 'apps/jreleaser/build/dependencies/flat/*.jar'
+        - pattern: 'plugins/jreleaser/build/dependencies/flat/*.jar'
       graalJdks:
         - path: '{{jdkPathPrefix}}/graal17Osx/{{graalFilePrefix}}/Contents/Home'
           platform: 'osx-x86_64'
@@ -218,12 +234,78 @@ distributions:
   jreleaser:
     java:
       mainClass: org.jreleaser.cli.Main
+    flatpak:
+      continueOnError: true
+      active: always
+      componentId: org.jreleaser.cli
+      developerName: JReleaser
+      runtime: freedesktop
+      runtimeVersion: 21.08
+      finishArgs:
+        - --share=network
+        - --filesystem=host
+      categories:
+        - Developer Tools
+      repository:
+        active: release
+        owner: flathub
+        name: org.jreleaser.cli
+    chocolatey:
+      active: always
+      remoteBuild: true
+      title: JReleaser
+      iconUrl: 'https://rawcdn.githack.com/jreleaser/jreleaser/0934fa1fa3f0bd09c0c8c39fbdeb5df2ce507457/src/media/icon_128x128.png'
+      bucket:
+        active: release
+    jbang:
+      active: always
+    macports:
+      active: always
+      categories:
+        - devel
+        - java
+      maintainers:
+        - '@aalmiray'
+      repository:
+        active: release
+        name: jreleaser-macports
+    scoop:
+      active: always
+      bucket:
+        active: release
+    sdkman:
+      active: release
+    snap:
+      active: always
+      remoteBuild: true
+      base: core18
+      architectures:
+        - buildOn: [ amd64, arm64 ]
+      plugs:
+        - name: dot-config-files
+          attributes:
+            interface: personal-files
+          writes:
+            - $HOME/.jreleaser
+          reads:
+            - $HOME/.gnupg
+            - $HOME/.gitconfig
+            - $HOME/.config/jgit
+      localPlugs:
+        - network
+        - home
+        - dot-config-files
+    spec:
+      active: always
+      repository:
+        active: release
+        name: jreleaser-copr
     artifacts:
-      - path: apps/{{distributionName}}/build/distributions/{{distributionName}}-{{projectVersion}}.zip
+      - path: plugins/{{distributionName}}/build/distributions/{{distributionName}}-{{projectVersion}}.zip
         transform: '{{distributionName}}/{{distributionName}}-{{projectEffectiveVersion}}.zip'
         extraProperties:
           skipSpec: true
-      - path: apps/{{distributionName}}/build/distributions/{{distributionName}}-{{projectVersion}}.tar
+      - path: plugins/{{distributionName}}/build/distributions/{{distributionName}}-{{projectVersion}}.tar
         transform: '{{distributionName}}/{{distributionName}}-{{projectEffectiveVersion}}.tar'
         extraProperties:
           skipFlatpak: true
@@ -236,8 +318,59 @@ distributions:
   jreleaser-tool-provider:
     type: SINGLE_JAR
     artifacts:
-      - path: apps/{{distributionName}}/build/libs/{{distributionName}}-{{projectVersion}}.jar
+      - path: plugins/{{distributionName}}/build/libs/{{distributionName}}-{{projectVersion}}.jar
         transform: '{{distributionName}}/{{distributionName}}-{{projectEffectiveVersion}}.jar'
+
+  jreleaser-standalone:
+    appImage:
+      continueOnError: true
+      active: always
+      componentId: org.jreleaser.cli
+      developerName: JReleaser
+      categories:
+        - Development
+      repository:
+        active: release
+        name: jreleaser-appimage
+        commitMessage: 'jreleaser {{tagName}}'
+    brew:
+      active: always
+      formulaName: jreleaser
+      multiPlatform: true
+      tap:
+        active: release
+        commitMessage: 'jreleaser {{tagName}}'
+    docker:
+      active: always
+      repository:
+        active: always
+        commitMessage: 'jreleaser {{tagName}}'
+      registries:
+        - serverName: DEFAULT
+          username: jreleaser
+      labels:
+        'org.opencontainers.image.title': 'jreleaser'
+      postCommands:
+        - 'VOLUME /workspace'
+      specs:
+        slim:
+          imageNames:
+            - 'jreleaser/jreleaser-{{dockerSpecName}}:{{tagName}}'
+            - 'jreleaser/jreleaser-{{dockerSpecName}}:latest'
+          matchers:
+            platform: 'linux-x86_64'
+          preCommands:
+            - 'ARG DEBIAN_FRONTEND=noninteractive'
+            - 'ENV TZ=Europe/Zurich'
+            - 'RUN apt-get update && apt-get install -y unzip binutils fakeroot rpm'
+        alpine:
+          imageNames:
+            - 'jreleaser/jreleaser-{{dockerSpecName}}:{{tagName}}'
+            - 'jreleaser/jreleaser-{{dockerSpecName}}:latest'
+          matchers:
+            platform: 'linux_musl-x86_64'
+          preCommands:
+            - 'RUN apk add unzip binutils fakeroot rpm bash'
 
   jreleaser-installer:
     type: NATIVE_PACKAGE

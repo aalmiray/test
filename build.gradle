@@ -64,20 +64,14 @@ config {
                 enabled = true
             }
         }
-        pmd {
-            toolVersion = pmdVersion
-            ignoreFailures = true
-            aggregate {
-                enabled = false
-            }
-        }
     }
 }
 
 allprojects {
     repositories {
-        gradlePluginPortal()
         mavenLocal()
+        mavenCentral()
+        gradlePluginPortal()
     }
 
     tasks.withType(GenerateModuleMetadata) {
@@ -117,15 +111,26 @@ subprojects {
 
 projects {
     subprojects {
-        dirs(['core', 'sdks']) {
+        dirs(['api', 'core', 'sdks']) {
             compileJava {
                 options.compilerArgs += ["-AprojectPath=${project.group}/${project.name}"]
             }
 
             dependencies {
-                compileOnly project(':nativeimage-annotations')
-                annotationProcessor project(':nativeimage-processor')
+                compileOnly project(':jreleaser-nativeimage-annotations')
+                annotationProcessor project(':jreleaser-nativeimage-processor')
             }
         }
+    }
+}
+
+// Delete Gradle artifacts not suitable for publication to Maven Central
+tasks.register('cleanupStagedRepository') {
+    doLast {
+        def repoDir = project.layout.buildDirectory.dir('repos/local/release/org/jreleaser').get()
+        repoDir.dir('jdks').asFile.deleteDir()
+        repoDir.dir('jdks-gradle-plugin').asFile.deleteDir()
+        repoDir.dir('jreleaser-gradle-plugin').asFile.deleteDir()
+        repoDir.dir('org.jreleaser.gradle.plugin').asFile.deleteDir()
     }
 }

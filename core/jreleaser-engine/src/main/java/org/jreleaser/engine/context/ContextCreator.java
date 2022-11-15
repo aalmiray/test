@@ -19,10 +19,11 @@ package org.jreleaser.engine.context;
 
 import org.jreleaser.bundle.RB;
 import org.jreleaser.config.JReleaserConfigLoader;
-import org.jreleaser.model.JReleaserContext;
-import org.jreleaser.model.JReleaserModel;
-import org.jreleaser.util.JReleaserException;
-import org.jreleaser.util.JReleaserLogger;
+import org.jreleaser.logging.JReleaserLogger;
+import org.jreleaser.model.JReleaserException;
+import org.jreleaser.model.api.JReleaserContext.Mode;
+import org.jreleaser.model.internal.JReleaserContext;
+import org.jreleaser.model.internal.JReleaserModel;
 import org.jreleaser.util.PlatformUtils;
 
 import java.nio.file.Path;
@@ -36,13 +37,15 @@ import java.util.List;
 public class ContextCreator {
     public static JReleaserContext create(JReleaserLogger logger,
                                           JReleaserContext.Configurer configurer,
-                                          JReleaserContext.Mode mode,
+                                          Mode mode,
                                           Path configFile,
                                           Path basedir,
                                           Path outputDirectory,
                                           boolean dryrun,
                                           boolean gitRootSearch,
-                                          List<String> selectedPlatforms) {
+                                          boolean strict,
+                                          List<String> selectedPlatforms,
+                                          List<String> rejectedPlatforms) {
         return create(logger,
             configurer,
             mode,
@@ -51,18 +54,22 @@ public class ContextCreator {
             outputDirectory,
             dryrun,
             gitRootSearch,
-            selectedPlatforms);
+            strict,
+            selectedPlatforms,
+            rejectedPlatforms);
     }
 
     public static JReleaserContext create(JReleaserLogger logger,
                                           JReleaserContext.Configurer configurer,
-                                          JReleaserContext.Mode mode,
+                                          Mode mode,
                                           JReleaserModel model,
                                           Path basedir,
                                           Path outputDirectory,
                                           boolean dryrun,
                                           boolean gitRootSearch,
-                                          List<String> selectedPlatforms) {
+                                          boolean strict,
+                                          List<String> selectedPlatforms,
+                                          List<String> rejectedPlatforms) {
         JReleaserContext context = new JReleaserContext(
             logger,
             configurer,
@@ -72,9 +79,12 @@ public class ContextCreator {
             outputDirectory,
             dryrun,
             gitRootSearch,
-            selectedPlatforms);
+            strict,
+            selectedPlatforms,
+            rejectedPlatforms);
 
         PlatformUtils.resolveCurrentPlatform(logger);
+        logger.info(RB.$("context.creator.git_root_search", context.isGitRootSearch()));
         ModelConfigurer.configure(context);
 
         return context;

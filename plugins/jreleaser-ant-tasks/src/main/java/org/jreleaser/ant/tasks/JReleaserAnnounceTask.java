@@ -17,7 +17,8 @@
  */
 package org.jreleaser.ant.tasks;
 
-import org.jreleaser.model.JReleaserContext;
+import org.jreleaser.model.api.JReleaserContext.Mode;
+import org.jreleaser.model.internal.JReleaserContext;
 import org.jreleaser.workflow.Workflows;
 
 import java.util.ArrayList;
@@ -27,7 +28,7 @@ import java.util.List;
  * @author Andres Almiray
  * @since 0.1.0
  */
-public class JReleaserAnnounceTask extends AbstractPlatformAwareJReleaserTask {
+public class JReleaserAnnounceTask extends AbstractJReleaserTask {
     private final List<String> announcers = new ArrayList<>();
     private final List<String> excludedAnnouncers = new ArrayList<>();
 
@@ -59,7 +60,7 @@ public class JReleaserAnnounceTask extends AbstractPlatformAwareJReleaserTask {
     }
 
     @Override
-    protected JReleaserContext.Mode getMode() {
-        return JReleaserContext.Mode.ANNOUNCE;
+    protected Mode getMode() {
+        return Mode.ANNOUNCE;
     }
 }

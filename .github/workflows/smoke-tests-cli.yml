@@ -4,9 +4,13 @@ on:
   push:
     branches: [ main ]
 
+env:
+  JAVA_VERSION: '11'
+  JAVA_DISTRO: 'zulu'
+
 jobs:
   precheck:
-    if: startsWith(github.event.head_commit.message, 'Releasing version') != true
+    if: github.repository == 'jreleaser/jreleaser' && startsWith(github.event.head_commit.message, 'Releasing version') != true
     runs-on: ubuntu-latest
     outputs:
       VERSION: ${{ steps.vars.outputs.VERSION }}
@@ -23,7 +27,7 @@ jobs:
         shell: bash
         run: |
           version=$(cat VERSION)
-          echo ::set-output name=VERSION::$(echo "$version")
+          echo "VERSION=$(echo "$version")" >> $GITHUB_OUTPUT
 
   build:
     needs: [ precheck ]
@@ -33,12 +37,12 @@ jobs:
       fail-fast: false
       matrix:
         job:
-          - { os: macos-latest  , sign: gpg   , s: '/', x: '', args: '-xp docker' }
-          - { os: macos-latest  , sign: cosign, s: '/', x: '', args: '-xp docker' }
-          - { os: ubuntu-latest , sign: gpg   , s: '/', x: '', args: '' }
-          - { os: ubuntu-latest , sign: cosign, s: '/', x: '', args: '' }
-          - { os: windows-latest, sign: gpg   , s: '\', x: '.bat', args: '-xp docker' }
-          - { os: windows-latest, sign: cosign, s: '\', x: '.bat', args: '-xp docker' }
+          - { os: macos-latest  , sign: gpg   , args: '-xp docker' }
+          - { os: macos-latest  , sign: cosign, args: '-xp docker' }
+          - { os: ubuntu-latest , sign: gpg   , args: '' }
+          - { os: ubuntu-latest , sign: cosign, args: '' }
+          - { os: windows-latest, sign: gpg   , args: '-xp docker' }
+          - { os: windows-latest, sign: cosign, args: '-xp docker' }
     runs-on: ${{ matrix.job.os }}
     steps:
       - name: Checkout
@@ -49,22 +53,22 @@ jobs:
       - name: Setup Java
         uses: actions/setup-java@v3
         with:
-          java-version: 11
-          distribution: 'zulu'
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: ${{ env.JAVA_DISTRO }}
 
-      - uses: actions/cache@v3
+      - name: Cache Gradle
+        uses: actions/cache@v3
         with:
           path: ~/.gradle/caches
           key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle') }}-${{ hashFiles('**/gradle.properties') }}
-          restore-keys: |
-            ${{ runner.os }}-gradle-
+          restore-keys: ${{ runner.os }}-gradle-
 
-      - uses: actions/cache@v3
+      - name: Cache Gradle wrapper
+        uses: actions/cache@v3
         with:
           path: ~/.gradle/wrapper
           key: ${{ runner.os }}-gradlew-${{ hashFiles('**/gradlew') }}
-          restore-keys: |
-            ${{ runner.os }}-gradlew-
+          restore-keys: ${{ runner.os }}-gradlew-
 
       - name: Build
         run: ./gradlew -Prelease=true build -S
@@ -72,12 +76,13 @@ jobs:
       - name: Prepare
         shell: bash
         run: |
-          unzip -qo apps/jreleaser/build/distributions/jreleaser-${{ needs.precheck.outputs.VERSION }}.zip
+          unzip -qo plugins/jreleaser/build/distributions/jreleaser-${{ needs.precheck.outputs.VERSION }}.zip
           cp .github/test-files/jreleaser-${{ matrix.job.sign }}.yml jreleaser.yml
 
       - name: Assemble
+        shell: bash
         run: |
-          ${{ github.workspace }}${{ matrix.job.s }}jreleaser-${{ needs.precheck.outputs.VERSION }}${{ matrix.job.s }}bin${{ matrix.job.s }}jreleaser${{ matrix.job.x }} assemble
+          ./jreleaser-${{ needs.precheck.outputs.VERSION }}/bin/jreleaser assemble
         env:
           JRELEASER_PROJECT_VERSION: ${{ needs.precheck.outputs.VERSION }}
           JRELEASER_GITHUB_TOKEN: ${{ secrets.GIT_ACCESS_TOKEN }}
@@ -93,8 +98,9 @@ jobs:
             out/jreleaser/output.properties
 
       - name: Full Release
+        shell: bash
         run: |
-          ${{ github.workspace }}${{ matrix.job.s }}jreleaser-${{ needs.precheck.outputs.VERSION }}${{ matrix.job.s }}bin${{ matrix.job.s }}jreleaser${{ matrix.job.x }} full-release --dry-run ${{ matrix.job.args }}
+          ./jreleaser-${{ needs.precheck.outputs.VERSION }}/bin/jreleaser full-release --dry-run ${{ matrix.job.args }}
         env:
           JRELEASER_PROJECT_VERSION: ${{ needs.precheck.outputs.VERSION }}
           JRELEASER_GITHUB_TOKEN: ${{ secrets.GIT_ACCESS_TOKEN }}

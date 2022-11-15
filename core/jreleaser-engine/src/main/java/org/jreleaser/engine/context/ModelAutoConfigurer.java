@@ -18,21 +18,23 @@
 package org.jreleaser.engine.context;
 
 import org.jreleaser.bundle.RB;
+import org.jreleaser.logging.JReleaserLogger;
 import org.jreleaser.model.Active;
-import org.jreleaser.model.Artifact;
-import org.jreleaser.model.Codeberg;
-import org.jreleaser.model.GitService;
-import org.jreleaser.model.Github;
-import org.jreleaser.model.Gitlab;
-import org.jreleaser.model.JReleaserContext;
-import org.jreleaser.model.JReleaserModel;
+import org.jreleaser.model.JReleaserException;
 import org.jreleaser.model.JReleaserVersion;
 import org.jreleaser.model.UpdateSection;
-import org.jreleaser.model.releaser.spi.Repository;
-import org.jreleaser.model.util.Artifacts;
+import org.jreleaser.model.api.JReleaserContext.Mode;
+import org.jreleaser.model.internal.JReleaserContext;
+import org.jreleaser.model.internal.JReleaserModel;
+import org.jreleaser.model.internal.common.Artifact;
+import org.jreleaser.model.internal.release.BaseReleaser;
+import org.jreleaser.model.internal.release.CodebergReleaser;
+import org.jreleaser.model.internal.release.GithubReleaser;
+import org.jreleaser.model.internal.release.GitlabReleaser;
+import org.jreleaser.model.internal.util.Artifacts;
+import org.jreleaser.model.spi.release.Repository;
 import org.jreleaser.sdk.git.GitSdk;
-import org.jreleaser.util.JReleaserException;
-import org.jreleaser.util.JReleaserLogger;
+import org.jreleaser.util.Env;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -52,21 +54,28 @@ public class ModelAutoConfigurer {
     private static final String GLOB_PREFIX = "glob:";
     private static final String REGEX_PREFIX = "regex:";
 
+    private final List<String> authors = new ArrayList<>();
     private final List<String> files = new ArrayList<>();
     private final List<String> globs = new ArrayList<>();
     private final List<String> selectedPlatforms = new ArrayList<>();
+    private final List<String> rejectedPlatforms = new ArrayList<>();
     private final Set<UpdateSection> updateSections = new LinkedHashSet<>();
     private JReleaserLogger logger;
     private Path basedir;
     private Path outputDirectory;
-    private boolean dryrun;
-    private boolean gitRootSearch;
+    private Boolean dryrun;
+    private Boolean gitRootSearch;
+    private Boolean strict;
     private String projectName;
     private String projectVersion;
     private String projectVersionPattern;
     private String projectSnapshotPattern;
     private String projectSnapshotLabel;
     private boolean projectSnapshotFullChangelog;
+    private String projectCopyright;
+    private String projectDescription;
+    private String projectInceptionYear;
+    private String projectStereotype;
     private String tagName;
     private String previousTagName;
     private String releaseName;
@@ -102,13 +111,18 @@ public class ModelAutoConfigurer {
         return this;
     }
 
-    public ModelAutoConfigurer dryrun(boolean dryrun) {
+    public ModelAutoConfigurer dryrun(Boolean dryrun) {
         this.dryrun = dryrun;
         return this;
     }
 
-    public ModelAutoConfigurer gitRootSearch(boolean gitRootSearch) {
+    public ModelAutoConfigurer gitRootSearch(Boolean gitRootSearch) {
         this.gitRootSearch = gitRootSearch;
+        return this;
+    }
+
+    public ModelAutoConfigurer strict(Boolean strict) {
+        this.strict = strict;
         return this;
     }
 
@@ -139,6 +153,26 @@ public class ModelAutoConfigurer {
 
     public ModelAutoConfigurer projectSnapshotFullChangelog(boolean projectSnapshotFullChangelog) {
         this.projectSnapshotFullChangelog = projectSnapshotFullChangelog;
+        return this;
+    }
+
+    public ModelAutoConfigurer projectCopyright(String projectCopyright) {
+        this.projectCopyright = projectCopyright;
+        return this;
+    }
+
+    public ModelAutoConfigurer projectDescription(String projectDescription) {
+        this.projectDescription = projectDescription;
+        return this;
+    }
+
+    public ModelAutoConfigurer projectInceptionYear(String projectInceptionYear) {
+        this.projectInceptionYear = projectInceptionYear;
+        return this;
+    }
+
+    public ModelAutoConfigurer projectStereotype(String projectStereotype) {
+        this.projectStereotype = projectStereotype;
         return this;
     }
 
@@ -252,6 +286,21 @@ public class ModelAutoConfigurer {
         return this;
     }
 
+    public ModelAutoConfigurer authors(List<String> authors) {
+        this.authors.clear();
+        if (null != authors && !authors.isEmpty()) {
+            authors.forEach(this::file);
+        }
+        return this;
+    }
+
+    public ModelAutoConfigurer author(String author) {
+        if (isNotBlank(author)) {
+            this.authors.add(author.trim());
+        }
+        return this;
+    }
+
     public ModelAutoConfigurer files(List<String> files) {
         this.files.clear();
         if (null != files && !files.isEmpty()) {
@@ -301,6 +350,21 @@ public class ModelAutoConfigurer {
         return this;
     }
 
+    public ModelAutoConfigurer rejectedPlatforms(List<String> platforms) {
+        this.rejectedPlatforms.clear();
+        if (null != platforms && !platforms.isEmpty()) {
+            platforms.forEach(this::rejectedPlatform);
+        }
+        return this;
+    }
+
+    public ModelAutoConfigurer rejectedPlatform(String platform) {
+        if (isNotBlank(platform)) {
+            this.rejectedPlatforms.add(platform.trim());
+        }
+        return this;
+    }
+
     public JReleaserContext autoConfigure() {
         requireNonNull(logger, "Argument 'logger' ust not be null");
         requireNonNull(basedir, "Argument 'basedir' ust not be null");
@@ -320,13 +384,21 @@ public class ModelAutoConfigurer {
         return ContextCreator.create(
             logger,
             JReleaserContext.Configurer.CLI,
-            JReleaserContext.Mode.FULL,
+            Mode.FULL,
             autoConfiguredModel(basedir),
             basedir,
             outputDirectory,
-            dryrun,
-            gitRootSearch,
-            selectedPlatforms);
+            resolveBoolean(org.jreleaser.model.api.JReleaserContext.DRY_RUN, dryrun),
+            resolveBoolean(org.jreleaser.model.api.JReleaserContext.GIT_ROOT_SEARCH, gitRootSearch),
+            resolveBoolean(org.jreleaser.model.api.JReleaserContext.STRICT, strict),
+            selectedPlatforms,
+            rejectedPlatforms);
+    }
+
+    protected boolean resolveBoolean(String key, Boolean value) {
+        if (null != value) return value;
+        String resolvedValue = Env.resolve(key, "");
+        return isNotBlank(resolvedValue) && Boolean.parseBoolean(resolvedValue);
     }
 
     private void dumpAutoConfig() {
@@ -336,6 +408,15 @@ public class ModelAutoConfigurer {
         if (isNotBlank(projectSnapshotPattern)) logger.info("- project.snapshot.pattern: {}", projectSnapshotPattern);
         if (isNotBlank(projectSnapshotLabel)) logger.info("- project.snapshot.label: {}", projectSnapshotLabel);
         if (projectSnapshotFullChangelog) logger.info("- project.snapshot.full.changelog: true");
+        if (isNotBlank(projectDescription)) logger.info("- project.description: {}", projectDescription);
+        if (isNotBlank(projectCopyright)) logger.info("- project.copyright: {}", projectCopyright);
+        if (isNotBlank(projectInceptionYear)) logger.info("- project.inceptionYear: {}", projectInceptionYear);
+        if (isNotBlank(projectStereotype)) logger.info("- project.stereotype: {}", projectStereotype);
+        if (!authors.isEmpty()) {
+            for (String author : authors) {
+                logger.info("- author: {}", author);
+            }
+        }
         if (isNotBlank(username)) logger.info("- release.username: {}", username);
         if (isNotBlank(tagName)) logger.info("- release.tagName: {}", tagName);
         if (isNotBlank(previousTagName)) logger.info("- release.previousTagName: {}", previousTagName);
@@ -371,11 +452,21 @@ public class ModelAutoConfigurer {
                 logger.info("- platform: {}", platform);
             }
         }
+        if (!rejectedPlatforms.isEmpty()) {
+            for (String platform : rejectedPlatforms) {
+                logger.info("- !platform: {}", platform);
+            }
+        }
     }
 
     private JReleaserModel autoConfiguredModel(Path basedir) {
         JReleaserModel model = new JReleaserModel();
         model.getProject().setName(projectName);
+        model.getProject().setDescription(projectDescription);
+        model.getProject().setCopyright(projectCopyright);
+        model.getProject().setStereotype(projectStereotype);
+        model.getProject().setInceptionYear(projectInceptionYear);
+        model.getProject().setAuthors(authors);
         model.getProject().setVersion(projectVersion);
         model.getProject().setVersionPattern(projectVersionPattern);
         model.getProject().getSnapshot().setPattern(projectSnapshotPattern);
@@ -383,26 +474,27 @@ public class ModelAutoConfigurer {
         model.getProject().getSnapshot().setFullChangelog(projectSnapshotFullChangelog);
 
         try {
-            Repository repository = GitSdk.of(basedir, gitRootSearch).getRemote();
-            GitService service = null;
+            boolean grs = resolveBoolean(org.jreleaser.model.api.JReleaserContext.GIT_ROOT_SEARCH, gitRootSearch);
+            Repository repository = GitSdk.of(basedir, grs).getRemote();
+            BaseReleaser service = null;
             switch (repository.getKind()) {
                 case GITHUB:
-                    service = new Github();
-                    model.getRelease().setGithub((Github) service);
-                    if (prerelease) ((Github) service).getPrerelease().setEnabled(true);
-                    ((Github) service).getPrerelease().setPattern(prereleasePattern);
-                    ((Github) service).setDraft(draft);
+                    service = new GithubReleaser();
+                    model.getRelease().setGithub((GithubReleaser) service);
+                    if (prerelease) service.getPrerelease().setEnabled(true);
+                    service.getPrerelease().setPattern(prereleasePattern);
+                    ((GithubReleaser) service).setDraft(draft);
                     break;
                 case GITLAB:
-                    service = new Gitlab();
-                    model.getRelease().setGitlab((Gitlab) service);
+                    service = new GitlabReleaser();
+                    model.getRelease().setGitlab((GitlabReleaser) service);
                     break;
                 case CODEBERG:
-                    service = new Codeberg();
-                    model.getRelease().setCodeberg((Codeberg) service);
-                    if (prerelease) ((Codeberg) service).getPrerelease().setEnabled(true);
-                    ((Codeberg) service).getPrerelease().setPattern(prereleasePattern);
-                    ((Codeberg) service).setDraft(draft);
+                    service = new CodebergReleaser();
+                    model.getRelease().setCodeberg((CodebergReleaser) service);
+                    if (prerelease) service.getPrerelease().setEnabled(true);
+                    service.getPrerelease().setPattern(prereleasePattern);
+                    ((CodebergReleaser) service).setDraft(draft);
                     break;
                 default:
                     throw new JReleaserException(RB.$("ERROR_context_configurer_unsupported_url", repository.getHttpUrl()));

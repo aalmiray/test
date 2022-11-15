@@ -14,6 +14,9 @@ on:
         default: 'zulu'
         required: false
         type: string
+      cache-key:
+        required: true
+        type: string
 
 jobs:
   jlink:
@@ -29,19 +32,32 @@ jobs:
           java-version: ${{ inputs.java-version }}
           distribution: ${{ inputs.java-distro }}
 
-      - uses: actions/cache@v2
+      - name: Cache Gradle
+        uses: actions/cache@v3
         with:
           path: ~/.gradle/caches
           key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle') }}-${{ hashFiles('**/gradle.properties') }}
-          restore-keys: |
-            ${{ runner.os }}-gradle-
+          restore-keys: ${{ runner.os }}-gradle-
 
-      - uses: actions/cache@v2
+      - name: Cache Gradle wrapper
+        uses: actions/cache@v3
         with:
           path: ~/.gradle/wrapper
           key: ${{ runner.os }}-gradlew-${{ hashFiles('**/gradlew') }}
-          restore-keys: |
-            ${{ runner.os }}-gradlew-
+          restore-keys: ${{ runner.os }}-gradlew-
+
+      - name: Cache plugins
+        uses: actions/cache@v3
+        id: cache
+        with:
+          path: plugins
+          key: plugins-${{ inputs.cache-key }}
+
+      - name: Cache jlink
+        uses: actions/cache@v3
+        with:
+          path: out/jreleaser/assemble/jreleaser-standalone/jlink
+          key: jlink-${{ inputs.cache-key }}
 
       - name: Version
         if: endsWith(${{ inputs.project-version }}, '-SNAPSHOT') != true
@@ -49,9 +65,11 @@ jobs:
           echo ${{ inputs.project-version }} > VERSION
 
       - name: Build
+        if: steps.cache.outputs.cache-hit != 'true'
         run: ./gradlew -Prelease=true build -S
 
       - name: Jlink
+        if: steps.cache.outputs.cache-hit != 'true'
         uses: jreleaser/release-action@v1
         with:
           version: early-access
@@ -68,22 +86,22 @@ jobs:
             out/jreleaser/trace.log
             out/jreleaser/output.properties
 
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v3
-        with:
-          retention-days: 1
-          name: artifacts
-          path: |
-            apps/jreleaser/build/libs/
-            apps/jreleaser/build/dependencies/
-            apps/jreleaser/build/distributions/
-            apps/jreleaser-tool-provider/build/libs/*.jar
-            plugins/jreleaser-ant-tasks/build/distributions/*.zip
-
-      - name: Upload jlink
-        uses: actions/upload-artifact@v3
-        with:
-          retention-days: 1
-          name: jlink
-          path: |
-            out/jreleaser/assemble/jreleaser-standalone/jlink/
+#      - name: Upload artifacts
+#        uses: actions/upload-artifact@v3
+#        with:
+#          retention-days: 1
+#          name: artifacts
+#          path: |
+#            plugins/jreleaser/build/libs/
+#            plugins/jreleaser/build/dependencies/
+#            plugins/jreleaser/build/distributions/
+#            plugins/jreleaser-tool-provider/build/libs/*.jar
+#            plugins/jreleaser-ant-tasks/build/distributions/*.zip
+#
+#      - name: Upload jlink
+#        uses: actions/upload-artifact@v3
+#        with:
+#          retention-days: 1
+#          name: jlink
+#          path: |
+#            out/jreleaser/assemble/jreleaser-standalone/jlink/

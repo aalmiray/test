@@ -10,6 +10,8 @@ on:
 env:
   JAVA_VERSION: '11'
   JAVA_DISTRO: 'zulu'
+  GRAAL_VERSION: '22.3.0'
+  GRAAL_JAVA_VERSION: '17'
 
 jobs:
   precheck:
@@ -17,8 +19,11 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       VERSION: ${{ steps.vars.outputs.VERSION }}
+      CACHE_KEY: ${{ steps.vars.outputs.CACHE_KEY }}
       JAVA_VERSION: ${{ env.JAVA_VERSION }}
       JAVA_DISTRO: ${{ env.JAVA_DISTRO }}
+      GRAAL_VERSION: ${{ env.GRAAL_VERSION }}
+      GRAAL_JAVA_VERSION: ${{ env.GRAAL_JAVA_VERSION }}
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -31,7 +36,8 @@ jobs:
         id: vars
         shell: bash
         run: |
-          echo ::set-output name=VERSION::${{ github.event.inputs.version }}
+          echo "VERSION=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+          echo "CACHE_KEY=$(git rev-parse --short HEAD)-${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
 
   jlink:
     needs: [precheck]
@@ -40,6 +46,7 @@ jobs:
       java-version: ${{ needs.precheck.outputs.JAVA_VERSION }}
       java-distro: ${{ needs.precheck.outputs.JAVA_DISTRO }}
       project-version: ${{ needs.precheck.outputs.VERSION }}
+      cache-key: ${{ needs.precheck.outputs.CACHE_KEY }}
 
   jpackage:
     needs: [precheck, jlink]
@@ -48,19 +55,27 @@ jobs:
       java-version: ${{ needs.precheck.outputs.JAVA_VERSION }}
       java-distro: ${{ needs.precheck.outputs.JAVA_DISTRO }}
       project-version: ${{ needs.precheck.outputs.VERSION }}
+      cache-key: ${{ needs.precheck.outputs.CACHE_KEY }}
 
   native-image:
     needs: [precheck, jlink]
     uses: jreleaser/jreleaser/.github/workflows/step-native-image.yml@main
     with:
+      graal-version: ${{ needs.precheck.outputs.GRAAL_VERSION }}
+      graal-java-version: ${{ needs.precheck.outputs.GRAAL_JAVA_VERSION }}
       java-version: ${{ needs.precheck.outputs.JAVA_VERSION }}
       java-distro: ${{ needs.precheck.outputs.JAVA_DISTRO }}
       project-version: ${{ needs.precheck.outputs.VERSION }}
+      cache-key: ${{ needs.precheck.outputs.CACHE_KEY }}
 
   release:
     name: Release
     needs: [precheck, jlink, jpackage, native-image]
     runs-on: ubuntu-latest
+    outputs:
+      JAR_SIZE: ${{ steps.bach.outputs.JAR_SIZE }}
+      JAR_CSUM: ${{ steps.bach.outputs.JAR_CSUM }}
+      DOC_SIZE: ${{ steps.bach.outputs.DOC_SIZE }}
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -68,27 +83,52 @@ jobs:
           fetch-depth: 0
 
       - name: Download artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/cache@v3
         with:
-          name: artifacts
+          path: plugins
+          key: plugins-${{ needs.precheck.outputs.CACHE_KEY }}
 
       - name: Download jlink
-        uses: actions/download-artifact@v3
+        uses: actions/cache@v3
         with:
-          name: jlink
           path: out/jreleaser/assemble/jreleaser-standalone/jlink
+          key: jlink-${{ needs.precheck.outputs.CACHE_KEY }}
 
-      - name: Download jpackage
-        uses: actions/download-artifact@v3
+      - name: Download jpackage Linux
+        uses: actions/cache@v3
         with:
-          name: jpackage
           path: out/jreleaser/assemble/jreleaser-installer/jpackage
+          key: jpackage-Linux-${{ needs.precheck.outputs.CACHE_KEY }}
 
-      - name: Download native-image
-        uses: actions/download-artifact@v3
+      - name: Download jpackage Windows
+        uses: actions/cache@v3
         with:
-          name: native-image
+          path: out/jreleaser/assemble/jreleaser-installer/jpackage
+          key: jpackage-Windows-${{ needs.precheck.outputs.CACHE_KEY }}
+
+      - name: Download jpackage macOs
+        uses: actions/cache@v3
+        with:
+          path: out/jreleaser/assemble/jreleaser-installer/jpackage
+          key: jpackage-macOs-${{ needs.precheck.outputs.CACHE_KEY }}
+
+      - name: Download native-image Linux
+        uses: actions/cache@v3
+        with:
           path: out/jreleaser/assemble/jreleaser-native/native-image
+          key: native-image-Linux-${{ needs.precheck.outputs.CACHE_KEY }}
+
+      - name: Download native-image Windows
+        uses: actions/cache@v3
+        with:
+          path: out/jreleaser/assemble/jreleaser-native/native-image
+          key: native-image-Windows-${{ needs.precheck.outputs.CACHE_KEY }}
+
+      - name: Download native-image macOs
+        uses: actions/cache@v3
+        with:
+          path: out/jreleaser/assemble/jreleaser-native/native-image
+          key: native-image-macOs-${{ needs.precheck.outputs.CACHE_KEY }}
 
       - name: Setup Java
         uses: actions/setup-java@v3
@@ -96,19 +136,19 @@ jobs:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: ${{ env.JAVA_DISTRO }}
 
-      - uses: actions/cache@v3
+      - name: Cache Gradle
+        uses: actions/cache@v3
         with:
           path: ~/.gradle/caches
           key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle') }}-${{ hashFiles('**/gradle.properties') }}
-          restore-keys: |
-            ${{ runner.os }}-gradle-
+          restore-keys: ${{ runner.os }}-gradle-
 
-      - uses: actions/cache@v3
+      - name: Cache Gradle wrapper
+        uses: actions/cache@v3
         with:
           path: ~/.gradle/wrapper
           key: ${{ runner.os }}-gradlew-${{ hashFiles('**/gradlew') }}
-          restore-keys: |
-            ${{ runner.os }}-gradlew-
+          restore-keys: ${{ runner.os }}-gradlew-
 
       - name: Version
         run: |
@@ -154,6 +194,21 @@ jobs:
           JRELEASER_TWITTER_CONSUMER_SECRET: ${{ secrets.TWITTER_CONSUMER_SECRET }}
           JRELEASER_TWITTER_ACCESS_TOKEN: ${{ secrets.TWITTER_ACCESS_TOKEN }}
           JRELEASER_TWITTER_ACCESS_TOKEN_SECRET: ${{ secrets.TWITTER_ACCESS_TOKEN_SECRET }}
+          JRELEASER_HTTP_NOTICEABLE_PASSWORD: ${{ secrets.NOTICEABLE_APIKEY }}
+          NOTICEABLE_AUTHOR_EMAIL: ${{ secrets.NOTICEABLE_AUTHOR_EMAIL }}
+          NOTICEABLE_PROJECTID: ${{ secrets.NOTICEABLE_PROJECTID }}
+
+      - name: Grab bach-info
+        id: bach
+        shell: bash
+        run: |
+          VERSION=${{ needs.precheck.outputs.VERSION }}
+          JAR_SIZE=$(ls -l plugins/jreleaser-tool-provider/build/libs/jreleaser-tool-provider-$VERSION.jar | awk '{print $5}')
+          JAR_CSUM=$(shasum -a 256 plugins/jreleaser-tool-provider/build/libs/jreleaser-tool-provider-$VERSION.jar | awk '{print $1}')
+          DOC_SIZE=$(ls -l README.adoc | awk '{print $5}')
+          echo "JAR_SIZE=$(echo $JAR_SIZE)" >> $GITHUB_OUTPUT
+          echo "JAR_CSUM=$(echo $JAR_CSUM)" >> $GITHUB_OUTPUT
+          echo "DOC_SIZE=$(echo $DOC_SIZE)" >> $GITHUB_OUTPUT
 
       - name: JReleaser release output
         if: always()
@@ -164,24 +219,65 @@ jobs:
             out/jreleaser/trace.log
             out/jreleaser/output.properties
 
-  update:
-    name: Update
+  update-website:
+    name: Update website
     needs: [precheck, release]
     runs-on: ubuntu-latest
+    continue-on-error: true
     steps:
       - name: Checkout
         uses: actions/checkout@v3
         with:
           repository: jreleaser/jreleaser.github.io
           ref: 'main'
+          fetch-depth: 0
           token: ${{ secrets.GIT_ACCESS_TOKEN }}
 
       - name: Commit
         run: |
+          git merge origin/development
+          sed -i -e "s/^\version\:\ early-access.*/version: latest/g" docs/antora.yml
+          sed -i -e "s/jreleaser-version\:\ .*/jreleaser-version: ${{ needs.precheck.outputs.VERSION }}/g" docs/antora.yml
           VERSION=${{ needs.precheck.outputs.VERSION }}
           echo ${{ needs.precheck.outputs.VERSION }} > VERSION
           git add VERSION
           git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git config --global user.name "GitHub Action"
           git commit -a -m "Releasing version ${{ needs.precheck.outputs.VERSION }}"
+          git push origin main
+
+  update-bach-info:
+    name: Update bach-info
+    needs: [precheck, release]
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          repository: jreleaser/bach-info
+          ref: 'main'
+          fetch-depth: 0
+          token: ${{ secrets.GIT_ACCESS_TOKEN }}
+
+      - name: Commit
+        run: |
+          VERSION=${{ needs.precheck.outputs.VERSION }}
+          JAR_SIZE=${{ needs.release.outputs.JAR_SIZE }}
+          JAR_CSUM=${{ needs.release.outputs.JAR_CSUM }}
+          DOC_SIZE=${{ needs.release.outputs.DOC_SIZE }}
+          TARGET_FILE=".bach/external-tools/jreleaser@$VERSION.tool-directory.properties"
+          echo "@description JReleaser $VERSION" > $TARGET_FILE
+          echo " " >> $TARGET_FILE
+          echo "jreleaser-tool-provider-$VERSION.jar=\\" >> $TARGET_FILE
+          echo "  https://github.com/jreleaser/jreleaser/releases/download/v$VERSION/jreleaser-tool-provider-$VERSION.jar\\" >> $TARGET_FILE
+          echo "  #SIZE=${JAR_SIZE}&SHA-256=${JAR_CSUM}" >> $TARGET_FILE
+          echo "README.adoc=\\" >> $TARGET_FILE
+          echo "  https://github.com/jreleaser/jreleaser/raw/v$VERSION/README.adoc\\" >> $TARGET_FILE
+          echo "  #SIZE=${DOC_SIZE}" >> $TARGET_FILE
+          echo "" >> $TARGET_FILE
+          git add $TARGET_FILE
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config --global user.name "GitHub Action"
+          git commit -a -m "Releasing v$VERSION"
           git push origin main

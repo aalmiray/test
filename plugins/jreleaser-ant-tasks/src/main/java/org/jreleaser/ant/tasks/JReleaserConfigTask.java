@@ -19,7 +19,8 @@ package org.jreleaser.ant.tasks;
 
 import org.jreleaser.ant.tasks.internal.JReleaserModelPrinter;
 import org.jreleaser.engine.context.ModelValidator;
-import org.jreleaser.model.JReleaserContext;
+import org.jreleaser.model.api.JReleaserContext.Mode;
+import org.jreleaser.model.internal.JReleaserContext;
 
 import java.io.PrintWriter;
 
@@ -31,6 +32,8 @@ public class JReleaserConfigTask extends AbstractPlatformAwareJReleaserTask {
     private boolean full;
     private boolean assembly;
     private boolean download;
+    private boolean changelog;
+    private boolean announce;
 
     public void setFull(boolean full) {
         this.full = full;
@@ -44,6 +47,14 @@ public class JReleaserConfigTask extends AbstractPlatformAwareJReleaserTask {
         this.download = download;
     }
 
+    public void setChangelog(boolean changelog) {
+        this.changelog = changelog;
+    }
+
+    public void setAnnounce(boolean announce) {
+        this.announce = announce;
+    }
+
     @Override
     protected void doExecute(JReleaserContext context) {
         ModelValidator.validate(context);
@@ -52,9 +63,11 @@ public class JReleaserConfigTask extends AbstractPlatformAwareJReleaserTask {
         context.report();
     }
 
-    protected JReleaserContext.Mode getMode() {
-        if (download) return JReleaserContext.Mode.DOWNLOAD;
-        if (assembly) return JReleaserContext.Mode.ASSEMBLE;
-        return JReleaserContext.Mode.CONFIG;
+    protected Mode getMode() {
+        if (download) return Mode.DOWNLOAD;
+        if (assembly) return Mode.ASSEMBLE;
+        if (changelog) return Mode.CHANGELOG;
+        if (announce) return Mode.ANNOUNCE;
+        return Mode.CONFIG;
     }
 }

@@ -18,16 +18,20 @@
 package org.jreleaser.engine.download;
 
 import org.jreleaser.bundle.RB;
-import org.jreleaser.model.Download;
-import org.jreleaser.model.Downloader;
-import org.jreleaser.model.JReleaserContext;
-import org.jreleaser.model.downloader.spi.DownloadException;
-import org.jreleaser.util.JReleaserException;
+import org.jreleaser.extensions.api.workflow.WorkflowListenerException;
+import org.jreleaser.model.JReleaserException;
+import org.jreleaser.model.api.JReleaserCommand;
+import org.jreleaser.model.api.hooks.ExecutionEvent;
+import org.jreleaser.model.internal.JReleaserContext;
+import org.jreleaser.model.internal.download.Download;
+import org.jreleaser.model.internal.download.Downloader;
+import org.jreleaser.model.spi.download.DownloadException;
 
 import java.util.List;
 import java.util.Map;
 
 import static java.util.stream.Collectors.toList;
+import static org.jreleaser.model.internal.JReleaserSupport.supportedDownloaders;
 
 /**
  * @author Andres Almiray
@@ -44,12 +48,12 @@ public class Downloaders {
         if (!context.getIncludedDownloaderTypes().isEmpty()) {
             for (String downloaderType : context.getIncludedDownloaderTypes()) {
                 // check if the downloaderType is valid
-                if (!Download.supportedDownloaders().contains(downloaderType)) {
+                if (!supportedDownloaders().contains(downloaderType)) {
                     context.getLogger().warn(RB.$("ERROR_unsupported_downloader", downloaderType));
                     continue;
                 }
 
-                Map<String, Downloader> downloaders = download.findDownloadersByType(downloaderType);
+                Map<String, Downloader<?>> downloaders = download.findDownloadersByType(downloaderType);
 
                 if (downloaders.isEmpty()) {
                     context.getLogger().debug(RB.$("downloaders.no.match"), downloaderType);
@@ -63,7 +67,7 @@ public class Downloaders {
                             continue;
                         }
 
-                        Downloader downloader = downloaders.get(downloaderName);
+                        Downloader<?> downloader = downloaders.get(downloaderName);
                         if (!downloader.isEnabled()) {
                             context.getLogger().info(RB.$("downloaders.downloader.disabled"), downloaderType, downloaderName);
                             continue;
@@ -81,7 +85,7 @@ public class Downloaders {
             }
         } else if (!context.getIncludedDownloaderNames().isEmpty()) {
             for (String downloaderName : context.getIncludedDownloaderNames()) {
-                List<Downloader> filteredDownloaders = download.findAllActiveDownloaders().stream()
+                List<Downloader<?>> filteredDownloaders = download.findAllActiveDownloaders().stream()
                     .filter(a -> downloaderName.equals(a.getName()))
                     .collect(toList());
 
@@ -94,7 +98,7 @@ public class Downloaders {
             }
         } else {
             context.getLogger().info(RB.$("downloaders.download.all.artifacts"));
-            for (Downloader downloader : download.findAllActiveDownloaders()) {
+            for (Downloader<?> downloader : download.findAllActiveDownloaders()) {
                 String downloaderType = downloader.getType();
                 String downloaderName = downloader.getName();
 
@@ -109,24 +113,48 @@ public class Downloaders {
         }
     }
 
-    private static void download(JReleaserContext context, Downloader downloader) {
+    private static void download(JReleaserContext context, Downloader<?> downloader) {
         try {
             context.getLogger().increaseIndent();
             context.getLogger().setPrefix(downloader.getType());
+            fireDownloadEvent(ExecutionEvent.before(JReleaserCommand.DOWNLOAD.toStep()), context, downloader);
+
             ProjectDownloader projectDownloader = createProjectDownloader(context, downloader);
             projectDownloader.download();
+
+            fireDownloadEvent(ExecutionEvent.success(JReleaserCommand.DOWNLOAD.toStep()), context, downloader);
+        } catch (DownloadException e) {
+            fireDownloadEvent(ExecutionEvent.failure(JReleaserCommand.DOWNLOAD.toStep(), e), context, downloader);
+            throw new JReleaserException(RB.$("ERROR_unexpected_error"), e);
+        } finally {
             context.getLogger().restorePrefix();
             context.getLogger().decreaseIndent();
-        } catch (DownloadException e) {
-            throw new JReleaserException(RB.$("ERROR_unexpected_error"), e);
         }
     }
 
     private static ProjectDownloader createProjectDownloader(JReleaserContext context,
-                                                             Downloader downloader) {
+                                                             Downloader<?> downloader) {
         return ProjectDownloader.builder()
             .context(context)
             .downloader(downloader)
             .build();
+    }
+
+    private static void fireDownloadEvent(ExecutionEvent event, JReleaserContext context, Downloader<?> downloader) {
+        if (!downloader.isEnabled()) return;
+
+        try {
+            context.fireDownloadStepEvent(event, downloader.asImmutable());
+        } catch (WorkflowListenerException e) {
+            context.getLogger().error(RB.$("listener.failure", e.getListener().getClass().getName()));
+            context.getLogger().trace(e);
+            if (event.getType() != ExecutionEvent.Type.FAILURE && !e.getListener().isContinueOnError()) {
+                if (e.getCause() instanceof RuntimeException) {
+                    throw (RuntimeException) e.getCause();
+                } else {
+                    throw new JReleaserException(RB.$("ERROR_unexpected_error"), e.getCause());
+                }
+            }
+        }
     }
 }

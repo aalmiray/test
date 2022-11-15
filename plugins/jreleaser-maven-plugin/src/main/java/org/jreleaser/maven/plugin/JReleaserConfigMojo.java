@@ -23,7 +23,8 @@ import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
 import org.jreleaser.engine.context.ModelValidator;
 import org.jreleaser.maven.plugin.internal.JReleaserModelPrinter;
-import org.jreleaser.model.JReleaserContext;
+import org.jreleaser.model.api.JReleaserContext.Mode;
+import org.jreleaser.model.internal.JReleaserContext;
 
 import java.io.PrintWriter;
 
@@ -46,10 +47,20 @@ public class JReleaserConfigMojo extends AbstractPlatformAwareJReleaserMojo {
     @Parameter(property = "jreleaser.config.full")
     private boolean full;
     /**
+     * Display announce configuration.
+     */
+    @Parameter(property = "jreleaser.config.announce")
+    private boolean announce;
+    /**
      * Display assembly configuration.
      */
     @Parameter(property = "jreleaser.config.assembly")
     private boolean assembly;
+    /**
+     * Display changelog configuration.
+     */
+    @Parameter(property = "jreleaser.config.changelog")
+    private boolean changelog;
     /**
      * Display download configuration.
      */
@@ -71,9 +82,11 @@ public class JReleaserConfigMojo extends AbstractPlatformAwareJReleaserMojo {
         context.report();
     }
 
-    protected JReleaserContext.Mode getMode() {
-        if (download) return JReleaserContext.Mode.DOWNLOAD;
-        if (assembly) return JReleaserContext.Mode.ASSEMBLE;
-        return JReleaserContext.Mode.CONFIG;
+    protected Mode getMode() {
+        if (download) return Mode.DOWNLOAD;
+        if (assembly) return Mode.ASSEMBLE;
+        if (changelog) return Mode.CHANGELOG;
+        if (announce) return Mode.ANNOUNCE;
+        return Mode.CONFIG;
     }
 }

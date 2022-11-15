@@ -19,11 +19,19 @@ package org.jreleaser.engine.context;
 
 import org.jreleaser.bundle.RB;
 import org.jreleaser.engine.release.Releasers;
-import org.jreleaser.model.JReleaserContext;
-import org.jreleaser.model.JReleaserModelPrinter;
+import org.jreleaser.extensions.api.ExtensionManager;
+import org.jreleaser.extensions.api.ExtensionManagerHolder;
+import org.jreleaser.extensions.internal.DefaultExtensionManager;
+import org.jreleaser.model.JReleaserException;
+import org.jreleaser.model.internal.JReleaserContext;
+import org.jreleaser.model.internal.JReleaserModelPrinter;
+import org.jreleaser.model.internal.extensions.Extension;
 import org.jreleaser.util.Errors;
-import org.jreleaser.util.JReleaserException;
 import org.jreleaser.util.PlatformUtils;
+
+import java.util.Map;
+
+import static org.jreleaser.util.StringUtils.isNotBlank;
 
 /**
  * @author Andres Almiray
@@ -34,14 +42,20 @@ public class ModelValidator {
         try {
             Errors errors = context.validateModel();
 
-            if (!context.getMode().validateChangelog()) {
-                new JReleaserModelPrinter.Plain(context.getLogger().getTracer())
-                    .print(context.getModel().asMap(true));
+            new JReleaserModelPrinter.Plain(context.getLogger().getTracer())
+                .print(context.getModel().asMap(true));
+
+            if (context.isStrict() && errors.hasWarnings()) {
+                throw new JReleaserException(RB.$("ERROR_context_configurer_jreleaser_misconfigured") +
+                    System.lineSeparator() + errors.warningsAsString());
             }
 
             switch (context.getMode()) {
+                case ANNOUNCE:
+                case CHANGELOG:
                 case DOWNLOAD:
                 case ASSEMBLE:
+                case DEPLOY:
                     if (errors.hasConfigurationErrors()) {
                         throw new JReleaserException(RB.$("ERROR_context_configurer_jreleaser_misconfigured") +
                             System.lineSeparator() + errors.asString());
@@ -67,9 +81,8 @@ public class ModelValidator {
             context.setReleaser(Releasers.releaserFor(context));
         }
 
-        // context.freeze();
-
         report(context);
+        loadExtensions(context);
     }
 
     private static void report(JReleaserContext context) {
@@ -83,5 +96,35 @@ public class ModelValidator {
             context.getLogger().info(RB.$("context.creator.report.head"), context.getModel().getCommit().getShortHash());
         }
         context.getLogger().info(RB.$("context.creator.report.platform"), PlatformUtils.getCurrentFull());
+    }
+
+    private static void loadExtensions(JReleaserContext context) {
+        ExtensionManager em = ExtensionManagerHolder.get();
+
+        if (!(em instanceof DefaultExtensionManager)) {
+            context.getLogger().warn(RB.$("context.creator.extension.manager.error"));
+            return;
+        }
+
+        DefaultExtensionManager extensionManager = (DefaultExtensionManager) em;
+        for (Map.Entry<String, Extension> e : context.getModel().getExtensions().entrySet()) {
+            Extension extension = e.getValue();
+            DefaultExtensionManager.ExtensionBuilder builder = extensionManager.configureExtension(e.getKey())
+                .withEnabled(extension.isEnabled());
+            if (isNotBlank(extension.getGav())) {
+                builder = builder.withGav(extension.getGav());
+            }
+            if (isNotBlank(extension.getDirectory())) {
+                builder = builder.withDirectory(extension.getDirectory());
+            }
+
+            for (Extension.Provider provider : extension.getProviders()) {
+                builder = builder.withExtensionPoint(provider.getType(), provider.getProperties());
+            }
+
+            builder.build();
+        }
+
+        extensionManager.load(context);
     }
 }

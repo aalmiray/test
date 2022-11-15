@@ -14,6 +14,9 @@ on:
         default: 'zulu'
         required: false
         type: string
+      cache-key:
+        required: true
+        type: string
 
 jobs:
   jpackage:
@@ -27,36 +30,44 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
 
-      - name: Download artifacts
-        uses: actions/download-artifact@v3
-        with:
-          name: artifacts
-
-      - name: Download jlink
-        uses: actions/download-artifact@v3
-        with:
-          name: jlink
-          path: out/jreleaser/assemble/jreleaser-standalone/jlink
-
       - name: Setup Java
         uses: actions/setup-java@v3
         with:
           java-version: ${{ inputs.java-version }}
           distribution: ${{ inputs.java-distro }}
 
-      - uses: actions/cache@v2
+      - name: Cache Gradle
+        uses: actions/cache@v3
         with:
           path: ~/.gradle/caches
           key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle') }}-${{ hashFiles('**/gradle.properties') }}
-          restore-keys: |
-            ${{ runner.os }}-gradle-
+          restore-keys: ${{ runner.os }}-gradle-
 
-      - uses: actions/cache@v2
+      - name: Cache Gradle wrapper
+        uses: actions/cache@v3
         with:
           path: ~/.gradle/wrapper
           key: ${{ runner.os }}-gradlew-${{ hashFiles('**/gradlew') }}
-          restore-keys: |
-            ${{ runner.os }}-gradlew-
+          restore-keys: ${{ runner.os }}-gradlew-
+
+      - name: Cache jpackage
+        uses: actions/cache@v3
+        id: cache
+        with:
+          path: out/jreleaser/assemble/jreleaser-installer/jpackage
+          key: jpackage-${{ runner.os }}-${{ inputs.cache-key }}
+
+      - name: Download artifacts
+        uses: actions/cache@v3
+        with:
+          path: plugins
+          key: plugins-${{ inputs.cache-key }}
+
+      - name: Download jlink
+        uses: actions/cache@v3
+        with:
+          path: out/jreleaser/assemble/jreleaser-standalone/jlink
+          key: jlink-${{ inputs.cache-key }}
 
       - name: Version
         if: endsWith(${{ inputs.project-version }}, '-SNAPSHOT') != true
@@ -67,6 +78,7 @@ jobs:
         run: ./gradlew :jreleaser:copyJdksFromCache :jreleaser:setupJdks
 
       - name: Jpackage
+        if: steps.cache.outputs.cache-hit != 'true'
         uses: jreleaser/release-action@v1
         with:
           version: early-access
@@ -83,14 +95,14 @@ jobs:
             out/jreleaser/trace.log
             out/jreleaser/output.properties
 
-      - name: Upload jpackage
-        uses: actions/upload-artifact@v3
-        with:
-          retention-days: 1
-          name: jpackage
-          path: |
-            out/jreleaser/assemble/jreleaser-installer/jpackage/*.pkg
-            out/jreleaser/assemble/jreleaser-installer/jpackage/*.msi
-            out/jreleaser/assemble/jreleaser-installer/jpackage/*.exe
-            out/jreleaser/assemble/jreleaser-installer/jpackage/*.deb
-            out/jreleaser/assemble/jreleaser-installer/jpackage/*.rpm
+#      - name: Upload jpackage
+#        uses: actions/upload-artifact@v3
+#        with:
+#          retention-days: 1
+#          name: jpackage
+#          path: |
+#            out/jreleaser/assemble/jreleaser-installer/jpackage/*.pkg
+#            out/jreleaser/assemble/jreleaser-installer/jpackage/*.msi
+#            out/jreleaser/assemble/jreleaser-installer/jpackage/*.exe
+#            out/jreleaser/assemble/jreleaser-installer/jpackage/*.deb
+#            out/jreleaser/assemble/jreleaser-installer/jpackage/*.rpm

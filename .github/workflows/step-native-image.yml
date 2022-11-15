@@ -14,6 +14,17 @@ on:
         default: 'zulu'
         required: false
         type: string
+      graal-version:
+        default: '22.3.0'
+        required: false
+        type: string
+      graal-java-version:
+        default: '17'
+        required: false
+        type: string
+      cache-key:
+        required: true
+        type: string
 
 jobs:
   native-image:
@@ -25,24 +36,13 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
-      - name: Download artifacts
-        uses: actions/download-artifact@v3
-        with:
-          name: artifacts
-
-      - name: Download jlink
-        uses: actions/download-artifact@v3
-        with:
-          name: jlink
-          path: out/jreleaser/assemble/jreleaser-standalone/jlink
-
-      - name: 'Set up Graal'
+      - name: Set up Graal
         uses: graalvm/setup-graalvm@v1
         with:
-          version: '22.2.0'
-          java-version: '17 '
+          version: ${{ inputs.graal-version }}
+          java-version: ${{ inputs.graal-java-version }}
           components: 'native-image'
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -51,20 +51,39 @@ jobs:
         with:
           java-version: ${{ inputs.java-version }}
           distribution: ${{ inputs.java-distro }}
-          
-      - uses: actions/cache@v2
+
+      - name: Cache Gradle
+        uses: actions/cache@v3
         with:
           path: ~/.gradle/caches
           key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle') }}-${{ hashFiles('**/gradle.properties') }}
-          restore-keys: |
-            ${{ runner.os }}-gradle-
+          restore-keys: ${{ runner.os }}-gradle-
 
-      - uses: actions/cache@v2
+      - name: Cache Gradle wrapper
+        uses: actions/cache@v3
         with:
           path: ~/.gradle/wrapper
           key: ${{ runner.os }}-gradlew-${{ hashFiles('**/gradlew') }}
-          restore-keys: |
-            ${{ runner.os }}-gradlew-
+          restore-keys: ${{ runner.os }}-gradlew-
+
+      - name: Cache native-image
+        uses: actions/cache@v3
+        id: cache
+        with:
+          path: out/jreleaser/assemble/jreleaser-native/native-image
+          key: native-image-${{ runner.os }}-${{ inputs.cache-key }}
+
+      - name: Download artifacts
+        uses: actions/cache@v3
+        with:
+          path: plugins
+          key: plugins-${{ inputs.cache-key }}
+
+      - name: Download jlink
+        uses: actions/cache@v3
+        with:
+          path: out/jreleaser/assemble/jreleaser-standalone/jlink
+          key: jlink-${{ inputs.cache-key }}
 
       - name: Version
         if: endsWith(${{ inputs.project-version }}, '-SNAPSHOT') != true
@@ -73,12 +92,13 @@ jobs:
 
       - name: Build
         run: ./gradlew :jreleaser:copyJdksFromCache :jreleaser:setupJdks
-          
+
       - name: Install upx
         run: brew install upx
         if: ${{ runner.os == 'macOS' }}
 
       - name: NativeImage
+        if: steps.cache.outputs.cache-hit != 'true'
         uses: jreleaser/release-action@v1
         with:
           version: early-access
@@ -95,10 +115,10 @@ jobs:
             out/jreleaser/trace.log
             out/jreleaser/output.properties
 
-      - name: Upload native-image
-        uses: actions/upload-artifact@v3
-        with:
-          retention-days: 1
-          name: native-image
-          path: |
-            out/jreleaser/assemble/jreleaser-native/native-image/*.zip
+#      - name: Upload native-image
+#        uses: actions/upload-artifact@v3
+#        with:
+#          retention-days: 1
+#          name: native-image
+#          path: |
+#            out/jreleaser/assemble/jreleaser-native/native-image/*.zip

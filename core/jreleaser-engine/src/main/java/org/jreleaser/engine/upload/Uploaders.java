@@ -18,16 +18,20 @@
 package org.jreleaser.engine.upload;
 
 import org.jreleaser.bundle.RB;
-import org.jreleaser.model.JReleaserContext;
-import org.jreleaser.model.Upload;
-import org.jreleaser.model.Uploader;
-import org.jreleaser.model.uploader.spi.UploadException;
-import org.jreleaser.util.JReleaserException;
+import org.jreleaser.extensions.api.workflow.WorkflowListenerException;
+import org.jreleaser.model.JReleaserException;
+import org.jreleaser.model.api.JReleaserCommand;
+import org.jreleaser.model.api.hooks.ExecutionEvent;
+import org.jreleaser.model.internal.JReleaserContext;
+import org.jreleaser.model.internal.upload.Upload;
+import org.jreleaser.model.internal.upload.Uploader;
+import org.jreleaser.model.spi.upload.UploadException;
 
 import java.util.List;
 import java.util.Map;
 
 import static java.util.stream.Collectors.toList;
+import static org.jreleaser.model.internal.JReleaserSupport.supportedUploaders;
 
 /**
  * @author Andres Almiray
@@ -44,12 +48,12 @@ public class Uploaders {
         if (!context.getIncludedUploaderTypes().isEmpty()) {
             for (String uploaderType : context.getIncludedUploaderTypes()) {
                 // check if the uploaderType is valid
-                if (!Upload.supportedUploaders().contains(uploaderType)) {
+                if (!supportedUploaders().contains(uploaderType)) {
                     context.getLogger().warn(RB.$("ERROR_unsupported_uploader", uploaderType));
                     continue;
                 }
 
-                Map<String, Uploader> uploaders = upload.findUploadersByType(uploaderType);
+                Map<String, Uploader<?>> uploaders = upload.findUploadersByType(uploaderType);
 
                 if (uploaders.isEmpty()) {
                     context.getLogger().debug(RB.$("uploaders.no.match"), uploaderType);
@@ -63,7 +67,7 @@ public class Uploaders {
                             continue;
                         }
 
-                        Uploader uploader = uploaders.get(uploaderName);
+                        Uploader<?> uploader = uploaders.get(uploaderName);
                         if (!uploader.isEnabled()) {
                             context.getLogger().info(RB.$("uploaders.uploader.disabled"), uploaderType, uploaderName);
                             continue;
@@ -81,7 +85,7 @@ public class Uploaders {
             }
         } else if (!context.getIncludedUploaderNames().isEmpty()) {
             for (String uploaderName : context.getIncludedUploaderNames()) {
-                List<Uploader> filteredUploaders = upload.findAllActiveUploaders().stream()
+                List<Uploader<?>> filteredUploaders = upload.findAllActiveUploaders().stream()
                     .filter(a -> uploaderName.equals(a.getName()))
                     .collect(toList());
 
@@ -94,7 +98,7 @@ public class Uploaders {
             }
         } else {
             context.getLogger().info(RB.$("uploaders.upload.all.artifacts"));
-            for (Uploader uploader : upload.findAllActiveUploaders()) {
+            for (Uploader<?> uploader : upload.findAllActiveUploaders()) {
                 String uploaderType = uploader.getType();
                 String uploaderName = uploader.getName();
 
@@ -109,24 +113,48 @@ public class Uploaders {
         }
     }
 
-    private static void upload(JReleaserContext context, Uploader uploader) {
+    private static void upload(JReleaserContext context, Uploader<?> uploader) {
         try {
             context.getLogger().increaseIndent();
             context.getLogger().setPrefix(uploader.getType());
+            fireUploadEvent(ExecutionEvent.before(JReleaserCommand.UPLOAD.toStep()), context, uploader);
+
             ProjectUploader projectUploader = createProjectUploader(context, uploader);
             projectUploader.upload();
+
+            fireUploadEvent(ExecutionEvent.success(JReleaserCommand.UPLOAD.toStep()), context, uploader);
+        } catch (UploadException e) {
+            fireUploadEvent(ExecutionEvent.failure(JReleaserCommand.UPLOAD.toStep(), e), context, uploader);
+            throw new JReleaserException(RB.$("ERROR_unexpected_error"), e);
+        } finally {
             context.getLogger().restorePrefix();
             context.getLogger().decreaseIndent();
-        } catch (UploadException e) {
-            throw new JReleaserException(RB.$("ERROR_unexpected_error"), e);
         }
     }
 
     private static ProjectUploader createProjectUploader(JReleaserContext context,
-                                                         Uploader uploader) {
+                                                         Uploader<?> uploader) {
         return ProjectUploader.builder()
             .context(context)
             .uploader(uploader)
             .build();
+    }
+
+    private static void fireUploadEvent(ExecutionEvent event, JReleaserContext context, Uploader<?> uploader) {
+        if (!uploader.isEnabled()) return;
+
+        try {
+            context.fireUploadStepEvent(event, uploader.asImmutable());
+        } catch (WorkflowListenerException e) {
+            context.getLogger().error(RB.$("listener.failure", e.getListener().getClass().getName()));
+            context.getLogger().trace(e);
+            if (event.getType() != ExecutionEvent.Type.FAILURE && !e.getListener().isContinueOnError()) {
+                if (e.getCause() instanceof RuntimeException) {
+                    throw (RuntimeException) e.getCause();
+                } else {
+                    throw new JReleaserException(RB.$("ERROR_unexpected_error"), e.getCause());
+                }
+            }
+        }
     }
 }

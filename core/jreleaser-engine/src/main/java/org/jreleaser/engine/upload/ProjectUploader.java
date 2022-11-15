@@ -18,10 +18,10 @@
 package org.jreleaser.engine.upload;
 
 import org.jreleaser.bundle.RB;
-import org.jreleaser.model.JReleaserContext;
-import org.jreleaser.model.Uploader;
-import org.jreleaser.model.uploader.spi.ArtifactUploader;
-import org.jreleaser.model.uploader.spi.UploadException;
+import org.jreleaser.model.internal.JReleaserContext;
+import org.jreleaser.model.internal.upload.Uploader;
+import org.jreleaser.model.spi.upload.ArtifactUploader;
+import org.jreleaser.model.spi.upload.UploadException;
 
 import static java.util.Objects.requireNonNull;
 
@@ -31,15 +31,15 @@ import static java.util.Objects.requireNonNull;
  */
 public class ProjectUploader {
     private final JReleaserContext context;
-    private final Uploader uploader;
+    private final Uploader<?> uploader;
 
     private ProjectUploader(JReleaserContext context,
-                            Uploader uploader) {
+                            Uploader<?> uploader) {
         this.context = context;
         this.uploader = uploader;
     }
 
-    public Uploader getUploader() {
+    public Uploader<?> getUploader() {
         return uploader;
     }
 
@@ -49,7 +49,7 @@ public class ProjectUploader {
             return;
         }
 
-        ArtifactUploader artifactUploader = ArtifactUploaders.findUploader(context, uploader);
+        ArtifactUploader<?, ?> artifactUploader = ArtifactUploaders.findUploader(context, uploader);
 
         context.getLogger().info(RB.$("uploaders.upload.to"), uploader.getName());
 
@@ -62,14 +62,14 @@ public class ProjectUploader {
 
     public static class ProjectUploaderBuilder {
         private JReleaserContext context;
-        private Uploader uploader;
+        private Uploader<?> uploader;
 
         public ProjectUploaderBuilder context(JReleaserContext context) {
             this.context = requireNonNull(context, "'context' must not be null");
             return this;
         }
 
-        public ProjectUploaderBuilder uploader(Uploader uploader) {
+        public ProjectUploaderBuilder uploader(Uploader<?> uploader) {
             this.uploader = requireNonNull(uploader, "'uploader' must not be null");
             return this;
         }

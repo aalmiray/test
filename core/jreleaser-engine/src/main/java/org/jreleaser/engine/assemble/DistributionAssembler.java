@@ -18,11 +18,11 @@
 package org.jreleaser.engine.assemble;
 
 import org.jreleaser.bundle.RB;
-import org.jreleaser.model.Assembler;
-import org.jreleaser.model.JReleaserContext;
-import org.jreleaser.model.assembler.spi.AssemblerProcessingException;
-import org.jreleaser.model.assembler.spi.AssemblerProcessor;
-import org.jreleaser.util.Constants;
+import org.jreleaser.model.Constants;
+import org.jreleaser.model.internal.JReleaserContext;
+import org.jreleaser.model.internal.assemble.Assembler;
+import org.jreleaser.model.spi.assemble.AssemblerProcessingException;
+import org.jreleaser.model.spi.assemble.AssemblerProcessor;
 
 import java.nio.file.Path;
 import java.util.Map;
@@ -35,17 +35,17 @@ import static java.util.Objects.requireNonNull;
  */
 public class DistributionAssembler {
     private final JReleaserContext context;
-    private final Assembler assembler;
+    private final Assembler<?> assembler;
     private final Path outputDirectory;
 
     private DistributionAssembler(JReleaserContext context,
-                                  Assembler assembler) {
+                                  Assembler<?> assembler) {
         this.context = context;
         this.assembler = assembler;
         this.outputDirectory = context.getOutputDirectory();
     }
 
-    public Assembler getAssembler() {
+    public Assembler<?> getAssembler() {
         return assembler;
     }
 
@@ -55,7 +55,7 @@ public class DistributionAssembler {
             return;
         }
 
-        AssemblerProcessor<Assembler> assemblerProcessor = AssemblerProcessors.findProcessor(context, assembler);
+        AssemblerProcessor<?, ?> assemblerProcessor = AssemblerProcessors.findProcessor(context, assembler);
 
         context.getLogger().info(RB.$("assemblers.distribution.assemble"), assembler.getName());
 

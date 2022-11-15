@@ -20,11 +20,10 @@ package org.jreleaser.ant.tasks;
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.Task;
 import org.jreleaser.ant.tasks.internal.JReleaserLoggerAdapter;
-import org.jreleaser.model.Distribution;
+import org.jreleaser.logging.JReleaserLogger;
+import org.jreleaser.model.JReleaserException;
 import org.jreleaser.templates.TemplateGenerationException;
 import org.jreleaser.templates.TemplateGenerator;
-import org.jreleaser.util.JReleaserException;
-import org.jreleaser.util.JReleaserLogger;
 
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -40,9 +39,10 @@ public class JReleaserTemplateTask extends Task {
     private boolean skip;
     private Path outputDir;
     private String distributionName;
-    private Distribution.DistributionType distributionType = Distribution.DistributionType.JAVA_BINARY;
+    private org.jreleaser.model.Distribution.DistributionType distributionType = org.jreleaser.model.Distribution.DistributionType.JAVA_BINARY;
     private String packagerName;
     private String announcerName;
+    private String assemblerType;
     private boolean overwrite;
     private boolean snapshot;
     private JReleaserLogger logger;
@@ -55,7 +55,7 @@ public class JReleaserTemplateTask extends Task {
         this.distributionName = distributionName;
     }
 
-    public void setDistributionType(Distribution.DistributionType distributionType) {
+    public void setDistributionType(org.jreleaser.model.Distribution.DistributionType distributionType) {
         this.distributionType = distributionType;
     }
 
@@ -65,6 +65,10 @@ public class JReleaserTemplateTask extends Task {
 
     public void setAnnouncerName(String announcerName) {
         this.announcerName = announcerName;
+    }
+
+    public void setAssemblerType(String assemblerType) {
+        this.assemblerType = assemblerType;
     }
 
     public void setOverwrite(boolean overwrite) {
@@ -97,6 +101,8 @@ public class JReleaserTemplateTask extends Task {
                 .distributionType(distributionType)
                 .packagerName(packagerName)
                 .announcerName(announcerName)
+                .assemblerType(assemblerType)
+                .assemblerName(distributionName)
                 .outputDirectory(outputDirectory)
                 .overwrite(overwrite)
                 .snapshot(snapshot)

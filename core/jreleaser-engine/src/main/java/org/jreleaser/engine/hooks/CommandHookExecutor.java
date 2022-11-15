@@ -18,14 +18,14 @@
 package org.jreleaser.engine.hooks;
 
 import org.jreleaser.bundle.RB;
-import org.jreleaser.model.CommandHook;
-import org.jreleaser.model.CommandHooks;
-import org.jreleaser.model.ExecutionEvent;
-import org.jreleaser.model.JReleaserContext;
-import org.jreleaser.util.JReleaserException;
-import org.jreleaser.util.command.Command;
-import org.jreleaser.util.command.CommandException;
-import org.jreleaser.util.command.CommandExecutor;
+import org.jreleaser.model.JReleaserException;
+import org.jreleaser.model.api.hooks.ExecutionEvent;
+import org.jreleaser.model.internal.JReleaserContext;
+import org.jreleaser.model.internal.hooks.CommandHook;
+import org.jreleaser.model.internal.hooks.CommandHooks;
+import org.jreleaser.sdk.command.Command;
+import org.jreleaser.sdk.command.CommandException;
+import org.jreleaser.sdk.command.CommandExecutor;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -51,7 +51,7 @@ public final class CommandHookExecutor {
         try {
             runnable.run();
         } catch (RuntimeException e) {
-            executeHooks(ExecutionEvent.failure(step));
+            executeHooks(ExecutionEvent.failure(step, e));
             throw e;
         }
         executeHooks(ExecutionEvent.success(step));

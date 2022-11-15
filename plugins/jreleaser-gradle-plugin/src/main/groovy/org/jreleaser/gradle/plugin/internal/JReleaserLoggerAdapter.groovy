@@ -20,7 +20,7 @@ package org.jreleaser.gradle.plugin.internal
 import groovy.transform.CompileStatic
 import org.gradle.api.Project
 import org.gradle.api.logging.LogLevel
-import org.jreleaser.util.AbstractJReleaserLogger
+import org.jreleaser.logging.AbstractJReleaserLogger
 import org.kordamp.gradle.util.AnsiConsole
 import org.slf4j.helpers.MessageFormatter
 
@@ -201,13 +201,13 @@ class JReleaserLoggerAdapter extends AbstractJReleaserLogger {
 
     private static Level resolveLogLevel(LogLevel logLevel) {
         switch (logLevel) {
-            case LogLevel.DEBUG: return Level.DEBUG;
-            case LogLevel.WARN: return Level.WARN;
-            case LogLevel.ERROR: return Level.ERROR;
-            case LogLevel.QUIET: return Level.QUIET;
+            case LogLevel.DEBUG: return Level.DEBUG
+            case LogLevel.WARN: return Level.WARN
+            case LogLevel.ERROR: return Level.ERROR
+            case LogLevel.QUIET: return Level.QUIET
             case LogLevel.INFO:
             default:
-                return Level.INFO;
+                return Level.INFO
         }
     }
 
