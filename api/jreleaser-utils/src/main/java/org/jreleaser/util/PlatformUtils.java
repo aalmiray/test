@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@ import org.jreleaser.bundle.RB;
 import org.jreleaser.logging.JReleaserLogger;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -259,9 +260,9 @@ public final class PlatformUtils {
 
             Path release = Paths.get(javaHome).resolve("release");
 
-            try {
+            try (InputStream in = Files.newInputStream(release)) {
                 Properties props = new Properties();
-                props.load(Files.newInputStream(release));
+                props.load(in);
                 if (props.containsKey("LIBC")) {
                     String libc = props.getProperty("LIBC");
                     if ("musl".equalsIgnoreCase(libc)) {
@@ -320,6 +321,6 @@ public final class PlatformUtils {
     }
 
     public static String getDetectedVersion() {
-        return OS_DETECTOR.get(OsDetector.DETECTED_VERSION);
+        return OS_DETECTOR.get(Detector.DETECTED_VERSION);
     }
 }

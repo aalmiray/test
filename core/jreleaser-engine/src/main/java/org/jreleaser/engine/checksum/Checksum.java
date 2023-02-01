@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,6 +34,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.jreleaser.model.api.checksum.Checksum.KEY_SKIP_CHECKSUM;
 import static org.jreleaser.util.StringUtils.isNotBlank;
 
@@ -41,7 +42,11 @@ import static org.jreleaser.util.StringUtils.isNotBlank;
  * @author Andres Almiray
  * @since 0.1.0
  */
-public class Checksum {
+public final class Checksum {
+    private Checksum() {
+        // noop
+    }
+
     public static void collectAndWriteChecksums(JReleaserContext context) throws JReleaserException {
         context.getLogger().info(RB.$("checksum.header"));
         context.getLogger().increaseIndent();
@@ -51,9 +56,9 @@ public class Checksum {
 
         if (context.getModel().getChecksum().isFiles()) {
             for (Artifact artifact : Artifacts.resolveFiles(context)) {
-                if (!artifact.isActive()) continue;
-                artifact.getEffectivePath(context);
-                if (artifact.extraPropertyIsTrue(KEY_SKIP_CHECKSUM)) continue;
+                if (!artifact.isActive() || artifact.extraPropertyIsTrue(KEY_SKIP_CHECKSUM) ||
+                    artifact.isOptional(context) && !artifact.resolvedPathExists()) continue;
+
                 for (Algorithm algorithm : context.getModel().getChecksum().getAlgorithms()) {
                     readHash(context, algorithm, artifact);
                     List<String> list = checksums.computeIfAbsent(algorithm, k -> new ArrayList<>());
@@ -66,6 +71,8 @@ public class Checksum {
             for (Artifact artifact : distribution.getArtifacts()) {
                 if (!artifact.isActive()) continue;
                 artifact.getEffectivePath(context, distribution);
+                if (artifact.isOptional(context) && !artifact.resolvedPathExists()) continue;
+
                 for (Algorithm algorithm : context.getModel().getChecksum().getAlgorithms()) {
                     readHash(context, distribution, algorithm, artifact);
                     List<String> list = checksums.computeIfAbsent(algorithm, k -> new ArrayList<>());
@@ -92,7 +99,7 @@ public class Checksum {
 
             try {
                 if (Files.exists(checksumsFilePath)) {
-                    String oldContent = new String(Files.readAllBytes(checksumsFilePath));
+                    String oldContent = new String(Files.readAllBytes(checksumsFilePath), UTF_8);
                     if (newContent.equals(oldContent)) {
                         // no need to write down the same content
                         context.getLogger().info(RB.$("checksum.not.changed"));
@@ -108,7 +115,7 @@ public class Checksum {
             try {
                 if (isNotBlank(newContent)) {
                     Files.createDirectories(context.getChecksumsDirectory());
-                    Files.write(checksumsFilePath, newContent.getBytes());
+                    Files.write(checksumsFilePath, newContent.getBytes(UTF_8));
                 } else {
                     Files.deleteIfExists(checksumsFilePath);
                 }
@@ -159,7 +166,7 @@ public class Checksum {
         try {
             context.getLogger().debug(RB.$("checksum.reading"),
                 context.relativizeToBasedir(checksumPath));
-            artifact.setHash(algorithm, new String(Files.readAllBytes(checksumPath)));
+            artifact.setHash(algorithm, new String(Files.readAllBytes(checksumPath), UTF_8));
         } catch (IOException e) {
             throw new JReleaserException(RB.$("ERROR_unexpected_error_hash_read", context.relativizeToBasedir(checksumPath)), e);
         }
@@ -174,7 +181,7 @@ public class Checksum {
             context.getLogger().info("{}.{}", context.relativizeToBasedir(input), algorithm.formatted());
             String hashcode = ChecksumUtils.checksum(algorithm, Files.readAllBytes(input));
             output.toFile().getParentFile().mkdirs();
-            Files.write(output, hashcode.getBytes());
+            Files.write(output, hashcode.getBytes(UTF_8));
             return hashcode;
         } catch (IOException e) {
             throw new JReleaserException(RB.$("ERROR_unexpected_error_calculate_checksum", input), e);

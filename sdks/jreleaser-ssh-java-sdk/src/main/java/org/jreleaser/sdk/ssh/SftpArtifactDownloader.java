@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -66,7 +66,7 @@ public class SftpArtifactDownloader extends AbstractArtifactDownloader<org.jrele
     @Override
     public void download(String name) throws DownloadException {
         SSHClient ssh = createSSHClient(context, downloader);
-        SFTPClient sftp = createSFTPClient(context, downloader, ssh);
+        SFTPClient sftp = createSFTPClient(downloader, ssh);
 
         try {
             try {
@@ -92,11 +92,13 @@ public class SftpArtifactDownloader extends AbstractArtifactDownloader<org.jrele
         Path outputPath = context.getDownloadDirectory().resolve(name).resolve(output);
         context.getLogger().info("{} -> {}", input, context.relativizeToBasedir(outputPath));
 
-        try {
-            Files.createDirectories(outputPath.toAbsolutePath().getParent());
-            sftp.get(input, outputPath.toAbsolutePath().toString());
-        } catch (IOException e) {
-            throw new DownloadException(RB.$("ERROR_unexpected_download", input), e);
+        if (!context.isDryrun()) {
+            try {
+                Files.createDirectories(outputPath.toAbsolutePath().getParent());
+                sftp.get(input, outputPath.toAbsolutePath().toString());
+            } catch (IOException e) {
+                throw new DownloadException(RB.$("ERROR_unexpected_download", input), e);
+            }
         }
 
         unpack(asset.getUnpack(), outputPath);

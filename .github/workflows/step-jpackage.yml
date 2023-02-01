@@ -14,9 +14,9 @@ on:
         default: 'zulu'
         required: false
         type: string
-      cache-key:
-        required: true
-        type: string
+
+permissions:
+  contents: read
 
 jobs:
   jpackage:
@@ -29,19 +29,26 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v3
+        with:
+          ref: 'main'
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: artifacts
+          path: plugins
+
+      - name: Download jlink
+        uses: actions/download-artifact@v3
+        with:
+          name: jlink
+          path: out/jreleaser/assemble/jreleaser-standalone/jlink
 
       - name: Setup Java
         uses: actions/setup-java@v3
         with:
           java-version: ${{ inputs.java-version }}
           distribution: ${{ inputs.java-distro }}
-
-      - name: Use GNU tar
-        if: ${{ runner.os == 'Windows' }}
-        shell: cmd
-        run: |
-          echo "Adding GNU tar to PATH"
-          echo C:\Program Files\Git\usr\bin>>"%GITHUB_PATH%"
 
       - name: Cache Gradle
         uses: actions/cache@v3
@@ -57,42 +64,17 @@ jobs:
           key: ${{ runner.os }}-gradlew-${{ hashFiles('**/gradlew') }}
           restore-keys: ${{ runner.os }}-gradlew-
 
-      - name: Download artifacts
-        uses: actions/cache@v3
-        with:
-          key: artifacts-${{ inputs.cache-key }}
-          path: plugins
-
-      - name: Download jlink
-        uses: actions/cache@v3
-        with:
-          key: jlink-${{ inputs.cache-key }}
-          path: out/jreleaser/assemble/jreleaser-standalone/jlink
-
-      - name: Cache jpackage
-        uses: actions/cache@v3
-        id: cache-jpackage
-        with:
-          key: jpackage-${{ runner.os }}-${{ inputs.cache-key }}
-          path: |
-            out/jreleaser/assemble/jreleaser-installer/jpackage/*.pkg
-            out/jreleaser/assemble/jreleaser-installer/jpackage/*.msi
-            out/jreleaser/assemble/jreleaser-installer/jpackage/*.exe
-            out/jreleaser/assemble/jreleaser-installer/jpackage/*.deb
-            out/jreleaser/assemble/jreleaser-installer/jpackage/*.rpm
-
       - name: Version
         if: endsWith(${{ inputs.project-version }}, '-SNAPSHOT') != true
         run: |
           echo ${{ inputs.project-version }} > VERSION
 
       - name: Build
-        if: steps.cache-jpackage.outputs.cache-hit != 'true'
+        shell: bash
         run: ./gradlew :jreleaser:copyJdksFromCache :jreleaser:setupJdks
 
       - name: Jpackage
         uses: jreleaser/release-action@v1
-        if: steps.cache-jpackage.outputs.cache-hit != 'true'
         with:
           version: early-access
           arguments: assemble -s jpackage -scp
@@ -107,3 +89,15 @@ jobs:
           path: |
             out/jreleaser/trace.log
             out/jreleaser/output.properties
+
+      - name: Upload jpackage
+        uses: actions/upload-artifact@v3
+        with:
+          retention-days: 1
+          name: jpackage
+          path: |
+            out/jreleaser/assemble/jreleaser-installer/jpackage/*.pkg
+            out/jreleaser/assemble/jreleaser-installer/jpackage/*.msi
+            out/jreleaser/assemble/jreleaser-installer/jpackage/*.exe
+            out/jreleaser/assemble/jreleaser-installer/jpackage/*.deb
+            out/jreleaser/assemble/jreleaser-installer/jpackage/*.rpm

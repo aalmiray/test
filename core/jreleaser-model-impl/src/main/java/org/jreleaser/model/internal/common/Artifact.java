@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -38,16 +38,21 @@ import java.util.stream.Collectors;
 
 import static java.nio.file.Files.exists;
 import static java.util.Collections.unmodifiableMap;
+import static org.jreleaser.model.Constants.OPTIONAL;
 import static org.jreleaser.model.internal.util.Artifacts.checkAndCopyFile;
 import static org.jreleaser.model.internal.util.Artifacts.resolveForArtifact;
+import static org.jreleaser.mustache.Templates.resolveTemplate;
 import static org.jreleaser.util.StringUtils.isBlank;
 import static org.jreleaser.util.StringUtils.isNotBlank;
+import static org.jreleaser.util.StringUtils.isTrue;
 
 /**
  * @author Andres Almiray
  * @since 0.1.0
  */
 public final class Artifact extends AbstractModelObject<Artifact> implements Domain, ExtraProperties {
+    private static final long serialVersionUID = 9102641760704662391L;
+
     private final Map<String, Object> extraProperties = new LinkedHashMap<>();
     @JsonIgnore
     private final Map<Algorithm, String> hashes = new LinkedHashMap<>();
@@ -61,8 +66,11 @@ public final class Artifact extends AbstractModelObject<Artifact> implements Dom
     private Path effectivePath;
     @JsonIgnore
     private Path resolvedPath;
-
+    @JsonIgnore
+    private Path resolvedTransform;
     private final org.jreleaser.model.api.common.Artifact immutable = new org.jreleaser.model.api.common.Artifact() {
+        private static final long serialVersionUID = 5096726011565071921L;
+
         @Override
         public boolean isActive() {
             return Artifact.this.isActive();
@@ -118,8 +126,6 @@ public final class Artifact extends AbstractModelObject<Artifact> implements Dom
             return unmodifiableMap(extraProperties);
         }
     };
-    @JsonIgnore
-    private Path resolvedTransform;
 
     public org.jreleaser.model.api.common.Artifact asImmutable() {
         return immutable;
@@ -142,6 +148,17 @@ public final class Artifact extends AbstractModelObject<Artifact> implements Dom
 
     public boolean isActive() {
         return active;
+    }
+
+    public boolean isOptional(JReleaserContext context) {
+        Object value = getExtraProperties().get(OPTIONAL);
+
+        if (value instanceof CharSequence && value.toString().contains("{{")) {
+            value = resolveTemplate(value.toString(), context.fullProps());
+            getExtraProperties().put(OPTIONAL, value);
+        }
+
+        return isTrue(value);
     }
 
     public void activate() {
@@ -248,7 +265,7 @@ public final class Artifact extends AbstractModelObject<Artifact> implements Dom
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
+        if (null == o || getClass() != o.getClass()) return false;
         Artifact that = (Artifact) o;
         return path.equals(that.path);
     }
@@ -270,7 +287,7 @@ public final class Artifact extends AbstractModelObject<Artifact> implements Dom
         if (null == effectivePath) {
             Path rp = getResolvedPath(context);
             Path tp = getResolvedTransform(context);
-            effectivePath = checkAndCopyFile(context, rp, tp);
+            effectivePath = checkAndCopyFile(context, rp, tp, isOptional(context));
         }
         return effectivePath;
     }
@@ -279,16 +296,16 @@ public final class Artifact extends AbstractModelObject<Artifact> implements Dom
         if (null == effectivePath) {
             Path rp = getResolvedPath(context, distribution);
             Path tp = getResolvedTransform(context, distribution);
-            effectivePath = checkAndCopyFile(context, rp, tp);
+            effectivePath = checkAndCopyFile(context, rp, tp, isOptional(context));
         }
         return effectivePath;
     }
 
-    public Path getEffectivePath(JReleaserContext context, Assembler assembler) {
+    public Path getEffectivePath(JReleaserContext context, Assembler<?> assembler) {
         if (null == effectivePath) {
             Path rp = getResolvedPath(context, assembler);
             Path tp = getResolvedTransform(context, assembler);
-            effectivePath = checkAndCopyFile(context, rp, tp);
+            effectivePath = checkAndCopyFile(context, rp, tp, isOptional(context));
         }
         return effectivePath;
     }
@@ -297,7 +314,7 @@ public final class Artifact extends AbstractModelObject<Artifact> implements Dom
         if (null == resolvedPath) {
             path = resolveForArtifact(path, context, this);
             resolvedPath = basedir.resolve(Paths.get(path)).normalize();
-            if (checkIfExists && !exists(resolvedPath)) {
+            if (checkIfExists && !isOptional(context) && !exists(resolvedPath)) {
                 throw new JReleaserException(RB.$("ERROR_path_does_not_exist", context.relativizeToBasedir(resolvedPath)));
             }
         }
@@ -312,22 +329,26 @@ public final class Artifact extends AbstractModelObject<Artifact> implements Dom
         if (null == resolvedPath) {
             path = Artifacts.resolveForArtifact(path, context, this, distribution);
             resolvedPath = context.getBasedir().resolve(Paths.get(path)).normalize();
-            if (context.getMode().validatePaths() && !exists(resolvedPath)) {
+            if (context.getMode().validatePaths() && !isOptional(context) && !exists(resolvedPath)) {
                 throw new JReleaserException(RB.$("ERROR_path_does_not_exist", context.relativizeToBasedir(resolvedPath)));
             }
         }
         return resolvedPath;
     }
 
-    public Path getResolvedPath(JReleaserContext context, Assembler assembler) {
+    public Path getResolvedPath(JReleaserContext context, Assembler<?> assembler) {
         if (null == resolvedPath) {
             path = Artifacts.resolveForArtifact(path, context, this, assembler);
             resolvedPath = context.getBasedir().resolve(Paths.get(path)).normalize();
-            if (context.getMode().validatePaths() && !exists(resolvedPath)) {
+            if (context.getMode().validatePaths() && !isOptional(context) && !exists(resolvedPath)) {
                 throw new JReleaserException(RB.$("ERROR_path_does_not_exist", context.relativizeToBasedir(resolvedPath)));
             }
         }
         return resolvedPath;
+    }
+
+    public boolean resolvedPathExists() {
+        return null != resolvedPath && exists(resolvedPath);
     }
 
     public Path getResolvedTransform(JReleaserContext context, Path basedir) {
@@ -350,7 +371,7 @@ public final class Artifact extends AbstractModelObject<Artifact> implements Dom
         return resolvedTransform;
     }
 
-    public Path getResolvedTransform(JReleaserContext context, Assembler assembler) {
+    public Path getResolvedTransform(JReleaserContext context, Assembler<?> assembler) {
         if (null == resolvedTransform && isNotBlank(transform)) {
             transform = Artifacts.resolveForArtifact(transform, context, this, assembler);
             resolvedTransform = context.getArtifactsDirectory().resolve(Paths.get(transform)).normalize();

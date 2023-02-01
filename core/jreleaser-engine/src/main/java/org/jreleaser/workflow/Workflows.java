@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,7 +27,11 @@ import static java.util.Collections.singletonList;
  * @author Andres Almiray
  * @since 0.1.0
  */
-public class Workflows {
+public final class Workflows {
+    private Workflows() {
+        // noop
+    }
+
     public static Workflow download(JReleaserContext context) {
         context.setCommand(JReleaserCommand.DOWNLOAD);
         return new WorkflowImpl(context, singletonList(
@@ -66,7 +70,7 @@ public class Workflows {
 
     public static Workflow deploy(JReleaserContext context) {
         context.setCommand(JReleaserCommand.DEPLOY);
-        return new WorkflowImpl(context, asList(
+        return new WorkflowImpl(context, singletonList(
             new DeployWorkflowItem()
         ));
     }

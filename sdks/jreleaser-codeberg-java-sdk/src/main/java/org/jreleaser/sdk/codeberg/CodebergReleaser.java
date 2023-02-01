@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,6 +29,7 @@ import org.jreleaser.model.spi.release.Release;
 import org.jreleaser.model.spi.release.ReleaseException;
 import org.jreleaser.model.spi.release.Repository;
 import org.jreleaser.model.spi.release.User;
+import org.jreleaser.mustache.TemplateContext;
 import org.jreleaser.sdk.commons.RestAPIException;
 import org.jreleaser.sdk.git.ChangelogProvider;
 import org.jreleaser.sdk.git.GitSdk;
@@ -105,7 +106,7 @@ public class CodebergReleaser extends AbstractReleaser<org.jreleaser.model.api.r
                 throw new ReleaseException(RB.$("ERROR_git_release_branch_not_exists", branch, branchNames));
             }
 
-            String changelog = context.getChangelog();
+            String changelog = context.getChangelog().getResolvedChangelog();
 
             context.getLogger().debug(RB.$("git.releaser.release.lookup"), tagName, codeberg.getCanonicalRepoName());
             GtRelease release = api.findReleaseByTag(codeberg.getOwner(), codeberg.getName(), tagName);
@@ -211,7 +212,7 @@ public class CodebergReleaser extends AbstractReleaser<org.jreleaser.model.api.r
                 codeberg.getConnectTimeout(),
                 codeberg.getReadTimeout())
                 .findUser(email, name, host);
-        } catch (RestAPIException | IOException e) {
+        } catch (RestAPIException e) {
             context.getLogger().trace(e);
             context.getLogger().debug(RB.$("git.releaser.user.not.found"), email);
         }
@@ -308,7 +309,7 @@ public class CodebergReleaser extends AbstractReleaser<org.jreleaser.model.api.r
         String tagName = codeberg.getEffectiveTagName(context.getModel());
         String labelName = codeberg.getIssues().getLabel().getName();
         String labelColor = codeberg.getIssues().getLabel().getColor();
-        Map<String, Object> props = codeberg.props(context.getModel());
+        TemplateContext props = codeberg.props(context.getModel());
         codeberg.fillProps(props, context.getModel());
         String comment = resolveTemplate(codeberg.getIssues().getComment(), props);
 
@@ -325,7 +326,7 @@ public class CodebergReleaser extends AbstractReleaser<org.jreleaser.model.api.r
                 labelName,
                 labelColor,
                 codeberg.getIssues().getLabel().getDescription());
-        } catch (IOException e) {
+        } catch (RestAPIException e) {
             throw new IllegalStateException(RB.$("ERROR_git_releaser_fetch_label", tagName, labelName), e);
         }
 
@@ -350,7 +351,7 @@ public class CodebergReleaser extends AbstractReleaser<org.jreleaser.model.api.r
             if (!op.isPresent()) continue;
 
             GtIssue gtIssue = op.get();
-            if (gtIssue.getState().equals("closed") && gtIssue.getLabels().stream().noneMatch(l -> l.getName().equals(labelName))) {
+            if ("closed".equals(gtIssue.getState()) && gtIssue.getLabels().stream().noneMatch(l -> l.getName().equals(labelName))) {
                 context.getLogger().debug(RB.$("git.issue.release", issueNumber));
                 api.addLabelToIssue(codeberg.getOwner(), codeberg.getName(), gtIssue, gtLabel);
                 api.commentOnIssue(codeberg.getOwner(), codeberg.getName(), gtIssue, comment);

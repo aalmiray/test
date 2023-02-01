@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,25 +18,30 @@
 package org.jreleaser.model.internal.validation.assemble;
 
 import org.jreleaser.bundle.RB;
-import org.jreleaser.model.Active;
 import org.jreleaser.model.Archive;
 import org.jreleaser.model.Distribution;
 import org.jreleaser.model.api.JReleaserContext.Mode;
 import org.jreleaser.model.internal.JReleaserContext;
 import org.jreleaser.model.internal.assemble.ArchiveAssembler;
 import org.jreleaser.model.internal.common.FileSet;
-import org.jreleaser.model.internal.validation.common.Validator;
 import org.jreleaser.util.Errors;
 
 import java.util.Map;
 
+import static org.jreleaser.model.internal.validation.common.Validator.resolveActivatable;
+import static org.jreleaser.model.internal.validation.common.Validator.validateFileSet;
+import static org.jreleaser.util.CollectionUtils.listOf;
 import static org.jreleaser.util.StringUtils.isBlank;
 
 /**
  * @author Andres Almiray
  * @since 0.8.0
  */
-public abstract class ArchiveAssemblerValidator extends Validator {
+public final class ArchiveAssemblerValidator {
+    private ArchiveAssemblerValidator() {
+        // noop
+    }
+
     public static void validateArchive(JReleaserContext context, Mode mode, Errors errors) {
         Map<String, ArchiveAssembler> archive = context.getModel().getAssemble().getArchive();
         if (!archive.isEmpty()) context.getLogger().debug("assemble.archive");
@@ -52,9 +57,9 @@ public abstract class ArchiveAssemblerValidator extends Validator {
     private static void validateArchive(JReleaserContext context, Mode mode, ArchiveAssembler archive, Errors errors) {
         context.getLogger().debug("assemble.archive.{}", archive.getName());
 
-        if (!archive.isActiveSet()) {
-            archive.setActive(Active.NEVER);
-        }
+        resolveActivatable(context, archive,
+            listOf("assemble.archive." + archive.getName(), "assemble.archive"),
+            "NEVER");
         if (!archive.resolveEnabled(context.getModel().getProject())) {
             context.getLogger().debug(RB.$("validation.disabled"));
             return;
@@ -89,7 +94,7 @@ public abstract class ArchiveAssemblerValidator extends Validator {
         } else {
             int i = 0;
             for (FileSet fileSet : archive.getFileSets()) {
-                validateFileSet(context, mode, archive, fileSet, i++, errors);
+                validateFileSet(mode, archive, fileSet, i++, errors);
             }
         }
     }

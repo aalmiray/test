@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -314,7 +314,7 @@ class AnnounceImpl implements Announce {
         if (discussions.isSet()) announce.discussions = discussions.toModel()
         if (gitter.isSet()) announce.gitter = gitter.toModel()
         if (googleChat.isSet()) announce.googleChat = googleChat.toModel()
-        if (smtp.isSet()) announce.mail = smtp.toModel()
+        if (smtp.isSet()) announce.smtp = smtp.toModel()
         if (mastodon.isSet()) announce.mastodon = mastodon.toModel()
         if (mattermost.isSet()) announce.mattermost = mattermost.toModel()
         if (sdkman.isSet()) announce.sdkman = sdkman.toModel()

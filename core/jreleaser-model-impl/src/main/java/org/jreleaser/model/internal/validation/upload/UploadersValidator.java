@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,9 +21,9 @@ import org.jreleaser.bundle.RB;
 import org.jreleaser.model.api.JReleaserContext.Mode;
 import org.jreleaser.model.internal.JReleaserContext;
 import org.jreleaser.model.internal.upload.Upload;
-import org.jreleaser.model.internal.validation.common.Validator;
 import org.jreleaser.util.Errors;
 
+import static org.jreleaser.model.internal.validation.common.Validator.resolveActivatable;
 import static org.jreleaser.model.internal.validation.upload.ArtifactoryUploaderValidator.validateArtifactory;
 import static org.jreleaser.model.internal.validation.upload.FtpUploaderValidator.validateFtpUploader;
 import static org.jreleaser.model.internal.validation.upload.GiteaUploaderValidator.validateGiteaUploader;
@@ -37,7 +37,11 @@ import static org.jreleaser.model.internal.validation.upload.SftpUploaderValidat
  * @author Andres Almiray
  * @since 0.3.0
  */
-public abstract class UploadersValidator extends Validator {
+public final class UploadersValidator {
+    private UploadersValidator() {
+        // noop
+    }
+
     public static void validateUploaders(JReleaserContext context, Mode mode, Errors errors) {
         Upload upload = context.getModel().getUpload();
         context.getLogger().debug("upload");
@@ -53,7 +57,8 @@ public abstract class UploadersValidator extends Validator {
 
         if (mode.validateConfig()) {
             boolean activeSet = upload.isActiveSet();
-            upload.resolveEnabled(context.getModel().getProject());
+            resolveActivatable(context, upload, "upload", "ALWAYS");
+            upload.resolveEnabledWithSnapshot(context.getModel().getProject());
 
             if (upload.isEnabled()) {
                 boolean enabled = !upload.getActiveArtifactories().isEmpty() ||

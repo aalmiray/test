@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,16 +21,20 @@ import org.jreleaser.bundle.RB;
 import org.jreleaser.model.api.JReleaserContext.Mode;
 import org.jreleaser.model.internal.JReleaserContext;
 import org.jreleaser.model.internal.deploy.Deploy;
-import org.jreleaser.model.internal.validation.common.Validator;
 import org.jreleaser.util.Errors;
 
+import static org.jreleaser.model.internal.validation.common.Validator.resolveActivatable;
 import static org.jreleaser.model.internal.validation.deploy.maven.MavenDeployersValidator.validateMavenDeployers;
 
 /**
  * @author Andres Almiray
  * @since 1.3.0
  */
-public abstract class DeployValidator extends Validator {
+public final class DeployValidator {
+    private DeployValidator() {
+        // noop
+    }
+
     public static void validateDeploy(JReleaserContext context, Mode mode, Errors errors) {
         context.getLogger().debug("deploy");
 
@@ -39,6 +43,7 @@ public abstract class DeployValidator extends Validator {
 
         if (mode.validateDeploy() || mode.validateConfig()) {
             boolean activeSet = deploy.isActiveSet();
+            resolveActivatable(context, deploy, "deploy", "ALWAYS");
             deploy.resolveEnabled(context.getModel().getProject());
 
             if (deploy.isEnabled()) {

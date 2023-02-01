@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,10 +23,11 @@ import org.jreleaser.model.Constants;
 import org.jreleaser.model.internal.JReleaserContext;
 import org.jreleaser.model.internal.assemble.JlinkAssembler;
 import org.jreleaser.model.internal.common.Artifact;
-import org.jreleaser.model.internal.project.Project;
 import org.jreleaser.model.spi.assemble.AssemblerProcessingException;
+import org.jreleaser.mustache.TemplateContext;
 import org.jreleaser.sdk.command.Command;
 import org.jreleaser.util.FileUtils;
+import org.jreleaser.util.IoUtils;
 import org.jreleaser.util.PlatformUtils;
 import org.jreleaser.util.StringUtils;
 import org.jreleaser.version.SemanticVersion;
@@ -37,7 +38,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
-import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.stream.Stream;
@@ -63,7 +63,7 @@ public class JlinkAssemblerProcessor extends AbstractJavaAssemblerProcessor<org.
     }
 
     @Override
-    protected void doAssemble(Map<String, Object> props) throws AssemblerProcessingException {
+    protected void doAssemble(TemplateContext props) throws AssemblerProcessingException {
         // verify jdk
         Path jdkPath = assembler.getJdk().getEffectivePath(context, assembler);
         SemanticVersion jdkVersion = SemanticVersion.of(readJavaVersion(jdkPath));
@@ -82,7 +82,7 @@ public class JlinkAssemblerProcessor extends AbstractJavaAssemblerProcessor<org.
             }
         }
 
-        Path assembleDirectory = (Path) props.get(Constants.KEY_DISTRIBUTION_ASSEMBLE_DIRECTORY);
+        Path assembleDirectory = props.get(Constants.KEY_DISTRIBUTION_ASSEMBLE_DIRECTORY);
         Path inputsDirectory = assembleDirectory.resolve("inputs");
 
         // run jlink x jdk
@@ -225,25 +225,7 @@ public class JlinkAssemblerProcessor extends AbstractJavaAssemblerProcessor<org.
             copyFiles(context, imageDirectory);
             copyFileSets(context, imageDirectory);
 
-            switch (archiveFormat) {
-                case ZIP:
-                    FileUtils.zip(workDirectory, imageArchive);
-                    break;
-                case TAR:
-                    FileUtils.tar(workDirectory, imageArchive);
-                    break;
-                case TGZ:
-                case TAR_GZ:
-                    FileUtils.tgz(workDirectory, imageArchive);
-                    break;
-                case TXZ:
-                case TAR_XZ:
-                    FileUtils.xz(workDirectory, imageArchive);
-                    break;
-                case TBZ2:
-                case TAR_BZ2:
-                    FileUtils.bz2(workDirectory, imageArchive);
-            }
+            FileUtils.packArchive(workDirectory, imageArchive, context.getModel().resolveArchiveTimestamp());
 
             context.getLogger().debug("- {}", imageArchive.getFileName());
 
@@ -253,7 +235,7 @@ public class JlinkAssemblerProcessor extends AbstractJavaAssemblerProcessor<org.
         }
     }
 
-    private Set<String> resolveModuleNames(JReleaserContext context, Path jdkPath, Path jarsDirectory, String platform, Map<String, Object> props) throws AssemblerProcessingException {
+    private Set<String> resolveModuleNames(JReleaserContext context, Path jdkPath, Path jarsDirectory, String platform, TemplateContext props) throws AssemblerProcessingException {
         if (!assembler.getModuleNames().isEmpty()) {
             return assembler.getModuleNames();
         }
@@ -305,7 +287,7 @@ public class JlinkAssemblerProcessor extends AbstractJavaAssemblerProcessor<org.
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         executeCommandCapturing(jarsDirectory, cmd, out);
 
-        String output = out.toString().trim();
+        String output = IoUtils.toString(out).trim();
         long lineCount = Arrays.stream(output.split(System.lineSeparator()))
             .map(String::trim)
             .count();
@@ -356,11 +338,11 @@ public class JlinkAssemblerProcessor extends AbstractJavaAssemblerProcessor<org.
     }
 
     @Override
-    protected void writeFile(Project project, String content, Map<String, Object> props, String fileName)
+    protected void writeFile(String content, TemplateContext props, String fileName)
         throws AssemblerProcessingException {
         fileName = trimTplExtension(fileName);
 
-        Path outputDirectory = (Path) props.get(Constants.KEY_DISTRIBUTION_ASSEMBLE_DIRECTORY);
+        Path outputDirectory = props.get(Constants.KEY_DISTRIBUTION_ASSEMBLE_DIRECTORY);
         Path inputsDirectory = outputDirectory.resolve("inputs");
         try {
             Files.createDirectories(inputsDirectory);

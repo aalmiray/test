@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,19 +18,17 @@
 package org.jreleaser.sdk.twitter;
 
 import org.jreleaser.bundle.RB;
-import org.jreleaser.model.Constants;
 import org.jreleaser.model.internal.JReleaserContext;
 import org.jreleaser.model.spi.announce.AnnounceException;
 import org.jreleaser.model.spi.announce.Announcer;
-import org.jreleaser.mustache.MustacheUtils;
+import org.jreleaser.mustache.TemplateContext;
 import org.jreleaser.util.StringUtils;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 
+import static org.jreleaser.model.Constants.KEY_PREVIOUS_TAG_NAME;
 import static org.jreleaser.model.Constants.KEY_TAG_NAME;
 import static org.jreleaser.mustache.MustacheUtils.applyTemplates;
 import static org.jreleaser.mustache.Templates.resolveTemplate;
@@ -67,12 +65,11 @@ public class TwitterAnnouncer implements Announcer<org.jreleaser.model.api.annou
 
     @Override
     public void announce() throws AnnounceException {
-
         List<String> statuses = new ArrayList<>();
 
         if (isNotBlank(twitter.getStatusTemplate())) {
-            Map<String, Object> props = new LinkedHashMap<>();
-            props.put(Constants.KEY_CHANGELOG, MustacheUtils.passThrough(context.getChangelog()));
+            TemplateContext props = new TemplateContext();
+            context.getChangelog().apply(props);
             context.getModel().getRelease().getReleaser().fillProps(props, context.getModel());
             Arrays.stream(twitter.getResolvedStatusTemplate(context, props)
                     .split(System.lineSeparator()))
@@ -116,9 +113,10 @@ public class TwitterAnnouncer implements Announcer<org.jreleaser.model.api.annou
     }
 
     private String getResolvedMessage(JReleaserContext context, String message) {
-        Map<String, Object> props = context.fullProps();
+        TemplateContext props = context.fullProps();
         applyTemplates(props, context.getModel().getAnnounce().getTwitter().getResolvedExtraProperties());
-        props.put(KEY_TAG_NAME, context.getModel().getRelease().getReleaser().getEffectiveTagName(context.getModel()));
+        props.set(KEY_TAG_NAME, context.getModel().getRelease().getReleaser().getEffectiveTagName(context.getModel()));
+        props.set(KEY_PREVIOUS_TAG_NAME, context.getModel().getRelease().getReleaser().getResolvedPreviousTagName(context.getModel()));
         return resolveTemplate(message, props);
     }
 }

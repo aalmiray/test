@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,15 +17,11 @@
  */
 package org.jreleaser.model.internal.announce;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.jreleaser.bundle.RB;
 import org.jreleaser.model.Active;
 import org.jreleaser.model.JReleaserException;
-import org.jreleaser.model.internal.common.AbstractModelObject;
-import org.jreleaser.model.internal.common.Activatable;
+import org.jreleaser.model.internal.common.AbstractActivatable;
 import org.jreleaser.model.internal.common.Domain;
-import org.jreleaser.model.internal.project.Project;
-import org.jreleaser.util.Env;
 
 import java.util.LinkedHashMap;
 import java.util.Locale;
@@ -39,7 +35,9 @@ import static org.jreleaser.util.StringUtils.isBlank;
  * @author Andres Almiray
  * @since 0.1.0
  */
-public final class Announce extends AbstractModelObject<Announce> implements Domain, Activatable {
+public final class Announce extends AbstractActivatable<Announce> implements Domain {
+    private static final long serialVersionUID = -6868967233400028691L;
+
     private final ArticleAnnouncer article = new ArticleAnnouncer();
     private final DiscordAnnouncer discord = new DiscordAnnouncer();
     private final DiscourseAnnouncer discourse = new DiscourseAnnouncer();
@@ -47,7 +45,7 @@ public final class Announce extends AbstractModelObject<Announce> implements Dom
     private final GitterAnnouncer gitter = new GitterAnnouncer();
     private final GoogleChatAnnouncer googleChat = new GoogleChatAnnouncer();
     private final HttpAnnouncers http = new HttpAnnouncers();
-    private final SmtpAnnouncer mail = new SmtpAnnouncer();
+    private final SmtpAnnouncer smtp = new SmtpAnnouncer();
     private final MastodonAnnouncer mastodon = new MastodonAnnouncer();
     private final MattermostAnnouncer mattermost = new MattermostAnnouncer();
     private final SdkmanAnnouncer sdkman = new SdkmanAnnouncer();
@@ -58,11 +56,9 @@ public final class Announce extends AbstractModelObject<Announce> implements Dom
     private final WebhooksAnnouncer webhooks = new WebhooksAnnouncer();
     private final ZulipAnnouncer zulip = new ZulipAnnouncer();
 
-    private Active active;
-    @JsonIgnore
-    private boolean enabled = true;
-
     private final org.jreleaser.model.api.announce.Announce immutable = new org.jreleaser.model.api.announce.Announce() {
+        private static final long serialVersionUID = 5983475776968116269L;
+
         @Override
         public org.jreleaser.model.api.announce.ArticleAnnouncer getArticle() {
             return article.asImmutable();
@@ -95,7 +91,12 @@ public final class Announce extends AbstractModelObject<Announce> implements Dom
 
         @Override
         public org.jreleaser.model.api.announce.SmtpAnnouncer getMail() {
-            return mail.asImmutable();
+            return smtp.asImmutable();
+        }
+
+        @Override
+        public org.jreleaser.model.api.announce.SmtpAnnouncer getSmtp() {
+            return smtp.asImmutable();
         }
 
         @Override
@@ -150,7 +151,7 @@ public final class Announce extends AbstractModelObject<Announce> implements Dom
 
         @Override
         public Active getActive() {
-            return active;
+            return Announce.this.getActive();
         }
 
         @Override
@@ -164,14 +165,17 @@ public final class Announce extends AbstractModelObject<Announce> implements Dom
         }
     };
 
+    public Announce() {
+        enabledSet(true);
+    }
+
     public org.jreleaser.model.api.announce.Announce asImmutable() {
         return immutable;
     }
 
     @Override
     public void merge(Announce source) {
-        this.active = merge(this.active, source.active);
-        this.enabled = merge(this.enabled, source.enabled);
+        super.merge(source);
         setArticle(source.article);
         setDiscord(source.discord);
         setDiscourse(source.discourse);
@@ -179,7 +183,7 @@ public final class Announce extends AbstractModelObject<Announce> implements Dom
         setGitter(source.gitter);
         setGoogleChat(source.googleChat);
         setConfiguredHttp(source.http);
-        setMail(source.mail);
+        setSmtp(source.smtp);
         setMastodon(source.mastodon);
         setMattermost(source.mattermost);
         setSdkman(source.sdkman);
@@ -191,46 +195,12 @@ public final class Announce extends AbstractModelObject<Announce> implements Dom
         setConfiguredWebhooks(source.webhooks);
     }
 
-    @Override
-    public boolean isEnabled() {
-        return enabled && active != null;
-    }
-
     @Deprecated
     public void setEnabled(Boolean enabled) {
         nag("announce.enabled is deprecated since 1.1.0 and will be removed in 2.0.0");
         if (null != enabled) {
-            this.active = enabled ? Active.ALWAYS : Active.NEVER;
+            setActive(enabled ? Active.ALWAYS : Active.NEVER);
         }
-    }
-
-    public void disable() {
-        active = Active.NEVER;
-        enabled = false;
-    }
-
-    public boolean resolveEnabled(Project project) {
-        if (null == active) {
-            setActive(Env.resolveOrDefault("announce.active", "", "ALWAYS"));
-        }
-        enabled = active.check(project);
-        return enabled;
-    }
-
-    public Active getActive() {
-        return active;
-    }
-
-    public void setActive(Active active) {
-        this.active = active;
-    }
-
-    public void setActive(String str) {
-        setActive(Active.of(str));
-    }
-
-    public boolean isActiveSet() {
-        return active != null;
     }
 
     public ArticleAnnouncer getArticle() {
@@ -281,12 +251,23 @@ public final class Announce extends AbstractModelObject<Announce> implements Dom
         this.googleChat.merge(googleChat);
     }
 
+    @Deprecated
     public SmtpAnnouncer getMail() {
-        return mail;
+        return getSmtp();
     }
 
+    @Deprecated
     public void setMail(SmtpAnnouncer mail) {
-        this.mail.merge(mail);
+        nag("announce.mail is deprecated since 1.4.0 and will be removed in 2.0.0");
+        setSmtp(mail);
+    }
+
+    public SmtpAnnouncer getSmtp() {
+        return smtp;
+    }
+
+    public void setSmtp(SmtpAnnouncer smtp) {
+        this.smtp.merge(smtp);
     }
 
     public MastodonAnnouncer getMastodon() {
@@ -397,7 +378,7 @@ public final class Announce extends AbstractModelObject<Announce> implements Dom
     public Map<String, Object> asMap(boolean full) {
         Map<String, Object> map = new LinkedHashMap<>();
         map.put("enabled", isEnabled());
-        map.put("active", active);
+        map.put("active", getActive());
         map.putAll(article.asMap(full));
         map.putAll(discord.asMap(full));
         map.putAll(discourse.asMap(full));
@@ -405,7 +386,7 @@ public final class Announce extends AbstractModelObject<Announce> implements Dom
         map.putAll(gitter.asMap(full));
         map.putAll(googleChat.asMap(full));
         map.putAll(http.asMap(full));
-        map.putAll(mail.asMap(full));
+        map.putAll(smtp.asMap(full));
         map.putAll(mastodon.asMap(full));
         map.putAll(mattermost.asMap(full));
         map.putAll(sdkman.asMap(full));
@@ -418,7 +399,7 @@ public final class Announce extends AbstractModelObject<Announce> implements Dom
         return map;
     }
 
-    public <A extends Announcer> A findAnnouncer(String name) {
+    public <A extends Announcer<?>> A findAnnouncer(String name) {
         if (isBlank(name)) {
             throw new JReleaserException("Announcer name must not be blank");
         }
@@ -426,15 +407,7 @@ public final class Announce extends AbstractModelObject<Announce> implements Dom
         return resolveAnnouncer(name);
     }
 
-    public <A extends Announcer> A getAnnouncer(String name) {
-        A announcer = findAnnouncer(name);
-        if (null != announcer) {
-            return announcer;
-        }
-        throw new JReleaserException(RB.$("ERROR_announcer_not_configured", name));
-    }
-
-    private <A extends Announcer> A resolveAnnouncer(String name) {
+    private <A extends Announcer<?>> A resolveAnnouncer(String name) {
         switch (name.toLowerCase(Locale.ENGLISH).trim()) {
             case org.jreleaser.model.api.announce.ArticleAnnouncer.TYPE:
                 return (A) getArticle();
@@ -451,7 +424,8 @@ public final class Announce extends AbstractModelObject<Announce> implements Dom
             case org.jreleaser.model.api.announce.HttpAnnouncers.TYPE:
                 return (A) getConfiguredHttp();
             case org.jreleaser.model.api.announce.SmtpAnnouncer.TYPE:
-                return (A) getMail();
+            case org.jreleaser.model.api.announce.SmtpAnnouncer.TYPE_LEGACY:
+                return (A) getSmtp();
             case org.jreleaser.model.api.announce.MastodonAnnouncer.TYPE:
                 return (A) getMastodon();
             case org.jreleaser.model.api.announce.MattermostAnnouncer.TYPE:

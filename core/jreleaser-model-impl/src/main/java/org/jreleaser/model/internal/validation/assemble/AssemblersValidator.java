@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,7 +26,6 @@ import org.jreleaser.model.internal.assemble.JavaArchiveAssembler;
 import org.jreleaser.model.internal.assemble.JlinkAssembler;
 import org.jreleaser.model.internal.assemble.JpackageAssembler;
 import org.jreleaser.model.internal.assemble.NativeImageAssembler;
-import org.jreleaser.model.internal.validation.common.Validator;
 import org.jreleaser.util.Errors;
 
 import java.util.ArrayList;
@@ -40,12 +39,17 @@ import static org.jreleaser.model.internal.validation.assemble.JlinkAssemblerVal
 import static org.jreleaser.model.internal.validation.assemble.JpackageAssemblerValidator.postValidateJpackage;
 import static org.jreleaser.model.internal.validation.assemble.JpackageAssemblerValidator.validateJpackage;
 import static org.jreleaser.model.internal.validation.assemble.NativeImageAssemblerValidator.validateNativeImage;
+import static org.jreleaser.model.internal.validation.common.Validator.resolveActivatable;
 
 /**
  * @author Andres Almiray
  * @since 0.2.0
  */
-public abstract class AssemblersValidator extends Validator {
+public final class AssemblersValidator {
+    private AssemblersValidator() {
+        // noop
+    }
+
     public static void validateAssemblers(JReleaserContext context, Mode mode, Errors errors) {
         Assemble assemble = context.getModel().getAssemble();
         context.getLogger().debug("assemble");
@@ -92,6 +96,7 @@ public abstract class AssemblersValidator extends Validator {
         });
 
         boolean activeSet = assemble.isActiveSet();
+        resolveActivatable(context, assemble, "assemble", "ALWAYS");
         assemble.resolveEnabled(context.getModel().getProject());
 
         if (assemble.isEnabled()) {
@@ -108,9 +113,9 @@ public abstract class AssemblersValidator extends Validator {
         }
     }
 
-    public static void postValidateAssemblers(JReleaserContext context, Mode mode, Errors errors) {
+    public static void postValidateAssemblers(JReleaserContext context) {
         context.getLogger().debug("assemble");
 
-        postValidateJpackage(context, mode, errors);
+        postValidateJpackage(context);
     }
 }

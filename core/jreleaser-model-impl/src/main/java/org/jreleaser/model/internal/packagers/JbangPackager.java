@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ import org.jreleaser.model.Active;
 import org.jreleaser.model.Distribution;
 import org.jreleaser.model.Stereotype;
 import org.jreleaser.model.internal.common.Artifact;
+import org.jreleaser.model.internal.project.Project;
 
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -42,6 +43,7 @@ import static org.jreleaser.model.api.packagers.JbangPackager.TYPE;
  */
 public final class JbangPackager extends AbstractRepositoryPackager<org.jreleaser.model.api.packagers.JbangPackager, JbangPackager> {
     private static final Map<org.jreleaser.model.Distribution.DistributionType, Set<String>> SUPPORTED = new LinkedHashMap<>();
+    private static final long serialVersionUID = 1077821049281420040L;
 
     static {
         SUPPORTED.put(JAVA_BINARY, emptySet());
@@ -53,6 +55,8 @@ public final class JbangPackager extends AbstractRepositoryPackager<org.jrelease
     private String alias;
 
     private final org.jreleaser.model.api.packagers.JbangPackager immutable = new org.jreleaser.model.api.packagers.JbangPackager() {
+        private static final long serialVersionUID = -3477595656026714700L;
+
         @Override
         public String getAlias() {
             return alias;
@@ -70,27 +74,27 @@ public final class JbangPackager extends AbstractRepositoryPackager<org.jrelease
 
         @Override
         public org.jreleaser.model.api.common.CommitAuthor getCommitAuthor() {
-            return commitAuthor.asImmutable();
+            return JbangPackager.this.getCommitAuthor().asImmutable();
         }
 
         @Override
         public String getTemplateDirectory() {
-            return templateDirectory;
+            return JbangPackager.this.getTemplateDirectory();
         }
 
         @Override
         public List<String> getSkipTemplates() {
-            return unmodifiableList(skipTemplates);
+            return unmodifiableList(JbangPackager.this.getSkipTemplates());
         }
 
         @Override
         public String getType() {
-            return type;
+            return JbangPackager.this.getType();
         }
 
         @Override
         public String getDownloadUrl() {
-            return downloadUrl;
+            return JbangPackager.this.getDownloadUrl();
         }
 
         @Override
@@ -125,7 +129,7 @@ public final class JbangPackager extends AbstractRepositoryPackager<org.jrelease
 
         @Override
         public Active getActive() {
-            return active;
+            return JbangPackager.this.getActive();
         }
 
         @Override
@@ -145,7 +149,7 @@ public final class JbangPackager extends AbstractRepositoryPackager<org.jrelease
 
         @Override
         public Map<String, Object> getExtraProperties() {
-            return unmodifiableMap(extraProperties);
+            return unmodifiableMap(JbangPackager.this.getExtraProperties());
         }
     };
 
@@ -194,7 +198,7 @@ public final class JbangPackager extends AbstractRepositoryPackager<org.jrelease
     }
 
     public PackagerRepository getPackagerRepository() {
-        return repository;
+        return getCatalog();
     }
 
     @Override
@@ -223,13 +227,21 @@ public final class JbangPackager extends AbstractRepositoryPackager<org.jrelease
     }
 
     public static final class JbangRepository extends PackagerRepository {
+        private static final long serialVersionUID = -800139841211856966L;
+
         public JbangRepository() {
             super("jbang", "jbang-catalog");
         }
 
         @Override
         public String getResolvedName() {
-            return tapName;
+            return getTapName();
+        }
+
+        @Override
+        public boolean resolveEnabledWithSnapshot(Project project) {
+            enabledSet(null != getActive() && getActive().check(project));
+            return isEnabled();
         }
     }
 }

@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,10 +18,9 @@
 package org.jreleaser.model.internal.packagers;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import org.jreleaser.model.Active;
 import org.jreleaser.model.Stereotype;
 import org.jreleaser.model.internal.JReleaserContext;
-import org.jreleaser.model.internal.common.AbstractModelObject;
+import org.jreleaser.model.internal.common.AbstractActivatable;
 import org.jreleaser.model.internal.common.Artifact;
 import org.jreleaser.model.internal.distributions.Distribution;
 import org.jreleaser.model.internal.project.Project;
@@ -37,22 +36,22 @@ import java.util.Set;
 
 import static java.util.Comparator.naturalOrder;
 import static java.util.stream.Collectors.toList;
+import static org.jreleaser.model.Distribution.DistributionType.FLAT_BINARY;
 
 /**
  * @author Andres Almiray
  * @since 0.1.0
  */
-public abstract class AbstractPackager<A extends org.jreleaser.model.api.packagers.Packager, S extends AbstractPackager<A, S>> extends AbstractModelObject<S> implements Packager<A> {
+public abstract class AbstractPackager<A extends org.jreleaser.model.api.packagers.Packager, S extends AbstractPackager<A, S>> extends AbstractActivatable<S> implements Packager<A> {
+    private static final long serialVersionUID = -2469546551256308253L;
+
     @JsonIgnore
-    protected final String type;
-    protected final Map<String, Object> extraProperties = new LinkedHashMap<>();
+    private final String type;
+    private final Map<String, Object> extraProperties = new LinkedHashMap<>();
+    private Boolean continueOnError;
+    private String downloadUrl;
     @JsonIgnore
-    protected boolean enabled;
-    protected Active active;
-    protected Boolean continueOnError;
-    protected String downloadUrl;
-    @JsonIgnore
-    protected boolean failed;
+    private boolean failed;
 
     protected AbstractPackager(String type) {
         this.type = type;
@@ -60,12 +59,11 @@ public abstract class AbstractPackager<A extends org.jreleaser.model.api.package
 
     @Override
     public void merge(S source) {
-        this.active = merge(this.active, source.active);
-        this.enabled = merge(this.enabled, source.enabled);
-        this.continueOnError = merge(this.continueOnError, source.continueOnError);
-        this.downloadUrl = merge(this.downloadUrl, source.downloadUrl);
-        this.failed = source.failed;
-        setExtraProperties(merge(this.extraProperties, source.extraProperties));
+        super.merge(source);
+        this.continueOnError = merge(this.continueOnError, source.isContinueOnError());
+        this.downloadUrl = merge(this.downloadUrl, source.getDownloadUrl());
+        this.failed = source.isFailed();
+        setExtraProperties(merge(this.extraProperties, source.getExtraProperties()));
     }
 
     @Override
@@ -83,7 +81,17 @@ public abstract class AbstractPackager<A extends org.jreleaser.model.api.package
         return failed;
     }
 
+    @Override
     public List<Artifact> resolveCandidateArtifacts(JReleaserContext context, Distribution distribution) {
+        if (distribution.getType() == FLAT_BINARY && supportsDistribution(distribution.getType())) {
+            return distribution.getArtifacts().stream()
+                .filter(Artifact::isActive)
+                .filter(artifact -> supportsPlatform(artifact.getPlatform()))
+                .filter(this::isNotSkipped)
+                .sorted(Artifact.comparatorByPlatform())
+                .collect(toList());
+        }
+
         List<String> fileExtensions = new ArrayList<>(getSupportedFileExtensions(distribution.getType()));
         fileExtensions.sort(naturalOrder());
 
@@ -96,6 +104,13 @@ public abstract class AbstractPackager<A extends org.jreleaser.model.api.package
                 String ext = FileType.getExtension(artifact.getResolvedPath(context, distribution));
                 return fileExtensions.indexOf(ext);
             }))
+            .collect(toList());
+    }
+
+    @Override
+    public List<Artifact> resolveNonOptionalArtifacts(JReleaserContext context, Distribution distribution) {
+        return resolveCandidateArtifacts(context, distribution).stream()
+            .filter(artifact -> artifact.resolvedPathExists() && !artifact.isOptional(context))
             .collect(toList());
     }
 
@@ -112,19 +127,8 @@ public abstract class AbstractPackager<A extends org.jreleaser.model.api.package
     }
 
     @Override
-    public boolean isEnabled() {
-        return enabled;
-    }
-
-    @Override
-    public void disable() {
-        active = Active.NEVER;
-        enabled = false;
-    }
-
-    @Override
     public boolean isContinueOnError() {
-        return continueOnError != null && continueOnError;
+        return null != continueOnError && continueOnError;
     }
 
     @Override
@@ -134,47 +138,16 @@ public abstract class AbstractPackager<A extends org.jreleaser.model.api.package
 
     @Override
     public boolean isContinueOnErrorSet() {
-        return continueOnError != null;
+        return null != continueOnError;
     }
 
-    public boolean resolveEnabled(Project project) {
-        if (null == active) {
-            active = Active.NEVER;
-        }
-        enabled = active.check(project);
-
-        return enabled;
-    }
-
+    @Override
     public boolean resolveEnabled(Project project, Distribution distribution) {
-        if (null == active) {
-            active = Active.NEVER;
-        }
-        enabled = active.check(project);
+        resolveEnabled(project);
         if (!supportsDistribution(distribution.getType())) {
-            enabled = false;
+            disable();
         }
-        return enabled;
-    }
-
-    @Override
-    public Active getActive() {
-        return active;
-    }
-
-    @Override
-    public void setActive(Active active) {
-        this.active = active;
-    }
-
-    @Override
-    public void setActive(String str) {
-        setActive(Active.of(str));
-    }
-
-    @Override
-    public boolean isActiveSet() {
-        return active != null;
+        return isEnabled();
     }
 
     @Override
@@ -214,7 +187,7 @@ public abstract class AbstractPackager<A extends org.jreleaser.model.api.package
 
         Map<String, Object> props = new LinkedHashMap<>();
         props.put("enabled", isEnabled());
-        props.put("active", active);
+        props.put("active", getActive());
         props.put("continueOnError", isContinueOnError());
         props.put("downloadUrl", downloadUrl);
         asMap(full, props);

@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,9 +31,9 @@ import static org.hamcrest.Matchers.notNullValue;
  * @author Andres Almiray
  * @since 0.1.0
  */
-public class JsonUtilsTest {
+class JsonUtilsTest {
     @Test
-    public void mergeSameNode() throws IOException {
+    void mergeSameNode() throws IOException {
         // given:
         String input1 = "{\n" +
             "  \"aliases\" : {\n" +
@@ -57,7 +57,7 @@ public class JsonUtilsTest {
     }
 
     @Test
-    public void mergeDistinctNodes() throws IOException {
+    void mergeDistinctNodes() throws IOException {
         // given:
         String input1 = "{\n" +
             "  \"aliases\" : {\n" +
@@ -103,7 +103,7 @@ public class JsonUtilsTest {
     }
 
     @Test
-    public void mergeExistingNodes() throws IOException {
+    void mergeExistingNodes() throws IOException {
         // given:
         String input1 = "{\n" +
             "  \"aliases\" : {\n" +

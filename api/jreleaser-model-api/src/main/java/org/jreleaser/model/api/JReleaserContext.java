@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,10 +20,10 @@ package org.jreleaser.model.api;
 import org.jreleaser.logging.JReleaserLogger;
 import org.jreleaser.model.api.signing.Keyring;
 import org.jreleaser.model.api.signing.SigningException;
+import org.jreleaser.mustache.TemplateContext;
 
 import java.nio.file.Path;
 import java.util.List;
-import java.util.Map;
 
 /**
  * @author Andres Almiray
@@ -114,9 +114,9 @@ public interface JReleaserContext {
 
     JReleaserCommand getCommand();
 
-    Map<String, Object> props();
+    TemplateContext props();
 
-    Map<String, Object> fullProps();
+    TemplateContext fullProps();
 
     void nag(String version, String message);
 

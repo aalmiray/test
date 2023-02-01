@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 plugins {
-    id 'de.benediktritter.maven-plugin-development' version '0.4.0'
+    id 'de.benediktritter.maven-plugin-development' version '0.4.1'
 }
 
 config {
@@ -44,6 +44,9 @@ dependencies {
 
     compileOnly "org.apache.maven:maven-core:$mavenVersion"
     compileOnly "org.apache.maven.plugin-tools:maven-plugin-annotations:$mvnAnnotationsVersion"
+
+    testImplementation "org.apache.maven:maven-core:$mavenVersion"
+    testImplementation "org.apache.maven.plugin-tools:maven-plugin-annotations:$mvnAnnotationsVersion"
 }
 
 license {

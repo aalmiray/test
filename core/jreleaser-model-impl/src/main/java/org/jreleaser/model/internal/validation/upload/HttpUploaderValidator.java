@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,24 +18,29 @@
 package org.jreleaser.model.internal.validation.upload;
 
 import org.jreleaser.bundle.RB;
-import org.jreleaser.model.Active;
 import org.jreleaser.model.Http;
 import org.jreleaser.model.api.JReleaserContext.Mode;
 import org.jreleaser.model.internal.JReleaserContext;
 import org.jreleaser.model.internal.upload.HttpUploader;
-import org.jreleaser.model.internal.validation.common.Validator;
-import org.jreleaser.util.Env;
+import org.jreleaser.model.internal.validation.common.HttpValidator;
 import org.jreleaser.util.Errors;
 
 import java.util.Map;
 
+import static org.jreleaser.model.internal.validation.common.Validator.resolveActivatable;
+import static org.jreleaser.model.internal.validation.common.Validator.validateTimeout;
+import static org.jreleaser.util.CollectionUtils.listOf;
 import static org.jreleaser.util.StringUtils.isBlank;
 
 /**
  * @author Andres Almiray
  * @since 0.4.0
  */
-public abstract class HttpUploaderValidator extends Validator {
+public final class HttpUploaderValidator {
+    private HttpUploaderValidator() {
+        // noop
+    }
+
     public static void validateHttpUploader(JReleaserContext context, Mode mode, Errors errors) {
         Map<String, HttpUploader> http = context.getModel().getUpload().getHttp();
         if (!http.isEmpty()) context.getLogger().debug("upload.http");
@@ -43,18 +48,18 @@ public abstract class HttpUploaderValidator extends Validator {
         for (Map.Entry<String, HttpUploader> e : http.entrySet()) {
             e.getValue().setName(e.getKey());
             if (mode.validateConfig()) {
-                validateHttp(context, mode, e.getValue(), errors);
+                validateHttp(context, e.getValue(), errors);
             }
         }
     }
 
-    private static void validateHttp(JReleaserContext context, Mode mode, HttpUploader http, Errors errors) {
+    private static void validateHttp(JReleaserContext context, HttpUploader http, Errors errors) {
         context.getLogger().debug("upload.http.{}", http.getName());
 
-        if (!http.isActiveSet()) {
-            http.setActive(Active.NEVER);
-        }
-        if (!http.resolveEnabled(context.getModel().getProject())) {
+        resolveActivatable(context, http,
+            listOf("upload.http." + http.getName(), "upload.http"),
+            "NEVER");
+        if (!http.resolveEnabledWithSnapshot(context.getModel().getProject())) {
             context.getLogger().debug(RB.$("validation.disabled"));
             return;
         }
@@ -67,7 +72,7 @@ public abstract class HttpUploaderValidator extends Validator {
         }
 
         if (isBlank(http.getUploadUrl())) {
-            errors.configuration(RB.$("validation_must_not_be_blank", "http." + http.getName() + ".uploadUrl"));
+            errors.configuration(RB.$("validation_must_not_be_blank", "upload.http." + http.getName() + ".uploadUrl"));
         }
         if (isBlank(http.getDownloadUrl())) {
             http.setDownloadUrl(http.getUploadUrl());
@@ -77,37 +82,7 @@ public abstract class HttpUploaderValidator extends Validator {
             http.setMethod(Http.Method.PUT);
         }
 
-        switch (http.resolveAuthorization()) {
-            case BEARER:
-                http.setPassword(
-                    checkProperty(context,
-                        "HTTP_" + Env.toVar(http.getName()) + "_PASSWORD",
-                        "http.password",
-                        http.getPassword(),
-                        errors,
-                        context.isDryrun()));
-                break;
-            case BASIC:
-                http.setUsername(
-                    checkProperty(context,
-                        "HTTP_" + Env.toVar(http.getName()) + "_USERNAME",
-                        "http.username",
-                        http.getUsername(),
-                        errors,
-                        context.isDryrun()));
-
-                http.setPassword(
-                    checkProperty(context,
-                        "HTTP_" + Env.toVar(http.getName()) + "_PASSWORD",
-                        "http.password",
-                        http.getPassword(),
-                        errors,
-                        context.isDryrun()));
-                break;
-            case NONE:
-                break;
-        }
-
+        HttpValidator.validateHttp(context, http, "upload", http.getName(), errors);
         validateTimeout(http);
     }
 }

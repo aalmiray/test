@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,9 +23,9 @@ import org.jreleaser.model.internal.JReleaserContext;
 import org.jreleaser.model.internal.assemble.Assembler;
 import org.jreleaser.model.spi.assemble.AssemblerProcessingException;
 import org.jreleaser.model.spi.assemble.AssemblerProcessor;
+import org.jreleaser.mustache.TemplateContext;
 
 import java.nio.file.Path;
-import java.util.Map;
 
 import static java.util.Objects.requireNonNull;
 
@@ -49,10 +49,10 @@ public class DistributionAssembler {
         return assembler;
     }
 
-    public void assemble() throws AssemblerProcessingException {
+    public boolean assemble() throws AssemblerProcessingException {
         if (!assembler.isEnabled()) {
             context.getLogger().debug(RB.$("assemblers.distribution.skip"), assembler.getName());
-            return;
+            return false;
         }
 
         AssemblerProcessor<?, ?> assemblerProcessor = AssemblerProcessors.findProcessor(context, assembler);
@@ -60,15 +60,16 @@ public class DistributionAssembler {
         context.getLogger().info(RB.$("assemblers.distribution.assemble"), assembler.getName());
 
         assemblerProcessor.assemble(initProps());
+        return true;
     }
 
-    private Map<String, Object> initProps() {
-        Map<String, Object> props = context.props();
-        props.put(Constants.KEY_BASEDIR, context.getBasedir());
-        props.put(Constants.KEY_BASE_OUTPUT_DIRECTORY, outputDirectory.getParent());
-        props.put(Constants.KEY_OUTPUT_DIRECTORY, outputDirectory);
-        props.put(Constants.KEY_ASSEMBLE_DIRECTORY, context.getAssembleDirectory());
-        props.put(Constants.KEY_DISTRIBUTION_ASSEMBLE_DIRECTORY, context.getAssembleDirectory()
+    private TemplateContext initProps() {
+        TemplateContext props = context.props();
+        props.set(Constants.KEY_BASEDIR, context.getBasedir());
+        props.set(Constants.KEY_BASE_OUTPUT_DIRECTORY, outputDirectory.getParent());
+        props.set(Constants.KEY_OUTPUT_DIRECTORY, outputDirectory);
+        props.set(Constants.KEY_ASSEMBLE_DIRECTORY, context.getAssembleDirectory());
+        props.set(Constants.KEY_DISTRIBUTION_ASSEMBLE_DIRECTORY, context.getAssembleDirectory()
             .resolve(assembler.getName())
             .resolve(assembler.getType()));
         return props;
@@ -80,14 +81,14 @@ public class DistributionAssembler {
 
     public static class DistributionAssemblerBuilder {
         private JReleaserContext context;
-        private Assembler assembler;
+        private Assembler<?> assembler;
 
         public DistributionAssemblerBuilder context(JReleaserContext context) {
             this.context = requireNonNull(context, "'context' must not be null");
             return this;
         }
 
-        public DistributionAssemblerBuilder assembler(Assembler assembler) {
+        public DistributionAssemblerBuilder assembler(Assembler<?> assembler) {
             this.assembler = requireNonNull(assembler, "'assembler' must not be null");
             return this;
         }

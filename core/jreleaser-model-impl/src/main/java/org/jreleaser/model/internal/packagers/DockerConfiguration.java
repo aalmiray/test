@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,12 +22,15 @@ import org.jreleaser.model.internal.common.Activatable;
 import org.jreleaser.model.internal.common.Domain;
 import org.jreleaser.model.internal.common.ExtraProperties;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
+import static java.util.Collections.unmodifiableList;
 import static java.util.Collections.unmodifiableMap;
 import static org.jreleaser.model.Constants.HIDE;
 import static org.jreleaser.model.Constants.UNSET;
@@ -102,16 +105,25 @@ public interface DockerConfiguration extends Domain, ExtraProperties, Activatabl
 
     boolean isUseLocalArtifactSet();
 
+    Buildx getBuildx();
+
+    void setBuildx(Buildx buildx);
+
     final class Registry extends AbstractModelObject<Registry> implements Domain, Comparable<Registry> {
         public static final String DEFAULT_NAME = "DEFAULT";
+        public static final String DOCKER_IO = "docker.io";
+        private static final long serialVersionUID = 4898944186216584709L;
 
         private String server;
         private String serverName = DEFAULT_NAME;
         private String repositoryName;
         private String username;
         private String password;
+        private Boolean externalLogin;
 
         private final org.jreleaser.model.api.packagers.DockerConfiguration.Registry immutable = new org.jreleaser.model.api.packagers.DockerConfiguration.Registry() {
+            private static final long serialVersionUID = -1273111436252150810L;
+
             @Override
             public String getServer() {
                 return server;
@@ -138,6 +150,11 @@ public interface DockerConfiguration extends Domain, ExtraProperties, Activatabl
             }
 
             @Override
+            public boolean isExternalLogin() {
+                return Registry.this.isExternalLogin();
+            }
+
+            @Override
             public int compareTo(org.jreleaser.model.api.packagers.DockerConfiguration.Registry o) {
                 if (null == o) return -1;
                 return serverName.compareTo(o.getServerName());
@@ -160,6 +177,7 @@ public interface DockerConfiguration extends Domain, ExtraProperties, Activatabl
             this.repositoryName = merge(this.repositoryName, source.repositoryName);
             this.username = merge(this.username, source.username);
             this.password = merge(this.password, source.password);
+            this.externalLogin = merge(this.externalLogin, source.externalLogin);
         }
 
         public String getServer() {
@@ -202,6 +220,18 @@ public interface DockerConfiguration extends Domain, ExtraProperties, Activatabl
             this.password = password;
         }
 
+        public boolean isExternalLogin() {
+            return null != externalLogin && externalLogin;
+        }
+
+        public void setExternalLogin(Boolean externalLogin) {
+            this.externalLogin = externalLogin;
+        }
+
+        public boolean isExternalLoginSet() {
+            return null != externalLogin;
+        }
+
         @Override
         public Map<String, Object> asMap(boolean full) {
             Map<String, Object> map = new LinkedHashMap<>();
@@ -210,26 +240,135 @@ public interface DockerConfiguration extends Domain, ExtraProperties, Activatabl
             map.put("repositoryName", repositoryName);
             map.put("username", username);
             map.put("password", isNotBlank(password) ? HIDE : UNSET);
+            map.put("externalLogin", isExternalLogin());
             return map;
         }
 
         @Override
         public boolean equals(Object o) {
             if (this == o) return true;
-            if (o == null || getClass() != o.getClass()) return false;
+            if (null == o || getClass() != o.getClass()) return false;
             DockerConfiguration.Registry that = (DockerConfiguration.Registry) o;
-            return serverName.equals(that.serverName);
+            String sn1 = serverName.equals(DEFAULT_NAME) ? DOCKER_IO : serverName;
+            String sn2 = that.serverName.equals(DEFAULT_NAME) ? DOCKER_IO : that.serverName;
+            return sn1.equals(sn2);
         }
 
         @Override
         public int hashCode() {
-            return Objects.hash(serverName);
+            return Objects.hash(serverName.equals(DEFAULT_NAME) ? DOCKER_IO : serverName);
         }
 
         @Override
         public int compareTo(Registry o) {
             if (null == o) return -1;
-            return serverName.compareTo(o.getServerName());
+            String sn1 = serverName.equals(DEFAULT_NAME) ? DOCKER_IO : serverName;
+            String sn2 = o.serverName.equals(DEFAULT_NAME) ? DOCKER_IO : o.serverName;
+            return sn1.compareTo(sn2);
+        }
+    }
+
+    final class Buildx extends AbstractModelObject<Buildx> implements Domain {
+        private static final long serialVersionUID = -1508943969111212467L;
+
+        private final List<String> createBuilderFlags = new ArrayList<>();
+        private final List<String> platforms = new ArrayList<>();
+        private Boolean enabled;
+        private Boolean createBuilder;
+
+        private final org.jreleaser.model.api.packagers.DockerConfiguration.Buildx immutable = new org.jreleaser.model.api.packagers.DockerConfiguration.Buildx() {
+            private static final long serialVersionUID = -6178190371465420854L;
+
+            @Override
+            public boolean isEnabled() {
+                return Buildx.this.isEnabled();
+            }
+
+            @Override
+            public boolean isCreateBuilder() {
+                return Buildx.this.isCreateBuilder();
+            }
+
+            @Override
+            public List<String> getCreateBuilderFlags() {
+                return unmodifiableList(Buildx.this.createBuilderFlags);
+            }
+
+            @Override
+            public List<String> getPlatforms() {
+                return unmodifiableList(Buildx.this.platforms);
+            }
+
+            @Override
+            public Map<String, Object> asMap(boolean full) {
+                return unmodifiableMap(DockerConfiguration.Buildx.this.asMap(full));
+            }
+        };
+
+        public org.jreleaser.model.api.packagers.DockerConfiguration.Buildx asImmutable() {
+            return immutable;
+        }
+
+        @Override
+        public void merge(DockerConfiguration.Buildx source) {
+            this.enabled = merge(this.enabled, source.enabled);
+            this.createBuilder = merge(this.createBuilder, source.createBuilder);
+            setCreateBuilderFlags(merge(this.createBuilderFlags, source.createBuilderFlags));
+            setPlatforms(merge(this.platforms, source.platforms));
+        }
+
+        public List<String> getCreateBuilderFlags() {
+            return createBuilderFlags;
+        }
+
+        public void setCreateBuilderFlags(List<String> createBuilderFlags) {
+            this.createBuilderFlags.clear();
+            this.createBuilderFlags.addAll(createBuilderFlags);
+        }
+
+        public List<String> getPlatforms() {
+            return platforms;
+        }
+
+        public void setPlatforms(List<String> platforms) {
+            this.platforms.clear();
+            this.platforms.addAll(platforms);
+        }
+
+        public boolean isEnabled() {
+            return null != enabled && enabled;
+        }
+
+        public void setEnabled(Boolean enabled) {
+            this.enabled = enabled;
+        }
+
+        public boolean isEnabledSet() {
+            return null != enabled;
+        }
+
+        public boolean isCreateBuilder() {
+            return null == createBuilder || createBuilder;
+        }
+
+        public void setCreateBuilder(Boolean createBuilder) {
+            this.createBuilder = createBuilder;
+        }
+
+        public boolean isCreateBuilderSet() {
+            return null != createBuilder;
+        }
+
+        @Override
+        public Map<String, Object> asMap(boolean full) {
+            if (!full && !isEnabled()) return Collections.emptyMap();
+
+            Map<String, Object> map = new LinkedHashMap<>();
+            map.put("enabled", isEnabled());
+            map.put("createBuilder", isCreateBuilder());
+            map.put("createBuilderFlags", createBuilderFlags);
+            map.put("platforms", platforms);
+            return map;
         }
     }
 }

@@ -9,15 +9,15 @@ github.setup     {{repoOwner}} {{repoName}} {{projectVersion}} v
 revision         {{macportsRevision}}
 
 categories       {{macportsCategories}}
-license          {{projectLicense}}
+license          Apache-2
 maintainers      {{macportsMaintainers}}
-platforms        darwin
+platforms        any
 supported_archs  noarch
 
 description      {{projectDescription}}
 long_description {{projectLongDescription}}
 
-homepage         {{projectWebsite}}
+homepage         {{projectLinkHomepage}}
 github.tarball_from releases
 use_zip          yes
 

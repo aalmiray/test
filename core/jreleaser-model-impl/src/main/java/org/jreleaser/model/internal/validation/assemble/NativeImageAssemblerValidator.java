@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,14 +18,12 @@
 package org.jreleaser.model.internal.validation.assemble;
 
 import org.jreleaser.bundle.RB;
-import org.jreleaser.model.Active;
 import org.jreleaser.model.Archive;
 import org.jreleaser.model.api.JReleaserContext.Mode;
 import org.jreleaser.model.internal.JReleaserContext;
 import org.jreleaser.model.internal.assemble.NativeImageAssembler;
 import org.jreleaser.model.internal.common.Artifact;
 import org.jreleaser.model.internal.common.FileSet;
-import org.jreleaser.model.internal.validation.common.Validator;
 import org.jreleaser.util.Errors;
 import org.jreleaser.util.PlatformUtils;
 
@@ -35,6 +33,10 @@ import java.util.Optional;
 
 import static java.util.stream.Collectors.groupingBy;
 import static org.jreleaser.model.internal.validation.common.TemplateValidator.validateTemplate;
+import static org.jreleaser.model.internal.validation.common.Validator.resolveActivatable;
+import static org.jreleaser.model.internal.validation.common.Validator.validateFileSet;
+import static org.jreleaser.model.internal.validation.common.Validator.validateGlobs;
+import static org.jreleaser.util.CollectionUtils.listOf;
 import static org.jreleaser.util.StringUtils.isBlank;
 import static org.jreleaser.util.StringUtils.isNotBlank;
 
@@ -42,7 +44,11 @@ import static org.jreleaser.util.StringUtils.isNotBlank;
  * @author Andres Almiray
  * @since 0.2.0
  */
-public abstract class NativeImageAssemblerValidator extends Validator {
+public final class NativeImageAssemblerValidator {
+    private NativeImageAssemblerValidator() {
+        // noop
+    }
+
     public static void validateNativeImage(JReleaserContext context, Mode mode, Errors errors) {
         Map<String, NativeImageAssembler> nativeImage = context.getModel().getAssemble().getNativeImage();
         if (!nativeImage.isEmpty()) context.getLogger().debug("assemble.nativeImage");
@@ -58,9 +64,9 @@ public abstract class NativeImageAssemblerValidator extends Validator {
     private static void validateNativeImage(JReleaserContext context, Mode mode, NativeImageAssembler nativeImage, Errors errors) {
         context.getLogger().debug("assemble.nativeImage.{}", nativeImage.getName());
 
-        if (!nativeImage.isActiveSet()) {
-            nativeImage.setActive(Active.NEVER);
-        }
+        resolveActivatable(context, nativeImage,
+            listOf("assemble.native.image." + nativeImage.getName(), "assemble.native.image"),
+            "NEVER");
         if (!nativeImage.resolveEnabled(context.getModel().getProject())) {
             context.getLogger().debug(RB.$("validation.disabled"));
             return;
@@ -153,12 +159,12 @@ public abstract class NativeImageAssemblerValidator extends Validator {
             nativeImage.setArchiveFormat(Archive.Format.ZIP);
         }
 
-        validateGlobs(context,
+        validateGlobs(
             nativeImage.getJars(),
             "nativeImage." + nativeImage.getName() + ".jars",
             errors);
 
-        validateGlobs(context,
+        validateGlobs(
             nativeImage.getFiles(),
             "nativeImage." + nativeImage.getName() + ".files",
             errors);
@@ -170,18 +176,16 @@ public abstract class NativeImageAssemblerValidator extends Validator {
         if (!nativeImage.getFileSets().isEmpty()) {
             i = 0;
             for (FileSet fileSet : nativeImage.getFileSets()) {
-                validateFileSet(context, mode, nativeImage, fileSet, i++, errors);
+                validateFileSet(mode, nativeImage, fileSet, i++, errors);
             }
         }
 
-        if (nativeImage.getComponents().contains("native-image")) {
-            nativeImage.getComponents().remove("native-image");
-        }
+        nativeImage.getComponents().remove("native-image");
 
         NativeImageAssembler.Upx upx = nativeImage.getUpx();
-        if (!upx.isActiveSet()) {
-            upx.setActive(Active.NEVER);
-        }
+        resolveActivatable(context, upx,
+            listOf("assemble.native.image." + nativeImage.getName() + ".upx", "assemble.native.image.upx"),
+            "NEVER");
         if (!upx.resolveEnabled(context.getModel().getProject())) return;
 
         if (isBlank(upx.getVersion())) {

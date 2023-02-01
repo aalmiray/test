@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,6 +27,8 @@ import static java.util.Collections.unmodifiableMap;
  * @since 1.2.0
  */
 public final class Icon extends AbstractModelObject<Icon> implements Domain, ExtraProperties {
+    private static final long serialVersionUID = -5336402014020023227L;
+
     private final Map<String, Object> extraProperties = new LinkedHashMap<>();
 
     private String url;
@@ -35,6 +37,8 @@ public final class Icon extends AbstractModelObject<Icon> implements Domain, Ext
     private Boolean primary;
 
     private final org.jreleaser.model.api.common.Icon immutable = new org.jreleaser.model.api.common.Icon() {
+        private static final long serialVersionUID = 371202655417131552L;
+
         @Override
         public String getUrl() {
             return url;
@@ -109,7 +113,7 @@ public final class Icon extends AbstractModelObject<Icon> implements Domain, Ext
     }
 
     public boolean isPrimary() {
-        return primary != null && primary;
+        return null != primary && primary;
     }
 
     public void setPrimary(Boolean primary) {

@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,17 +27,20 @@ import java.text.MessageFormat;
 import java.util.ResourceBundle;
 import java.util.Scanner;
 
+import static org.jreleaser.util.IoUtils.newPrintStream;
+import static org.jreleaser.util.IoUtils.newScanner;
+
 /**
  * @author Andres Almiray
  * @since 0.1.0
  */
 final class Banner {
-    private static final Banner BANNER = new Banner();
+    private static final Banner INSTANCE = new Banner();
     private final ResourceBundle bundle = ResourceBundle.getBundle(Banner.class.getName());
     private final String productVersion = bundle.getString("product.version");
     private final String productId = bundle.getString("product.id");
     private final String productName = bundle.getString("product.name");
-    private final String banner = MessageFormat.format(bundle.getString("product.banner"), productName, productVersion);
+    private final String message = MessageFormat.format(bundle.getString("product.banner"), productName, productVersion);
 
     private Banner() {
         // noop
@@ -46,11 +49,11 @@ final class Banner {
     public static void display(PrintWriter writer) {
         try {
             File parent = new File(System.getProperty("user.home"), "/.ant/caches");
-            File markerFile = getMarkerFile(parent, BANNER);
+            File markerFile = getMarkerFile(parent, INSTANCE);
             if (!markerFile.exists()) {
-                writer.println(BANNER.banner);
+                writer.println(INSTANCE.message);
                 markerFile.getParentFile().mkdirs();
-                PrintStream out = new PrintStream(new FileOutputStream(markerFile));
+                PrintStream out = newPrintStream(new FileOutputStream(markerFile));
                 out.println("1");
                 out.close();
                 writeQuietly(markerFile, "1");
@@ -58,12 +61,12 @@ final class Banner {
                 try {
                     int count = Integer.parseInt(readQuietly(markerFile));
                     if (count < 3) {
-                        writer.println(BANNER.banner);
+                        writer.println(INSTANCE.message);
                     }
                     writeQuietly(markerFile, (count + 1) + "");
                 } catch (NumberFormatException e) {
                     writeQuietly(markerFile, "1");
-                    writer.println(BANNER.banner);
+                    writer.println(INSTANCE.message);
                 }
             }
         } catch (IOException ignored) {
@@ -73,7 +76,7 @@ final class Banner {
 
     private static void writeQuietly(File file, String text) {
         try {
-            PrintStream out = new PrintStream(new FileOutputStream(file));
+            PrintStream out = newPrintStream(new FileOutputStream(file));
             out.println(text);
             out.close();
         } catch (IOException ignored) {
@@ -82,8 +85,7 @@ final class Banner {
     }
 
     private static String readQuietly(File file) {
-        try {
-            Scanner in = new Scanner(new FileInputStream(file));
+        try (Scanner in = newScanner(new FileInputStream(file))) {
             return in.next();
         } catch (Exception ignored) {
             return "";

@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -53,6 +53,8 @@ interface Packagers {
 
     SpecPackager getSpec()
 
+    WingetPackager getWinget()
+
     void appImage(Action<? super AppImagePackager> action)
 
     void asdf(Action<? super AsdfPackager> action)
@@ -79,6 +81,8 @@ interface Packagers {
 
     void spec(Action<? super SpecPackager> action)
 
+    void winget(Action<? super WingetPackager> action)
+
     void appImage(@DelegatesTo(strategy = Closure.DELEGATE_FIRST, value = AppImagePackager) Closure<Void> action)
 
     void asdf(@DelegatesTo(strategy = Closure.DELEGATE_FIRST, value = AsdfPackager) Closure<Void> action)
@@ -104,4 +108,6 @@ interface Packagers {
     void snap(@DelegatesTo(strategy = Closure.DELEGATE_FIRST, value = SnapPackager) Closure<Void> action)
 
     void spec(@DelegatesTo(strategy = Closure.DELEGATE_FIRST, value = SpecPackager) Closure<Void> action)
+
+    void winget(@DelegatesTo(strategy = Closure.DELEGATE_FIRST, value = WingetPackager) Closure<Void> action)
 }

@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,7 +36,7 @@ import static java.util.stream.Collectors.joining;
  * @author Andres Almiray
  * @since 0.1.0
  */
-public class StringUtils {
+public final class StringUtils {
     private static final String PROPERTY_SET_PREFIX = "set";
     private static final String PROPERTY_GET_PREFIX = "get";
     private static final Pattern GETTER_PATTERN_1 = Pattern.compile("^get[A-Z][\\w]*$");
@@ -44,6 +44,10 @@ public class StringUtils {
     private static final Pattern SETTER_PATTERN = Pattern.compile("^set[A-Z][\\w]*$");
     private static final String ERROR_METHOD_NULL = "Argument 'method' must not be null";
     private static final Pattern REGEX_CHARS = Pattern.compile("[{}()\\[\\].+*?^$\\\\|/]");
+
+    private StringUtils() {
+        // noop
+    }
 
     /**
      * Capitalizes a String (makes the first char uppercase) taking care
@@ -65,7 +69,7 @@ public class StringUtils {
     }
 
     public static String getFilenameExtension(String path) {
-        if (path == null) {
+        if (null == path) {
             return null;
         }
 
@@ -83,7 +87,7 @@ public class StringUtils {
     }
 
     public static String getFilename(String path) {
-        if (path == null) {
+        if (null == path) {
             return null;
         }
 
@@ -147,7 +151,7 @@ public class StringUtils {
 
 
         String className = capitalize(logicalName);
-        if (trailingName != null) {
+        if (null != trailingName) {
             className = className + trailingName;
         }
 
@@ -162,7 +166,7 @@ public class StringUtils {
      */
     public static String getClassNameRepresentation(String name) {
         StringBuilder buf = new StringBuilder();
-        if (name != null && name.length() > 0) {
+        if (null != name && name.length() > 0) {
             String[] tokens = name.split("[^\\w\\d]");
             for (String token1 : tokens) {
                 String token = token1.trim();
@@ -190,7 +194,7 @@ public class StringUtils {
             StringBuilder buf = new StringBuilder();
             String[] tokens = name.split("-");
             for (String token : tokens) {
-                if (token == null || token.length() == 0) {
+                if (null == token || token.length() == 0) {
                     continue;
                 }
 
@@ -220,7 +224,7 @@ public class StringUtils {
             StringBuilder buf = new StringBuilder();
             String[] tokens = name.split("-");
             for (String token : tokens) {
-                if (token == null || token.length() == 0) {
+                if (null == token || token.length() == 0) {
                     continue;
                 }
                 if (buf.length() > 0) {
@@ -387,7 +391,7 @@ public class StringUtils {
 
         int i = className.lastIndexOf(".");
         if (i > -1) {
-            className = className.substring(i + 1, className.length());
+            className = className.substring(i + 1);
         }
 
         return className;
@@ -405,7 +409,7 @@ public class StringUtils {
             return name;
         }
 
-        List<String> words = new ArrayList<String>();
+        List<String> words = new ArrayList<>();
         int i = 0;
         char[] chars = name.toCharArray();
         for (char c : chars) {
@@ -459,7 +463,7 @@ public class StringUtils {
      * blank.
      */
     public static boolean isBlank(String str) {
-        if (str == null || str.length() == 0) {
+        if (null == str || str.length() == 0) {
             return true;
         }
 
@@ -537,7 +541,7 @@ public class StringUtils {
      * @return The hyphenated name representation
      */
     public static String getHyphenatedName(Class<?> clazz) {
-        if (clazz == null) {
+        if (null == clazz) {
             return null;
         }
 
@@ -613,7 +617,7 @@ public class StringUtils {
     }
 
     public static String padLeft(String str, int numChars, String padding) {
-        return numChars <= str.length() ? str : getPadding(padding.toString(), numChars - str.length()) + str;
+        return numChars <= str.length() ? str : getPadding(padding, numChars - str.length()) + str;
     }
 
     public static String padRight(String str, int numChars) {
@@ -651,6 +655,7 @@ public class StringUtils {
     }
 
     public static String escapeRegexChars(String str) {
+        if (str.isEmpty()) return "";
         boolean start = false;
         boolean end = false;
 
@@ -699,7 +704,7 @@ public class StringUtils {
     }
 
     public static boolean isTrue(Object o) {
-        if (o == null) return false;
+        if (null == o) return false;
         if (o instanceof Boolean) return (Boolean) o;
         return "true".equalsIgnoreCase(String.valueOf(o).trim());
     }
@@ -746,7 +751,7 @@ public class StringUtils {
     }
 
     private static String applyQuotes(String string) {
-        if (string == null || string.length() == 0) {
+        if (null == string || string.length() == 0) {
             return "\"\"";
         }
 

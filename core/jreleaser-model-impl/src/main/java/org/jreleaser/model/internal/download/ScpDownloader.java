@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,24 +31,28 @@ import static org.jreleaser.model.api.download.ScpDownloader.TYPE;
  * @since 1.1.0
  */
 public final class ScpDownloader extends AbstractSshDownloader<org.jreleaser.model.api.download.ScpDownloader, ScpDownloader> {
+    private static final long serialVersionUID = -59581960524753148L;
+
     private final org.jreleaser.model.api.download.ScpDownloader immutable = new org.jreleaser.model.api.download.ScpDownloader() {
+        private static final long serialVersionUID = 322325976684206094L;
+
         private List<? extends org.jreleaser.model.api.download.Downloader.Asset> assets;
 
         @Override
         public String getType() {
-            return type;
+            return ScpDownloader.this.getType();
         }
 
         @Override
         public String getName() {
-            return name;
+            return ScpDownloader.this.getName();
         }
 
         @Override
         public List<? extends org.jreleaser.model.api.download.Downloader.Asset> getAssets() {
             if (null == assets) {
-                assets = ScpDownloader.this.assets.stream()
-                    .map(AbstractDownloader.Asset::asImmutable)
+                assets = ScpDownloader.this.getAssets().stream()
+                    .map(Downloader.Asset::asImmutable)
                     .collect(toList());
             }
             return assets;
@@ -56,7 +60,7 @@ public final class ScpDownloader extends AbstractSshDownloader<org.jreleaser.mod
 
         @Override
         public Active getActive() {
-            return active;
+            return ScpDownloader.this.getActive();
         }
 
         @Override
@@ -76,62 +80,62 @@ public final class ScpDownloader extends AbstractSshDownloader<org.jreleaser.mod
 
         @Override
         public Map<String, Object> getExtraProperties() {
-            return unmodifiableMap(extraProperties);
+            return unmodifiableMap(ScpDownloader.this.getExtraProperties());
         }
 
         @Override
         public String getUsername() {
-            return username;
+            return ScpDownloader.this.getUsername();
         }
 
         @Override
         public String getPassword() {
-            return password;
+            return ScpDownloader.this.getPassword();
         }
 
         @Override
         public String getHost() {
-            return host;
+            return ScpDownloader.this.getHost();
         }
 
         @Override
         public Integer getPort() {
-            return port;
+            return ScpDownloader.this.getPort();
         }
 
         @Override
         public String getKnownHostsFile() {
-            return knownHostsFile;
+            return ScpDownloader.this.getKnownHostsFile();
         }
 
         @Override
         public String getPublicKey() {
-            return publicKey;
+            return ScpDownloader.this.getPublicKey();
         }
 
         @Override
         public String getPrivateKey() {
-            return privateKey;
+            return ScpDownloader.this.getPrivateKey();
         }
 
         @Override
         public String getPassphrase() {
-            return passphrase;
+            return ScpDownloader.this.getPassphrase();
         }
 
         @Override
         public String getFingerprint() {
-            return fingerprint;
+            return ScpDownloader.this.getFingerprint();
         }
 
         @Override
         public Integer getConnectTimeout() {
-            return connectTimeout;
+            return ScpDownloader.this.getConnectTimeout();
         }
 
         @Override
         public Integer getReadTimeout() {
-            return readTimeout;
+            return ScpDownloader.this.getReadTimeout();
         }
     };
 

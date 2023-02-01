@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,31 +19,47 @@ package org.jreleaser.cli;
 
 import org.jreleaser.cli.internal.Colorizer;
 import org.jreleaser.model.JReleaserException;
+import picocli.CommandLine;
 
+import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.concurrent.Callable;
+import java.util.stream.Collectors;
 
 /**
  * @author Andres Almiray
  * @since 0.1.0
  */
-abstract class AbstractCommand extends BaseCommand implements Callable<Integer> {
-    protected abstract Main parent();
+@CommandLine.Command
+abstract class AbstractCommand<C extends IO> extends BaseCommand implements Callable<Integer> {
+    @CommandLine.ParentCommand
+    private C parent;
 
+    protected C parent() {
+        return parent;
+    }
+
+    @Override
     public Integer call() {
         setup();
+        checkArgsForDeprecations();
 
         try {
             execute();
         } catch (HaltExecutionException e) {
             return 1;
         } catch (JReleaserException e) {
-            Colorizer colorizer = new Colorizer(parent().out);
+            Colorizer colorizer = new Colorizer(parent().getOut());
             String message = e.getMessage();
             colorizer.println(message);
             printDetails(e.getCause(), message, colorizer);
             return 1;
         } catch (Exception e) {
-            e.printStackTrace(new Colorizer(parent().out));
+            e.printStackTrace(new Colorizer(parent().getOut()));
             return 1;
         }
 
@@ -51,13 +67,41 @@ abstract class AbstractCommand extends BaseCommand implements Callable<Integer> 
     }
 
     protected void setup() {
-        Banner.display(parent().out);
+        Banner.display(parent().getErr());
 
         System.setProperty("org.slf4j.simpleLogger.defaultLogLevel", "error");
     }
 
+    protected void checkArgsForDeprecations() {
+        Set<DeprecatedArg> candidates = new TreeSet<>();
+        collectCandidateDeprecatedArgs(candidates);
+        Map<String, DeprecatedArg> groupedCandidates = candidates.stream()
+            .collect(Collectors.toMap(DeprecatedArg::getDeprecated, e -> e));
+
+        Set<DeprecatedArg> args = new TreeSet<>();
+
+        CommandLine.ParseResult pr = spec.commandLine().getParseResult();
+        List<CommandLine.Model.OptionSpec> options = spec.options();
+        for (CommandLine.Model.OptionSpec opt : options) {
+            String optName = opt.shortestName();
+            if (groupedCandidates.containsKey(optName) &&
+                pr.expandedArgs().contains(optName) &&
+                pr.hasMatchedOption(optName)) {
+                args.add(groupedCandidates.get(optName));
+            }
+        }
+
+        for (DeprecatedArg arg : args) {
+            parent().getErr().println($("deprecated.arg", arg.deprecated, arg.since, arg.replacement));
+        }
+    }
+
+    protected void collectCandidateDeprecatedArgs(Set<DeprecatedArg> args) {
+        // noop
+    }
+
     protected void printDetails(Throwable throwable, String message, Colorizer colorizer) {
-        if (throwable == null) return;
+        if (null == throwable) return;
         String myMessage = throwable.getMessage();
         if (!message.equals(myMessage)) {
             colorizer.println(myMessage);
@@ -67,4 +111,47 @@ abstract class AbstractCommand extends BaseCommand implements Callable<Integer> 
     }
 
     protected abstract void execute();
+
+    final class DeprecatedArg implements Comparable<DeprecatedArg> {
+        private final String deprecated;
+        private final String replacement;
+        private final String since;
+
+        public DeprecatedArg(String deprecated, String replacement, String since) {
+            this.deprecated = deprecated;
+            this.replacement = replacement;
+            this.since = since;
+        }
+
+        public String getDeprecated() {
+            return deprecated;
+        }
+
+        public String getReplacement() {
+            return replacement;
+        }
+
+        public String getSince() {
+            return since;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            DeprecatedArg that = (DeprecatedArg) o;
+            return deprecated.equals(that.deprecated) && replacement.equals(that.replacement) && since.equals(that.since);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(deprecated, replacement, since);
+        }
+
+        @Override
+        public int compareTo(DeprecatedArg o) {
+            return Comparator.comparing(DeprecatedArg::getDeprecated)
+                .compare(this, o);
+        }
+    }
 }

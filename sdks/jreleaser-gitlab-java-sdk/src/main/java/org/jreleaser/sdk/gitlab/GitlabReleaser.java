@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,6 +34,7 @@ import org.jreleaser.model.spi.release.Release;
 import org.jreleaser.model.spi.release.ReleaseException;
 import org.jreleaser.model.spi.release.Repository;
 import org.jreleaser.model.spi.release.User;
+import org.jreleaser.mustache.TemplateContext;
 import org.jreleaser.sdk.commons.RestAPIException;
 import org.jreleaser.sdk.git.ChangelogProvider;
 import org.jreleaser.sdk.git.GitSdk;
@@ -115,7 +116,7 @@ public class GitlabReleaser extends AbstractReleaser<org.jreleaser.model.api.rel
                 throw new ReleaseException(RB.$("ERROR_git_release_branch_not_exists", branch, branchNames));
             }
 
-            String changelog = context.getChangelog();
+            String changelog = context.getChangelog().getResolvedChangelog();
 
             context.getLogger().debug(RB.$("git.releaser.release.lookup"), tagName, gitlab.getCanonicalRepoName());
             GlRelease release = api.findReleaseByTag(gitlab.getOwner(), gitlab.getName(), gitlab.getProjectIdentifier(), tagName);
@@ -221,7 +222,7 @@ public class GitlabReleaser extends AbstractReleaser<org.jreleaser.model.api.rel
                 gitlab.getConnectTimeout(),
                 gitlab.getReadTimeout())
                 .findUser(email, name);
-        } catch (RestAPIException | IOException e) {
+        } catch (RestAPIException e) {
             context.getLogger().trace(e);
             context.getLogger().debug(RB.$("git.releaser.user.not.found"), email);
         }
@@ -351,19 +352,15 @@ public class GitlabReleaser extends AbstractReleaser<org.jreleaser.model.api.rel
     }
 
     private void updateAssets(Gitlab api, GlRelease release, List<Asset> assetsToBeUpdated, Integer projectIdentifier, String tagName, Map<String, GlLink> existingLinks) throws IOException {
-       try {
-           if (!assetsToBeUpdated.isEmpty()) {
-               for (Asset asset : assetsToBeUpdated) {
-                   GlLink existingLink = existingLinks.get(asset.getFilename());
-                   api.deleteLinkedAsset(gitlab.getToken(), projectIdentifier, tagName, existingLink);
-               }
+        if (!assetsToBeUpdated.isEmpty()) {
+            for (Asset asset : assetsToBeUpdated) {
+                GlLink existingLink = existingLinks.get(asset.getFilename());
+                api.deleteLinkedAsset(gitlab.getToken(), projectIdentifier, tagName, existingLink);
+            }
 
-               Collection<GlFileUpload> uploads = api.uploadAssets(gitlab.getOwner(), gitlab.getName(), projectIdentifier, assetsToBeUpdated);
-               api.linkReleaseAssets(gitlab.getOwner(), gitlab.getName(), release, projectIdentifier, uploads);
-           }
-       }catch(Exception e) {
-           e.printStackTrace();
-       }
+            Collection<GlFileUpload> uploads = api.uploadAssets(gitlab.getOwner(), gitlab.getName(), projectIdentifier, assetsToBeUpdated);
+            api.linkReleaseAssets(gitlab.getOwner(), gitlab.getName(), release, projectIdentifier, uploads);
+        }
     }
 
     private void uploadAssets(Gitlab api, GlRelease release, List<Asset> assetsToBeUploaded, Integer projectIdentifier) throws IOException {
@@ -393,7 +390,7 @@ public class GitlabReleaser extends AbstractReleaser<org.jreleaser.model.api.rel
         String tagName = gitlab.getEffectiveTagName(context.getModel());
         String labelName = gitlab.getIssues().getLabel().getName();
         String labelColor = gitlab.getIssues().getLabel().getColor();
-        Map<String, Object> props = gitlab.props(context.getModel());
+        TemplateContext props = gitlab.props(context.getModel());
         gitlab.fillProps(props, context.getModel());
         String comment = resolveTemplate(gitlab.getIssues().getComment(), props);
 
@@ -444,17 +441,17 @@ public class GitlabReleaser extends AbstractReleaser<org.jreleaser.model.api.rel
             if (!op.isPresent()) continue;
 
             GlIssue glIssue = op.get();
-            if (glIssue.getState().equals("closed") && glIssue.getLabels().stream().noneMatch(l -> l.equals(labelName))) {
+            if ("closed".equals(glIssue.getState()) && glIssue.getLabels().stream().noneMatch(l -> l.equals(labelName))) {
                 context.getLogger().debug(RB.$("git.issue.release", issueNumber));
                 api.addLabelToIssue(projectIdentifier, glIssue, glLabel);
                 api.commentOnIssue(projectIdentifier, glIssue, comment);
 
-                milestone.ifPresent(glMilestone -> applyMilestone(gitlab, api, projectIdentifier, issueNumber, glIssue, applyMilestone, glMilestone));
+                milestone.ifPresent(glMilestone -> applyMilestone(api, projectIdentifier, issueNumber, glIssue, applyMilestone, glMilestone));
             }
         }
     }
 
-    private void applyMilestone(org.jreleaser.model.internal.release.GitlabReleaser gitlab, Gitlab api, Integer projectIdentifier,
+    private void applyMilestone(Gitlab api, Integer projectIdentifier,
                                 String issueNumber, GlIssue glIssue, Apply applyMilestone, GlMilestone targetMilestone) {
         GlMilestone issueMilestone = glIssue.getMilestone();
         String targetMilestoneTitle = targetMilestone.getTitle();

@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -44,6 +44,8 @@ public class FtpUtils {
     }
 
     public static FTPClient open(JReleaserContext context, FtpDownloader downloader) throws DownloadException {
+        if (context.isDryrun()) return null;
+
         try {
             return ftpClient(context, downloader);
         } catch (IOException e) {
@@ -100,7 +102,7 @@ public class FtpUtils {
 
     public static void close(FtpDownloader downloader, FTPClient ftp) throws DownloadException {
         try {
-            ftp.disconnect();
+            if (null != ftp) ftp.disconnect();
         } catch (IOException e) {
             throw new DownloadException(RB.$("ERROR_disconnect", downloader.getName()), e);
         }

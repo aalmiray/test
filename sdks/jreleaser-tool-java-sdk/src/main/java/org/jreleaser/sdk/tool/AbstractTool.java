@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,6 +32,7 @@ public class AbstractTool {
     protected final JReleaserContext context;
     protected final DownloadableTool tool;
     protected final String name;
+    protected final String version;
     protected final boolean verifyErrorOutput;
 
     public AbstractTool(JReleaserContext context, String name, String version) {
@@ -39,7 +40,7 @@ public class AbstractTool {
     }
 
     public AbstractTool(JReleaserContext context, String name, String version, boolean verifyErrorOutput) {
-        requireNonBlank(version, "'version' must not be blank");
+        this.version = requireNonBlank(version, "'version' must not be blank");
         this.name = requireNonBlank(name, "'name' must not be blank");
         this.context = context;
         this.verifyErrorOutput = verifyErrorOutput;

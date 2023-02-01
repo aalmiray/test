@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@
 package org.jreleaser.sdk.twitter;
 
 import org.jreleaser.logging.SimpleJReleaserLoggerAdapter;
+import org.jreleaser.test.WireMockExtension;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
@@ -32,16 +33,12 @@ import static org.jreleaser.sdk.twitter.Stubs.verifyPostContains;
 import static org.jreleaser.util.CollectionUtils.listOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-/**
- * @author Andres Almiray
- * @since 0.1.0
- */
-public class UpdateStatusTwitterCommandTest {
+class UpdateStatusTwitterCommandTest {
     @RegisterExtension
     WireMockExtension api = new WireMockExtension(options().dynamicPort());
 
     @Test
-    public void testUpdateStatus() throws TwitterException {
+    void testUpdateStatus() throws TwitterException {
         // given:
         stubFor(post(urlEqualTo(UPDATE_STATUS_ENDPOINT + ".json"))
             .willReturn(okJson("{\"status\": 202, \"message\":\"success\"}")));
@@ -54,6 +51,9 @@ public class UpdateStatusTwitterCommandTest {
             .accessToken("ACCESS_TOKEN")
             .accessTokenSecret("ACCESS_TOKEN_SECRET")
             .statuses(listOf("success"))
+            .connectTimeout(20)
+            .readTimeout(60)
+            .dryrun(false)
             .build();
 
         // when:
@@ -65,7 +65,7 @@ public class UpdateStatusTwitterCommandTest {
     }
 
     @Test
-    public void testUpdateStatuses() throws TwitterException {
+    void testUpdateStatuses() throws TwitterException {
         // given:
         stubFor(post(urlEqualTo(UPDATE_STATUS_ENDPOINT + ".json"))
             .willReturn(okJson("{\"status\": 202, \"message\":\"success\"}")));
@@ -78,6 +78,9 @@ public class UpdateStatusTwitterCommandTest {
             .accessToken("ACCESS_TOKEN")
             .accessTokenSecret("ACCESS_TOKEN_SECRET")
             .statuses(listOf("success", "success", "success"))
+            .connectTimeout(20)
+            .readTimeout(60)
+            .dryrun(false)
             .build();
 
         // when:
@@ -89,7 +92,7 @@ public class UpdateStatusTwitterCommandTest {
     }
 
     @Test
-    public void testError() {
+    void testError() {
         // given:
         stubFor(post(urlEqualTo(UPDATE_STATUS_ENDPOINT + ".json"))
             .willReturn(aResponse().withStatus(400)));
@@ -102,6 +105,9 @@ public class UpdateStatusTwitterCommandTest {
             .accessToken("ACCESS_TOKEN")
             .accessTokenSecret("ACCESS_TOKEN_SECRET")
             .statuses(listOf("failure"))
+            .connectTimeout(20)
+            .readTimeout(60)
+            .dryrun(false)
             .build();
 
         // expected:

@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,8 +19,7 @@ package org.jreleaser.model.spi.packagers;
 
 import org.jreleaser.model.internal.distributions.Distribution;
 import org.jreleaser.model.internal.packagers.Packager;
-
-import java.util.Map;
+import org.jreleaser.mustache.TemplateContext;
 
 /**
  * @author Andres Almiray
@@ -35,9 +34,9 @@ public interface PackagerProcessor<T extends Packager> {
 
     boolean supportsDistribution(Distribution distribution);
 
-    void prepareDistribution(Distribution distribution, Map<String, Object> props) throws PackagerProcessingException;
+    void prepareDistribution(Distribution distribution, TemplateContext props) throws PackagerProcessingException;
 
-    void packageDistribution(Distribution distribution, Map<String, Object> props) throws PackagerProcessingException;
+    void packageDistribution(Distribution distribution, TemplateContext props) throws PackagerProcessingException;
 
-    void publishDistribution(Distribution distribution, Map<String, Object> props) throws PackagerProcessingException;
+    void publishDistribution(Distribution distribution, TemplateContext props) throws PackagerProcessingException;
 }

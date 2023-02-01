@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -39,10 +39,10 @@ import static org.hamcrest.Matchers.equalTo;
  * @author Andres Almiray
  * @since 0.5.0
  */
-public class JavaModuleVersionTest {
+class JavaModuleVersionTest {
     @ParameterizedTest
     @MethodSource("version_parsing")
-    public void testVersionParsing(String input, String version, String prerelease, String build) {
+    void testVersionParsing(String input, String version, String prerelease, String build) {
         // given:
         JavaModuleVersion v = JavaModuleVersion.of(input);
 
@@ -54,7 +54,7 @@ public class JavaModuleVersionTest {
 
     @ParameterizedTest
     @MethodSource("version_comparison")
-    public void testVersionComparison(String input1, String input2) {
+    void testVersionComparison(String input1, String input2) {
         // given:
         JavaModuleVersion v1 = JavaModuleVersion.of(input1);
         JavaModuleVersion v2 = JavaModuleVersion.of(input2);
@@ -65,7 +65,7 @@ public class JavaModuleVersionTest {
     }
 
     @Test
-    public void testVersionSort() {
+    void testVersionSort() {
         List<JavaModuleVersion> asc = new ArrayList<>(asList(
             JavaModuleVersion.of("0-ea"),
             JavaModuleVersion.of("2021.01.22"),

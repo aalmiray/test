@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,6 +24,7 @@ import org.jreleaser.model.internal.JReleaserContext;
 import org.jreleaser.model.internal.common.Artifact;
 import org.jreleaser.model.internal.upload.HttpUploader;
 import org.jreleaser.model.spi.upload.UploadException;
+import org.jreleaser.mustache.TemplateContext;
 import org.jreleaser.sdk.commons.AbstractArtifactUploader;
 import org.jreleaser.sdk.commons.ClientUtils;
 
@@ -34,6 +35,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.jreleaser.mustache.Templates.resolveTemplate;
 import static org.jreleaser.util.StringUtils.isNotBlank;
 
@@ -87,8 +89,8 @@ public class HttpArtifactUploader extends AbstractArtifactUploader<org.jreleaser
                             break;
                         case BASIC:
                             String auth = username + ":" + password;
-                            byte[] encodedAuth = Base64.getEncoder().encode(auth.getBytes());
-                            auth = new String(encodedAuth);
+                            byte[] encodedAuth = Base64.getEncoder().encode(auth.getBytes(UTF_8));
+                            auth = new String(encodedAuth, UTF_8);
                             headers.put("Authorization", "Basic " + auth);
                             break;
                         case BEARER:
@@ -123,7 +125,7 @@ public class HttpArtifactUploader extends AbstractArtifactUploader<org.jreleaser
     }
 
     private void resolveHeaders(Artifact artifact, Map<String, String> headers) {
-        Map<String, Object> props = uploader.artifactProps(context, artifact);
+        TemplateContext props = uploader.artifactProps(context, artifact);
         uploader.getHeaders().forEach((k, v) -> {
             String value = resolveTemplate(v, props);
             if (isNotBlank(value)) headers.put(k, value);

@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,11 +20,14 @@ package org.jreleaser.gradle.plugin.internal.dsl.announce
 import groovy.transform.CompileStatic
 import org.gradle.api.internal.provider.Providers
 import org.gradle.api.model.ObjectFactory
+import org.gradle.api.provider.ListProperty
 import org.gradle.api.provider.Property
 import org.gradle.api.tasks.Internal
 import org.jreleaser.gradle.plugin.dsl.announce.MastodonAnnouncer
 
 import javax.inject.Inject
+
+import static org.jreleaser.util.StringUtils.isNotBlank
 
 /**
  *
@@ -36,6 +39,8 @@ class MastodonAnnouncerImpl extends AbstractAnnouncer implements MastodonAnnounc
     final Property<String> host
     final Property<String> accessToken
     final Property<String> status
+    final Property<String> statusTemplate
+    final ListProperty<String> statuses
 
     @Inject
     MastodonAnnouncerImpl(ObjectFactory objects) {
@@ -43,6 +48,8 @@ class MastodonAnnouncerImpl extends AbstractAnnouncer implements MastodonAnnounc
         host = objects.property(String).convention(Providers.<String> notDefined())
         accessToken = objects.property(String).convention(Providers.<String> notDefined())
         status = objects.property(String).convention(Providers.<String> notDefined())
+        statusTemplate = objects.property(String).convention(Providers.<String> notDefined())
+        statuses = objects.listProperty(String).convention(Providers.<List<String>> notDefined())
     }
 
     @Override
@@ -51,7 +58,16 @@ class MastodonAnnouncerImpl extends AbstractAnnouncer implements MastodonAnnounc
         super.isSet() ||
             host.present ||
             accessToken.present ||
-            status.present
+            status.present ||
+            statusTemplate.present ||
+            statuses.present
+    }
+
+    @Override
+    void status(String message) {
+        if (isNotBlank(message)) {
+            statuses.add(message.trim())
+        }
     }
 
     org.jreleaser.model.internal.announce.MastodonAnnouncer toModel() {
@@ -60,6 +76,8 @@ class MastodonAnnouncerImpl extends AbstractAnnouncer implements MastodonAnnounc
         if (host.present) mastodon.host = host.get()
         if (accessToken.present) mastodon.accessToken = accessToken.get()
         if (status.present) mastodon.status = status.get()
+        if (statusTemplate.present) mastodon.statusTemplate = statusTemplate.get()
+        mastodon.statuses = (List<String>) statuses.getOrElse([])
         mastodon
     }
 }

@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -49,6 +49,7 @@ import java.util.Locale;
 
 import static java.util.stream.Collectors.toList;
 import static org.jreleaser.model.JReleaserOutput.JRELEASER_QUIET;
+import static org.jreleaser.util.IoUtils.newPrintWriter;
 import static org.jreleaser.util.StringUtils.isBlank;
 import static org.jreleaser.util.StringUtils.isNotBlank;
 
@@ -110,21 +111,20 @@ abstract class AbstractJReleaserMojo extends AbstractMojo {
     protected PrintWriter createTracer() throws MojoExecutionException {
         try {
             java.nio.file.Files.createDirectories(outputDirectory.toPath());
-            return new PrintWriter(new FileOutputStream(
-                outputDirectory.toPath().resolve("trace.log").toFile()),
-                true);
+            return newPrintWriter(new FileOutputStream(
+                outputDirectory.toPath().resolve("trace.log").toFile()));
         } catch (IOException e) {
             throw new MojoExecutionException("Could not initialize trace file", e);
         }
     }
 
     protected JReleaserModel convertModel() {
-        JReleaserModel jreleaserModel = jreleaser != null ? jreleaser : new JReleaserModel();
+        JReleaserModel jreleaserModel = null != jreleaser ? jreleaser : new JReleaserModel();
         return JReleaserModelConfigurer.configure(jreleaserModel, project, session);
     }
 
     protected JReleaserModel readModel(JReleaserLogger logger) {
-        JReleaserModel jreleaserModel = (JReleaserModel) ContextCreator.resolveModel(logger, configFile.toPath());
+        JReleaserModel jreleaserModel = ContextCreator.resolveModel(logger, configFile.toPath());
         return JReleaserModelConfigurer.configure(jreleaserModel, project, session);
     }
 
@@ -145,6 +145,7 @@ abstract class AbstractJReleaserMojo extends AbstractMojo {
             }
             logger.increaseIndent();
             logger.info("- basedir set to {}", basedir.toAbsolutePath());
+            logger.info("- outputdir set to {}", outputDirectory.toPath().toAbsolutePath());
             logger.decreaseIndent();
 
             return ContextCreator.create(
@@ -191,9 +192,10 @@ abstract class AbstractJReleaserMojo extends AbstractMojo {
                 return JReleaserContext.Configurer.CLI_TOML;
             case "json":
                 return JReleaserContext.Configurer.CLI_JSON;
+            default:
+                // should not happen!
+                throw new IllegalArgumentException("Invalid configuration format: " + configFile.getName());
         }
-        // should not happen!
-        throw new IllegalArgumentException("Invalid configuration format: " + configFile.getName());
     }
 
     protected Mode getMode() {
@@ -226,7 +228,7 @@ abstract class AbstractJReleaserMojo extends AbstractMojo {
 
     protected List<String> collectEntries(String[] input, boolean lowerCase) {
         List<String> list = new ArrayList<>();
-        if (input != null && input.length > 0) {
+        if (null != input && input.length > 0) {
             for (String s : input) {
                 if (isNotBlank(s)) {
                     s = s.trim();

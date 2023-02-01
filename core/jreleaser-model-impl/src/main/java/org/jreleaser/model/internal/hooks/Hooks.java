@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,13 +17,9 @@
  */
 package org.jreleaser.model.internal.hooks;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.jreleaser.model.Active;
-import org.jreleaser.model.internal.common.AbstractModelObject;
-import org.jreleaser.model.internal.common.Activatable;
+import org.jreleaser.model.internal.common.AbstractActivatable;
 import org.jreleaser.model.internal.common.Domain;
-import org.jreleaser.model.internal.project.Project;
-import org.jreleaser.util.Env;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -34,14 +30,14 @@ import static java.util.Collections.unmodifiableMap;
  * @author Andres Almiray
  * @since 1.2.0
  */
-public final class Hooks extends AbstractModelObject<Hooks> implements Domain, Activatable {
+public final class Hooks extends AbstractActivatable<Hooks> implements Domain {
+    private static final long serialVersionUID = -3700662003954701704L;
+
     private final CommandHooks command = new CommandHooks();
 
-    private Active active;
-    @JsonIgnore
-    private boolean enabled = true;
-
     private final org.jreleaser.model.api.hooks.Hooks immutable = new org.jreleaser.model.api.hooks.Hooks() {
+        private static final long serialVersionUID = -960078052893791966L;
+
         @Override
         public org.jreleaser.model.api.hooks.CommandHooks getCommand() {
             return command.asImmutable();
@@ -49,7 +45,7 @@ public final class Hooks extends AbstractModelObject<Hooks> implements Domain, A
 
         @Override
         public Active getActive() {
-            return active;
+            return Hooks.this.getActive();
         }
 
         @Override
@@ -63,57 +59,23 @@ public final class Hooks extends AbstractModelObject<Hooks> implements Domain, A
         }
     };
 
+    public Hooks() {
+        enabledSet(true);
+    }
+
     public org.jreleaser.model.api.hooks.Hooks asImmutable() {
         return immutable;
     }
 
     @Override
     public void merge(Hooks source) {
-        this.active = merge(this.active, source.active);
-        this.enabled = merge(this.enabled, source.enabled);
+        super.merge(source);
         setCommand(source.command);
     }
 
+    @Override
     public boolean isSet() {
-        return command.isSet();
-    }
-
-    @Override
-    public boolean isEnabled() {
-        return enabled;
-    }
-
-    public void disable() {
-        active = Active.NEVER;
-        enabled = false;
-    }
-
-    public boolean resolveEnabled(Project project) {
-        if (null == active) {
-            setActive(Env.resolveOrDefault("hooks.active", "", "ALWAYS"));
-        }
-        enabled = active.check(project);
-        return enabled;
-    }
-
-    @Override
-    public Active getActive() {
-        return active;
-    }
-
-    @Override
-    public void setActive(Active active) {
-        this.active = active;
-    }
-
-    @Override
-    public void setActive(String str) {
-        setActive(Active.of(str));
-    }
-
-    @Override
-    public boolean isActiveSet() {
-        return active != null;
+        return super.isSet() || command.isSet();
     }
 
     public CommandHooks getCommand() {
@@ -128,7 +90,7 @@ public final class Hooks extends AbstractModelObject<Hooks> implements Domain, A
     public Map<String, Object> asMap(boolean full) {
         Map<String, Object> map = new LinkedHashMap<>();
         map.put("enabled", isEnabled());
-        map.put("active", active);
+        map.put("active", getActive());
         map.put("command", command.asMap(full));
         return map;
     }

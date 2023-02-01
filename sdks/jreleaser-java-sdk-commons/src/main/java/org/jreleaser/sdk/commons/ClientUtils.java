@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -71,11 +71,11 @@ public final class ClientUtils {
         // noop
     }
 
-    public static FormData toFormData(String fileName, String contentType, String content) throws IOException {
+    public static FormData toFormData(String fileName, String contentType, String content) {
         return toFormData(fileName, contentType, content.getBytes(UTF_8));
     }
 
-    public static FormData toFormData(String fileName, String contentType, byte[] content) throws IOException {
+    public static FormData toFormData(String fileName, String contentType, byte[] content) {
         return FormData.builder()
             .fileName(fileName)
             .contentType(contentType)

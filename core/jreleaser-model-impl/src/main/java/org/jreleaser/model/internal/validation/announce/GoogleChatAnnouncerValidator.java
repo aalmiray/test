@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,12 +20,15 @@ package org.jreleaser.model.internal.validation.announce;
 import org.jreleaser.bundle.RB;
 import org.jreleaser.model.internal.JReleaserContext;
 import org.jreleaser.model.internal.announce.GoogleChatAnnouncer;
-import org.jreleaser.model.internal.validation.common.Validator;
 import org.jreleaser.util.Errors;
 
 import java.nio.file.Files;
 
 import static org.jreleaser.model.api.announce.GoogleChatAnnouncer.GOOGLE_CHAT_WEBHOOK;
+import static org.jreleaser.model.internal.validation.common.Validator.checkProperty;
+import static org.jreleaser.model.internal.validation.common.Validator.resolveActivatable;
+import static org.jreleaser.model.internal.validation.common.Validator.validateTimeout;
+import static org.jreleaser.util.CollectionUtils.listOf;
 import static org.jreleaser.util.StringUtils.isBlank;
 import static org.jreleaser.util.StringUtils.isNotBlank;
 
@@ -33,20 +36,27 @@ import static org.jreleaser.util.StringUtils.isNotBlank;
  * @author Anyul Rivas
  * @since 0.5.0
  */
-public abstract class GoogleChatAnnouncerValidator extends Validator {
+public final class GoogleChatAnnouncerValidator {
     private static final String DEFAULT_GOOGLE_CHAT_TPL = "src/jreleaser/templates/googleChat.tpl";
+
+    private GoogleChatAnnouncerValidator() {
+        // noop
+    }
 
     public static void validateGoogleChat(JReleaserContext context, GoogleChatAnnouncer googleChat, Errors errors) {
         context.getLogger().debug("announce.googleChat");
-        if (!googleChat.resolveEnabled(context.getModel().getProject())) {
+        resolveActivatable(context, googleChat, "announce.google.chat", "NEVER");
+        if (!googleChat.resolveEnabledWithSnapshot(context.getModel().getProject())) {
             context.getLogger().debug(RB.$("validation.disabled"));
             return;
         }
 
         googleChat.setWebhook(
             checkProperty(context,
-                GOOGLE_CHAT_WEBHOOK,
-                "googleChat.webhook",
+                listOf(
+                    "announce.google.chat.webhook",
+                    GOOGLE_CHAT_WEBHOOK),
+                "announce.googleChat.webhook",
                 googleChat.getWebhook(),
                 errors,
                 context.isDryrun()));

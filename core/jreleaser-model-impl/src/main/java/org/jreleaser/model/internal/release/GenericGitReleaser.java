@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,7 +28,11 @@ import static java.util.Collections.unmodifiableMap;
  * @since 0.4.0
  */
 public final class GenericGitReleaser extends BaseReleaser<org.jreleaser.model.api.release.GenericGitReleaser, GenericGitReleaser> {
+    private static final long serialVersionUID = -2400306764813478894L;
+
     private final org.jreleaser.model.api.release.GenericGitReleaser immutable = new org.jreleaser.model.api.release.GenericGitReleaser() {
+        private static final long serialVersionUID = 6940631975402037540L;
+
         @Override
         public boolean isPrerelease() {
             return GenericGitReleaser.this.isPrerelease();
@@ -61,87 +65,87 @@ public final class GenericGitReleaser extends BaseReleaser<org.jreleaser.model.a
 
         @Override
         public String getHost() {
-            return host;
+            return GenericGitReleaser.this.getHost();
         }
 
         @Override
         public String getName() {
-            return name;
+            return GenericGitReleaser.this.getName();
         }
 
         @Override
         public String getRepoUrl() {
-            return repoUrl;
+            return GenericGitReleaser.this.getRepoUrl();
         }
 
         @Override
         public String getRepoCloneUrl() {
-            return repoCloneUrl;
+            return GenericGitReleaser.this.getRepoCloneUrl();
         }
 
         @Override
         public String getCommitUrl() {
-            return commitUrl;
+            return GenericGitReleaser.this.getCommitUrl();
         }
 
         @Override
         public String getSrcUrl() {
-            return srcUrl;
+            return GenericGitReleaser.this.getSrcUrl();
         }
 
         @Override
         public String getDownloadUrl() {
-            return downloadUrl;
+            return GenericGitReleaser.this.getDownloadUrl();
         }
 
         @Override
         public String getReleaseNotesUrl() {
-            return releaseNotesUrl;
+            return GenericGitReleaser.this.getReleaseNotesUrl();
         }
 
         @Override
         public String getLatestReleaseUrl() {
-            return latestReleaseUrl;
+            return GenericGitReleaser.this.getLatestReleaseUrl();
         }
 
         @Override
         public String getIssueTrackerUrl() {
-            return issueTrackerUrl;
+            return GenericGitReleaser.this.getIssueTrackerUrl();
         }
 
         @Override
         public String getUsername() {
-            return username;
+            return GenericGitReleaser.this.getUsername();
         }
 
         @Override
         public String getToken() {
-            return token;
+            return GenericGitReleaser.this.getToken();
         }
 
         @Override
         public String getTagName() {
-            return tagName;
+            return GenericGitReleaser.this.getTagName();
         }
 
         @Override
         public String getPreviousTagName() {
-            return previousTagName;
+            return GenericGitReleaser.this.getPreviousTagName();
         }
 
         @Override
         public String getReleaseName() {
-            return releaseName;
+            return GenericGitReleaser.this.getReleaseName();
         }
 
         @Override
         public String getBranch() {
-            return branch;
+            return GenericGitReleaser.this.getBranch();
         }
 
         @Override
         public Prerelease getPrerelease() {
-            return prerelease.asImmutable();
+            return GenericGitReleaser.this.getPrerelease().asImmutable();
         }
 
         @Override
@@ -151,17 +155,17 @@ public final class GenericGitReleaser extends BaseReleaser<org.jreleaser.model.a
 
         @Override
         public org.jreleaser.model.api.release.Changelog getChangelog() {
-            return changelog.asImmutable();
+            return GenericGitReleaser.this.getChangelog().asImmutable();
         }
 
         @Override
         public Milestone getMilestone() {
-            return milestone.asImmutable();
+            return GenericGitReleaser.this.getMilestone().asImmutable();
         }
 
         @Override
         public Issues getIssues() {
-            return issues.asImmutable();
+            return GenericGitReleaser.this.getIssues().asImmutable();
         }
 
         @Override
@@ -181,12 +185,12 @@ public final class GenericGitReleaser extends BaseReleaser<org.jreleaser.model.a
 
         @Override
         public Update getUpdate() {
-            return update.asImmutable();
+            return GenericGitReleaser.this.getUpdate().asImmutable();
         }
 
         @Override
         public String getApiEndpoint() {
-            return apiEndpoint;
+            return GenericGitReleaser.this.getApiEndpoint();
         }
 
         @Override
@@ -211,12 +215,12 @@ public final class GenericGitReleaser extends BaseReleaser<org.jreleaser.model.a
 
         @Override
         public Active getUploadAssets() {
-            return uploadAssets;
+            return GenericGitReleaser.this.getUploadAssets();
         }
 
         @Override
         public org.jreleaser.model.api.common.CommitAuthor getCommitAuthor() {
-            return commitAuthor.asImmutable();
+            return GenericGitReleaser.this.getCommitAuthor().asImmutable();
         }
 
         @Override
@@ -231,17 +235,17 @@ public final class GenericGitReleaser extends BaseReleaser<org.jreleaser.model.a
 
         @Override
         public String getOwner() {
-            return owner;
+            return GenericGitReleaser.this.getOwner();
         }
 
         @Override
         public Integer getConnectTimeout() {
-            return connectTimeout;
+            return GenericGitReleaser.this.getConnectTimeout();
         }
 
         @Override
         public Integer getReadTimeout() {
-            return readTimeout;
+            return GenericGitReleaser.this.getReadTimeout();
         }
     };
 

@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ package org.jreleaser.sdk.git;
 
 import org.bouncycastle.bcpg.ArmoredOutputStream;
 import org.bouncycastle.bcpg.BCPGOutputStream;
+import org.bouncycastle.bcpg.HashAlgorithmTags;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.openpgp.PGPException;
 import org.bouncycastle.openpgp.PGPPrivateKey;
@@ -27,7 +28,6 @@ import org.bouncycastle.openpgp.PGPSecretKey;
 import org.bouncycastle.openpgp.PGPSignature;
 import org.bouncycastle.openpgp.PGPSignatureGenerator;
 import org.bouncycastle.openpgp.PGPSignatureSubpacketGenerator;
-import org.bouncycastle.openpgp.PGPUtil;
 import org.bouncycastle.openpgp.operator.jcajce.JcaPGPContentSignerBuilder;
 import org.bouncycastle.openpgp.operator.jcajce.JcePBESecretKeyDecryptorBuilder;
 import org.eclipse.jgit.api.errors.CanceledException;
@@ -42,12 +42,12 @@ import org.eclipse.jgit.lib.ObjectBuilder;
 import org.eclipse.jgit.lib.PersonIdent;
 import org.eclipse.jgit.transport.CredentialsProvider;
 import org.jreleaser.bundle.RB;
+import org.jreleaser.model.api.signing.Keyring;
+import org.jreleaser.model.api.signing.SigningException;
 import org.jreleaser.model.internal.JReleaserContext;
 import org.jreleaser.model.internal.signing.Signing;
 import org.jreleaser.sdk.command.CommandException;
 import org.jreleaser.sdk.signing.GpgCommandSigner;
-import org.jreleaser.model.api.signing.Keyring;
-import org.jreleaser.model.api.signing.SigningException;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -68,7 +68,7 @@ public class JReleaserGpgSigner extends GpgSigner implements GpgObjectSigner {
         Provider bcProvider = Security.getProvider("BC");
         Security.removeProvider("BC");
         Security.setProperty("crypto.policy", "unlimited");
-        Security.addProvider(bcProvider != null ? bcProvider : new BouncyCastleProvider());
+        Security.addProvider(null != bcProvider ? bcProvider : new BouncyCastleProvider());
     }
 
     private final JReleaserContext context;
@@ -123,7 +123,7 @@ public class JReleaserGpgSigner extends GpgSigner implements GpgObjectSigner {
         void sign(ObjectBuilder object) throws SigningException;
     }
 
-    private static abstract class AbstractSigner implements Signer {
+    private abstract static class AbstractSigner implements Signer {
         protected final JReleaserContext context;
 
         protected AbstractSigner(JReleaserContext context) {
@@ -163,6 +163,7 @@ public class JReleaserGpgSigner extends GpgSigner implements GpgObjectSigner {
             this.committer = committer;
         }
 
+        @Override
         public void sign(ObjectBuilder object) throws SigningException {
             Keyring keyring = context.createKeyring();
             PGPSignatureGenerator signatureGenerator = initSignatureGenerator(context.getModel().getSigning(), keyring);
@@ -172,7 +173,7 @@ public class JReleaserGpgSigner extends GpgSigner implements GpgObjectSigner {
 
         private PGPSignatureGenerator initSignatureGenerator(Signing signing, Keyring keyring) throws SigningException {
             try {
-                PGPSecretKey secretKey = keyring.getSecretKey();
+                PGPSecretKey secretKey = keyring.readSecretKey();
 
                 PGPPrivateKey privateKey = secretKey.extractPrivateKey(
                     new JcePBESecretKeyDecryptorBuilder()
@@ -180,7 +181,7 @@ public class JReleaserGpgSigner extends GpgSigner implements GpgObjectSigner {
                         .build(signing.getPassphrase().toCharArray()));
 
                 PGPSignatureGenerator signatureGenerator = new PGPSignatureGenerator(
-                    new JcaPGPContentSignerBuilder(secretKey.getPublicKey().getAlgorithm(), PGPUtil.SHA256)
+                    new JcaPGPContentSignerBuilder(secretKey.getPublicKey().getAlgorithm(), HashAlgorithmTags.SHA256)
                         .setProvider(BouncyCastleProvider.PROVIDER_NAME));
 
                 signatureGenerator.init(PGPSignature.BINARY_DOCUMENT, privateKey);

@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,16 +18,16 @@
 package org.jreleaser.model.internal.validation.upload;
 
 import org.jreleaser.bundle.RB;
-import org.jreleaser.model.Active;
 import org.jreleaser.model.api.JReleaserContext.Mode;
 import org.jreleaser.model.internal.JReleaserContext;
 import org.jreleaser.model.internal.upload.GiteaUploader;
-import org.jreleaser.model.internal.validation.common.Validator;
-import org.jreleaser.util.Env;
 import org.jreleaser.util.Errors;
 
 import java.util.Map;
 
+import static org.jreleaser.model.internal.validation.common.Validator.checkProperty;
+import static org.jreleaser.model.internal.validation.common.Validator.resolveActivatable;
+import static org.jreleaser.model.internal.validation.common.Validator.validateTimeout;
 import static org.jreleaser.util.CollectionUtils.listOf;
 import static org.jreleaser.util.StringUtils.isBlank;
 
@@ -35,7 +35,11 @@ import static org.jreleaser.util.StringUtils.isBlank;
  * @author Andres Almiray
  * @since 1.2.0
  */
-public abstract class GiteaUploaderValidator extends Validator {
+public final class GiteaUploaderValidator {
+    private GiteaUploaderValidator() {
+        // noop
+    }
+
     public static void validateGiteaUploader(JReleaserContext context, Mode mode, Errors errors) {
         Map<String, GiteaUploader> gitea = context.getModel().getUpload().getGitea();
         if (!gitea.isEmpty()) context.getLogger().debug("upload.gitea");
@@ -43,18 +47,18 @@ public abstract class GiteaUploaderValidator extends Validator {
         for (Map.Entry<String, GiteaUploader> e : gitea.entrySet()) {
             e.getValue().setName(e.getKey());
             if (mode.validateConfig()) {
-                validateGiteaUploader(context, mode, e.getValue(), errors);
+                validateGiteaUploader(context, e.getValue(), errors);
             }
         }
     }
 
-    private static void validateGiteaUploader(JReleaserContext context, Mode mode, GiteaUploader gitea, Errors errors) {
+    private static void validateGiteaUploader(JReleaserContext context, GiteaUploader gitea, Errors errors) {
         context.getLogger().debug("upload.gitea.{}", gitea.getName());
 
-        if (!gitea.isActiveSet()) {
-            gitea.setActive(Active.NEVER);
-        }
-        if (!gitea.resolveEnabled(context.getModel().getProject())) {
+        resolveActivatable(context, gitea,
+            listOf("upload.gitea." + gitea.getName(), "upload.gitea"),
+            "NEVER");
+        if (!gitea.resolveEnabledWithSnapshot(context.getModel().getProject())) {
             context.getLogger().debug(RB.$("validation.disabled"));
             return;
         }
@@ -66,20 +70,31 @@ public abstract class GiteaUploaderValidator extends Validator {
             return;
         }
 
+        String baseKey1 = "upload.gitea." + gitea.getName();
+        String baseKey2 = "upload.gitea";
+        String baseKey3 = "gitea." + gitea.getName();
+        String baseKey4 = "gitea";
+
         gitea.setToken(
             checkProperty(context,
                 listOf(
-                    "GITEA_" + Env.toVar(gitea.getName()) + "_TOKEN",
-                    "GITEA_TOKEN"),
-                "gitea.token",
+                    baseKey1 + ".token",
+                    baseKey2 + ".token",
+                    baseKey3 + ".token",
+                    baseKey4 + ".token"),
+                baseKey1 + ".token",
                 gitea.getToken(),
                 errors,
                 context.isDryrun()));
 
         gitea.setHost(
             checkProperty(context,
-                "GITEA_" + Env.toVar(gitea.getName()) + "_HOST",
-                "gitea.host",
+                listOf(
+                    baseKey1 + ".host",
+                    baseKey2 + ".host",
+                    baseKey3 + ".host",
+                    baseKey4 + ".host"),
+                baseKey1 + ".host",
                 gitea.getHost(),
                 errors,
                 context.isDryrun()));
@@ -92,7 +107,7 @@ public abstract class GiteaUploaderValidator extends Validator {
         }
 
         if (isBlank(gitea.getOwner())) {
-            errors.configuration(RB.$("validation_must_not_be_blank", "gitea." + gitea.getName() + ".owner"));
+            errors.configuration(RB.$("validation_must_not_be_blank", baseKey1 + ".owner"));
         }
 
         validateTimeout(gitea);

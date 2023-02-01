@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,13 +23,15 @@ import org.jreleaser.model.api.JReleaserContext.Mode;
 import org.jreleaser.model.internal.JReleaserContext;
 import org.jreleaser.model.internal.announce.WebhookAnnouncer;
 import org.jreleaser.model.internal.announce.WebhooksAnnouncer;
-import org.jreleaser.model.internal.validation.common.Validator;
-import org.jreleaser.util.Env;
 import org.jreleaser.util.Errors;
 
 import java.nio.file.Files;
 import java.util.Map;
 
+import static org.jreleaser.model.internal.validation.common.Validator.checkProperty;
+import static org.jreleaser.model.internal.validation.common.Validator.resolveActivatable;
+import static org.jreleaser.model.internal.validation.common.Validator.validateTimeout;
+import static org.jreleaser.util.CollectionUtils.listOf;
 import static org.jreleaser.util.StringUtils.isBlank;
 import static org.jreleaser.util.StringUtils.isNotBlank;
 
@@ -37,8 +39,12 @@ import static org.jreleaser.util.StringUtils.isNotBlank;
  * @author Andres Almiray
  * @since 0.5.0
  */
-public abstract class WebhooksAnnouncerValidator extends Validator {
+public final class WebhooksAnnouncerValidator {
     private static final String DEFAULT_TPL = "src/jreleaser/templates/";
+
+    private WebhooksAnnouncerValidator() {
+        // noop
+    }
 
     public static void validateWebhooks(JReleaserContext context, Mode mode, WebhooksAnnouncer webhooks, Errors errors) {
         context.getLogger().debug("announce.webhooks");
@@ -48,10 +54,8 @@ public abstract class WebhooksAnnouncerValidator extends Validator {
         boolean enabled = false;
         for (Map.Entry<String, WebhookAnnouncer> e : webhook.entrySet()) {
             e.getValue().setName(e.getKey());
-            if (mode.validateConfig() || mode.validateAnnounce()) {
-                if (validateWebhook(context, webhooks, e.getValue(), errors)) {
-                    enabled = true;
-                }
+            if ((mode.validateConfig() || mode.validateAnnounce()) && validateWebhook(context, e.getValue(), errors)) {
+                enabled = true;
             }
         }
 
@@ -61,14 +65,17 @@ public abstract class WebhooksAnnouncerValidator extends Validator {
             webhooks.setActive(Active.NEVER);
         }
 
-        if (!webhooks.resolveEnabled(context.getModel().getProject())) {
+        if (!webhooks.resolveEnabledWithSnapshot(context.getModel().getProject())) {
             context.getLogger().debug(RB.$("validation.disabled"));
         }
     }
 
-    public static boolean validateWebhook(JReleaserContext context, WebhooksAnnouncer webhooks, WebhookAnnouncer webhook, Errors errors) {
-        context.getLogger().debug("announce.webhook." + webhook.getName());
-        if (!webhook.resolveEnabled(context.getModel().getProject())) {
+    public static boolean validateWebhook(JReleaserContext context, WebhookAnnouncer webhook, Errors errors) {
+        context.getLogger().debug("announce.webhooks." + webhook.getName());
+        resolveActivatable(context, webhook,
+            listOf("announce.webhooks." + webhook.getName(), "announce.webhooks"),
+            "NEVER");
+        if (!webhook.resolveEnabledWithSnapshot(context.getModel().getProject())) {
             context.getLogger().debug(RB.$("validation.disabled"));
             return false;
         }
@@ -80,8 +87,10 @@ public abstract class WebhooksAnnouncerValidator extends Validator {
 
         webhook.setWebhook(
             checkProperty(context,
-                Env.toVar(webhook.getName()) + "_WEBHOOK",
-                "webhook." + webhook.getName() + ".webhook",
+                listOf(
+                    "announce.webhooks." + webhook.getName() + ".webhook",
+                    webhook.getName() + ".webhook"),
+                "announce.webhooks." + webhook.getName() + ".webhook",
                 webhook.getWebhook(),
                 errors,
                 context.isDryrun()));

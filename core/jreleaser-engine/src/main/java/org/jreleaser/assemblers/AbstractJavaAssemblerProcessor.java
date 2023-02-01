@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,8 +23,8 @@ import org.jreleaser.model.Constants;
 import org.jreleaser.model.internal.JReleaserContext;
 import org.jreleaser.model.internal.assemble.JavaAssembler;
 import org.jreleaser.model.internal.common.Glob;
-import org.jreleaser.model.internal.project.Project;
 import org.jreleaser.model.spi.assemble.AssemblerProcessingException;
+import org.jreleaser.mustache.TemplateContext;
 import org.jreleaser.templates.TemplateResource;
 
 import java.io.IOException;
@@ -42,7 +42,7 @@ import static org.jreleaser.templates.TemplateUtils.resolveAndMergeTemplates;
  * @author Andres Almiray
  * @since 0.8.0
  */
-abstract class AbstractJavaAssemblerProcessor<A extends org.jreleaser.model.api.assemble.Assembler, S extends JavaAssembler<A>> extends AbstractAssemblerProcessor<A, S> {
+public abstract class AbstractJavaAssemblerProcessor<A extends org.jreleaser.model.api.assemble.Assembler, S extends JavaAssembler<A>> extends AbstractAssemblerProcessor<A, S> {
     protected AbstractJavaAssemblerProcessor(JReleaserContext context) {
         super(context);
     }
@@ -58,10 +58,10 @@ abstract class AbstractJavaAssemblerProcessor<A extends org.jreleaser.model.api.
     }
 
     @Override
-    public void assemble(Map<String, Object> props) throws AssemblerProcessingException {
+    public void assemble(TemplateContext props) throws AssemblerProcessingException {
         try {
             context.getLogger().debug(RB.$("packager.create.properties"), assembler.getType(), assembler.getName());
-            Map<String, Object> newProps = fillProps(props);
+            TemplateContext newProps = fillProps(props);
 
             context.getLogger().debug(RB.$("packager.resolve.templates"), assembler.getType(), assembler.getName());
             Map<String, TemplateResource> templates = resolveAndMergeTemplates(context.getLogger(),
@@ -78,14 +78,14 @@ abstract class AbstractJavaAssemblerProcessor<A extends org.jreleaser.model.api.
                     context.getLogger().debug(RB.$("packager.evaluate.template"), key, assembler.getName(), assembler.getType());
                     String content = applyTemplate(value.getReader(), newProps, key);
                     context.getLogger().debug(RB.$("packager.write.template"), key, assembler.getName(), assembler.getType());
-                    writeFile(context.getModel().getProject(), content, newProps, key);
+                    writeFile(content, newProps, key);
                 } else {
                     context.getLogger().debug(RB.$("packager.write.template"), key, assembler.getName(), assembler.getType());
-                    writeFile(context.getModel().getProject(), IOUtils.toByteArray(value.getInputStream()), newProps, key);
+                    writeFile(IOUtils.toByteArray(value.getInputStream()), newProps, key);
                 }
             }
 
-            Path assembleDirectory = (Path) props.get(Constants.KEY_DISTRIBUTION_ASSEMBLE_DIRECTORY);
+            Path assembleDirectory = props.get(Constants.KEY_DISTRIBUTION_ASSEMBLE_DIRECTORY);
             Files.createDirectories(assembleDirectory);
 
             doAssemble(newProps);
@@ -118,10 +118,10 @@ abstract class AbstractJavaAssemblerProcessor<A extends org.jreleaser.model.api.
         return paths;
     }
 
-    protected abstract void writeFile(Project project, String content, Map<String, Object> props, String fileName) throws AssemblerProcessingException;
+    protected abstract void writeFile(String content, TemplateContext props, String fileName) throws AssemblerProcessingException;
 
-    protected void writeFile(Project project, byte[] content, Map<String, Object> props, String fileName) throws AssemblerProcessingException {
-        Path outputDirectory = (Path) props.get(Constants.KEY_DISTRIBUTION_ASSEMBLE_DIRECTORY);
+    protected void writeFile(byte[] content, TemplateContext props, String fileName) throws AssemblerProcessingException {
+        Path outputDirectory = props.get(Constants.KEY_DISTRIBUTION_ASSEMBLE_DIRECTORY);
         Path inputsDirectory = outputDirectory.resolve("inputs");
         try {
             Files.createDirectories(inputsDirectory);

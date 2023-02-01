@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
  */
 package org.jreleaser.sdk.mastodon.api;
 
+import static org.jreleaser.util.StringUtils.isNotBlank;
 import static org.jreleaser.util.StringUtils.requireNonBlank;
 
 /**
@@ -24,7 +25,10 @@ import static org.jreleaser.util.StringUtils.requireNonBlank;
  * @since 0.4.0
  */
 public class Status {
+    private String id;
     private String status;
+    private String inReplyToId;
+    private String visibility;
 
     public String getStatus() {
         return status;
@@ -34,15 +38,39 @@ public class Status {
         this.status = status;
     }
 
-    @Override
-    public String toString() {
-        return "Status[status='" + status + '\'' +
-            ']';
+    public String getId() {
+        return id;
+    }
+
+    public void setId(String id) {
+        this.id = id;
+    }
+
+    public String getInReplyToId() {
+        return inReplyToId;
+    }
+
+    public void setInReplyToId(String inReplyToId) {
+        this.inReplyToId = inReplyToId;
+    }
+
+    public String getVisibility() {
+        return visibility;
+    }
+
+    public void setVisibility(String visibility) {
+        this.visibility = visibility;
     }
 
     public static Status of(String status) {
+        return of(status, null);
+    }
+
+    public static Status of(String status, String inReplyToId) {
         Status o = new Status();
         o.status = requireNonBlank(status, "'status' must not be blank").trim();
+        o.inReplyToId = inReplyToId;
+        if (isNotBlank(inReplyToId)) o.visibility = "unlisted";
         return o;
     }
 }

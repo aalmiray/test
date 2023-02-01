@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,11 +20,12 @@ package org.jreleaser.model.internal.validation.announce;
 import org.jreleaser.bundle.RB;
 import org.jreleaser.model.internal.JReleaserContext;
 import org.jreleaser.model.internal.announce.DiscussionsAnnouncer;
-import org.jreleaser.model.internal.validation.common.Validator;
 import org.jreleaser.util.Errors;
 
 import java.nio.file.Files;
 
+import static org.jreleaser.model.internal.validation.common.Validator.resolveActivatable;
+import static org.jreleaser.model.internal.validation.common.Validator.validateTimeout;
 import static org.jreleaser.util.StringUtils.isBlank;
 import static org.jreleaser.util.StringUtils.isNotBlank;
 
@@ -32,12 +33,17 @@ import static org.jreleaser.util.StringUtils.isNotBlank;
  * @author Andres Almiray
  * @since 0.1.0
  */
-public abstract class DiscussionsAnnouncerValidator extends Validator {
+public final class DiscussionsAnnouncerValidator {
     private static final String DEFAULT_DISCUSSIONS_TPL = "src/jreleaser/templates/discussions.tpl";
+
+    private DiscussionsAnnouncerValidator() {
+        // noop
+    }
 
     public static void validateDiscussions(JReleaserContext context, DiscussionsAnnouncer discussions, Errors errors) {
         context.getLogger().debug("announce.discussions");
-        if (!discussions.resolveEnabled(context.getModel().getProject())) {
+        resolveActivatable(context, discussions, "announce.discussions", "NEVER");
+        if (!discussions.resolveEnabledWithSnapshot(context.getModel().getProject())) {
             context.getLogger().debug(RB.$("validation.disabled"));
             return;
         }
@@ -62,7 +68,7 @@ public abstract class DiscussionsAnnouncerValidator extends Validator {
         }
 
         if (isBlank(discussions.getMessage()) && isBlank(discussions.getMessageTemplate())) {
-            discussions.setMessageTemplate("src/jreleaser/templates/discussions.tpl");
+            discussions.setMessageTemplate(DEFAULT_DISCUSSIONS_TPL);
         }
 
         if (isBlank(discussions.getMessage()) && isBlank(discussions.getMessageTemplate())) {

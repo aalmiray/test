@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ import org.jreleaser.bundle.RB;
 import org.jreleaser.model.internal.JReleaserContext;
 import org.jreleaser.model.spi.deploy.DeployException;
 import org.jreleaser.sdk.commons.AbstractMavenDeployer;
+import org.jreleaser.sdk.nexus2.api.NexusAPIException;
 
 import java.util.Set;
 
@@ -36,10 +37,12 @@ public class Nexus2MavenDeployer extends AbstractMavenDeployer<org.jreleaser.mod
         super(context);
     }
 
+    @Override
     public org.jreleaser.model.internal.deploy.maven.Nexus2MavenDeployer getDeployer() {
         return deployer;
     }
 
+    @Override
     public void setDeployer(org.jreleaser.model.internal.deploy.maven.Nexus2MavenDeployer deployer) {
         this.deployer = deployer;
     }
@@ -83,6 +86,12 @@ public class Nexus2MavenDeployer extends AbstractMavenDeployer<org.jreleaser.mod
                 stagingProfileId = nexus.findStagingProfileId(groupId);
             } catch (Nexus2Exception e) {
                 context.getLogger().trace(e);
+                if (e.getCause() instanceof NexusAPIException) {
+                    NexusAPIException ne = (NexusAPIException) e.getCause();
+                    if (ne.isUnauthorized() || ne.isForbidden()) {
+                        throw new DeployException(RB.$("ERROR_nexus_forbidden"), e);
+                    }
+                }
                 throw new DeployException(RB.$("ERROR_nexus_find_staging_profile", groupId), e);
             }
 
@@ -96,12 +105,12 @@ public class Nexus2MavenDeployer extends AbstractMavenDeployer<org.jreleaser.mod
         }
 
         for (Deployable deployable : deployables) {
-            context.getLogger().info(" - {}", deployable.getFilename());
+            context.getLogger().info(" - {}", deployable.getFullDeployPath());
 
             if (!context.isDryrun()) {
                 try {
                     // if project is snapshot then stagingRepositoryId will be null, and this is expected
-                    nexus.deploy(stagingRepositoryId, deployable.getPath(), deployable.getLocalPath());
+                    nexus.deploy(stagingRepositoryId, deployable.getDeployPath(), deployable.getLocalPath());
                 } catch (Nexus2Exception e) {
                     context.getLogger().trace(e);
                     throw new DeployException(RB.$("ERROR_unexpected_deploy",

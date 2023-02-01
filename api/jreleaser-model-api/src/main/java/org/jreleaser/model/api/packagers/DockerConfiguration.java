@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -58,6 +58,8 @@ public interface DockerConfiguration extends Domain, ExtraProperties, Activatabl
 
     boolean isUseLocalArtifact();
 
+    Buildx getBuildx();
+
     interface Registry extends Domain, Comparable<Registry> {
         String getServer();
 
@@ -68,5 +70,17 @@ public interface DockerConfiguration extends Domain, ExtraProperties, Activatabl
         String getUsername();
 
         String getPassword();
+
+        boolean isExternalLogin();
+    }
+
+    interface Buildx extends Domain {
+        boolean isEnabled();
+
+        boolean isCreateBuilder();
+
+        List<String> getCreateBuilderFlags();
+
+        List<String> getPlatforms();
     }
 }

@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,10 +18,12 @@
 package org.jreleaser.cli;
 
 import org.jreleaser.model.JReleaserVersion;
+import org.jreleaser.util.IoUtils;
 import picocli.CommandLine;
 
 import java.io.ByteArrayOutputStream;
-import java.io.PrintStream;
+
+import static org.jreleaser.util.IoUtils.newPrintStream;
 
 /**
  * @author Andres Almiray
@@ -31,7 +33,7 @@ public class Versions implements CommandLine.IVersionProvider {
     @Override
     public String[] getVersion() throws Exception {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        JReleaserVersion.banner(new PrintStream(baos));
-        return baos.toString().split("\n");
+        JReleaserVersion.banner(newPrintStream(baos));
+        return IoUtils.toString(baos).split("\n");
     }
 }

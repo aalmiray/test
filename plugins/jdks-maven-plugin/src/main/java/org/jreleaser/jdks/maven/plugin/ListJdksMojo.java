@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,6 @@
 package org.jreleaser.jdks.maven.plugin;
 
 import org.apache.maven.plugin.MojoExecutionException;
-import org.apache.maven.plugin.MojoFailureException;
 import org.apache.maven.plugins.annotations.Mojo;
 
 /**
@@ -30,12 +29,7 @@ import org.apache.maven.plugins.annotations.Mojo;
 @Mojo(name = "list-jdks")
 public class ListJdksMojo extends AbstractJdksMojo {
     @Override
-    public void execute() throws MojoExecutionException, MojoFailureException {
-        Banner.display(project, getLog());
-
-        if (jdks == null || jdks.isEmpty()) return;
-        validate();
-
+    protected void doExecute() throws MojoExecutionException {
         for (Jdk jdk : jdks) {
             printJdk(jdk);
         }

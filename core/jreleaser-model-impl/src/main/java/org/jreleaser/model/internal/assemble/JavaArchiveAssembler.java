@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,6 +28,7 @@ import org.jreleaser.model.internal.common.Domain;
 import org.jreleaser.model.internal.common.Executable;
 import org.jreleaser.model.internal.common.FileSet;
 import org.jreleaser.model.internal.common.Glob;
+import org.jreleaser.mustache.TemplateContext;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -50,6 +51,8 @@ import static org.jreleaser.util.StringUtils.isNotBlank;
  * @since 1.4.0
  */
 public final class JavaArchiveAssembler extends AbstractAssembler<JavaArchiveAssembler, org.jreleaser.model.api.assemble.JavaArchiveAssembler> {
+    private static final long serialVersionUID = 4143674954322344767L;
+
     private final Set<Archive.Format> formats = new LinkedHashSet<>();
     private final List<Glob> jars = new ArrayList<>();
     private final List<Glob> files = new ArrayList<>();
@@ -61,6 +64,8 @@ public final class JavaArchiveAssembler extends AbstractAssembler<JavaArchiveAss
     private String templateDirectory;
 
     private final org.jreleaser.model.api.assemble.JavaArchiveAssembler immutable = new org.jreleaser.model.api.assemble.JavaArchiveAssembler() {
+        private static final long serialVersionUID = -5871153107080301721L;
+
         private List<? extends org.jreleaser.model.api.common.FileSet> fileSets;
         private Set<? extends org.jreleaser.model.api.common.Artifact> outputs;
         private List<? extends org.jreleaser.model.api.common.Glob> jars;
@@ -78,7 +83,7 @@ public final class JavaArchiveAssembler extends AbstractAssembler<JavaArchiveAss
 
         @Override
         public org.jreleaser.model.api.platform.Platform getPlatform() {
-            return platform.asImmutable();
+            return JavaArchiveAssembler.this.getPlatform().asImmutable();
         }
 
         @Override
@@ -88,7 +93,7 @@ public final class JavaArchiveAssembler extends AbstractAssembler<JavaArchiveAss
 
         @Override
         public String getType() {
-            return type;
+            return JavaArchiveAssembler.this.getType();
         }
 
         @Override
@@ -103,7 +108,7 @@ public final class JavaArchiveAssembler extends AbstractAssembler<JavaArchiveAss
 
         @Override
         public String getName() {
-            return name;
+            return JavaArchiveAssembler.this.getName();
         }
 
         @Override
@@ -129,7 +134,7 @@ public final class JavaArchiveAssembler extends AbstractAssembler<JavaArchiveAss
         @Override
         public List<? extends org.jreleaser.model.api.common.FileSet> getFileSets() {
             if (null == fileSets) {
-                fileSets = JavaArchiveAssembler.this.fileSets.stream()
+                fileSets = JavaArchiveAssembler.this.getFileSets().stream()
                     .map(FileSet::asImmutable)
                     .collect(toList());
             }
@@ -139,7 +144,7 @@ public final class JavaArchiveAssembler extends AbstractAssembler<JavaArchiveAss
         @Override
         public Set<? extends org.jreleaser.model.api.common.Artifact> getOutputs() {
             if (null == outputs) {
-                outputs = JavaArchiveAssembler.this.outputs.stream()
+                outputs = JavaArchiveAssembler.this.getOutputs().stream()
                     .map(Artifact::asImmutable)
                     .collect(toSet());
             }
@@ -168,7 +173,7 @@ public final class JavaArchiveAssembler extends AbstractAssembler<JavaArchiveAss
 
         @Override
         public Active getActive() {
-            return active;
+            return JavaArchiveAssembler.this.getActive();
         }
 
         @Override
@@ -188,7 +193,7 @@ public final class JavaArchiveAssembler extends AbstractAssembler<JavaArchiveAss
 
         @Override
         public Map<String, Object> getExtraProperties() {
-            return unmodifiableMap(extraProperties);
+            return unmodifiableMap(JavaArchiveAssembler.this.getExtraProperties());
         }
     };
 
@@ -220,8 +225,8 @@ public final class JavaArchiveAssembler extends AbstractAssembler<JavaArchiveAss
     }
 
     public String getResolvedArchiveName(JReleaserContext context) {
-        Map<String, Object> props = context.fullProps();
-        props.putAll(props());
+        TemplateContext props = context.fullProps();
+        props.setAll(props());
         return resolveTemplate(archiveName, props);
     }
 
@@ -342,10 +347,15 @@ public final class JavaArchiveAssembler extends AbstractAssembler<JavaArchiveAss
     }
 
     public static final class Java extends AbstractModelObject<org.jreleaser.model.internal.assemble.JavaArchiveAssembler.Java> implements Domain {
+        private static final long serialVersionUID = 7202113953208274002L;
+
         private final List<String> options = new ArrayList<>();
         private String mainModule;
         private String mainClass;
+
         private final org.jreleaser.model.api.assemble.JavaArchiveAssembler.Java immutable = new org.jreleaser.model.api.assemble.JavaArchiveAssembler.Java() {
+            private static final long serialVersionUID = 5951754473564143458L;
+
             @Override
             public String getMainClass() {
                 return mainClass;

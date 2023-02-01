@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,6 +31,7 @@ import org.jreleaser.model.spi.release.Release;
 import org.jreleaser.model.spi.release.ReleaseException;
 import org.jreleaser.model.spi.release.Repository;
 import org.jreleaser.model.spi.release.User;
+import org.jreleaser.mustache.TemplateContext;
 import org.jreleaser.sdk.commons.RestAPIException;
 import org.jreleaser.sdk.git.ChangelogGenerator;
 import org.jreleaser.sdk.git.ChangelogProvider;
@@ -91,6 +92,7 @@ public class GithubReleaser extends AbstractReleaser<org.jreleaser.model.api.rel
             String content = generateReleaseNotesByAPI();
 
             if (github.getIssues().isEnabled()) {
+                context.getLogger().info(RB.$("issues.generator.extract"));
                 Set<Integer> issues = extractIssues(context, content);
                 storeIssues(context, issues);
             }
@@ -176,13 +178,15 @@ public class GithubReleaser extends AbstractReleaser<org.jreleaser.model.api.rel
                 github.getConnectTimeout(),
                 github.getReadTimeout());
 
-            String branch = github.getBranch();
-            Map<String, GHBranch> branches = api.listBranches(github.getOwner(), github.getName());
-            if (!branches.containsKey(branch)) {
-                throw new ReleaseException(RB.$("ERROR_git_release_branch_not_exists", branch, branches.keySet()));
+            if (!context.isDryrun()) {
+                String branch = github.getBranch();
+                Map<String, GHBranch> branches = api.listBranches(github.getOwner(), github.getName());
+                if (!branches.containsKey(branch)) {
+                    throw new ReleaseException(RB.$("ERROR_git_release_branch_not_exists", branch, branches.keySet()));
+                }
             }
 
-            String changelog = context.getChangelog();
+            String changelog = context.getChangelog().getResolvedChangelog();
 
             context.getLogger().debug(RB.$("git.releaser.release.lookup"), tagName, github.getCanonicalRepoName());
             GHRelease release = api.findReleaseByTag(github.getCanonicalRepoName(), tagName);
@@ -277,7 +281,7 @@ public class GithubReleaser extends AbstractReleaser<org.jreleaser.model.api.rel
                 github.getConnectTimeout(),
                 github.getReadTimeout())
                 .findUser(email, name);
-        } catch (RestAPIException | IOException e) {
+        } catch (RestAPIException e) {
             context.getLogger().trace(e);
             context.getLogger().debug(RB.$("git.releaser.user.not.found"), email);
         }
@@ -389,7 +393,7 @@ public class GithubReleaser extends AbstractReleaser<org.jreleaser.model.api.rel
         String tagName = github.getEffectiveTagName(context.getModel());
         String labelName = github.getIssues().getLabel().getName();
         String labelColor = github.getIssues().getLabel().getColor();
-        Map<String, Object> props = github.props(context.getModel());
+        TemplateContext props = github.props(context.getModel());
         github.fillProps(props, context.getModel());
         String comment = resolveTemplate(github.getIssues().getComment(), props);
         if (labelColor.startsWith("#")) {
@@ -521,7 +525,7 @@ public class GithubReleaser extends AbstractReleaser<org.jreleaser.model.api.rel
                 tagName,
                 release.getId(),
                 ghRelease);
-        } catch (RestAPIException | IOException e) {
+        } catch (RestAPIException e) {
             context.getLogger().trace(e);
             context.getLogger().warn(RB.$("git.releaser.link.discussion.error"),
                 tagName, discussionCategoryName);

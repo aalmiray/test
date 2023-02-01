@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,9 +35,13 @@ import static org.jreleaser.model.api.announce.WebhooksAnnouncer.TYPE;
  * @since 0.5.0
  */
 public final class WebhooksAnnouncer extends AbstractAnnouncer<WebhooksAnnouncer, org.jreleaser.model.api.announce.WebhooksAnnouncer> {
+    private static final long serialVersionUID = -1972485829779560782L;
+
     private final Map<String, WebhookAnnouncer> webhooks = new LinkedHashMap<>();
 
     private final org.jreleaser.model.api.announce.WebhooksAnnouncer immutable = new org.jreleaser.model.api.announce.WebhooksAnnouncer() {
+        private static final long serialVersionUID = -8196857821339657945L;
+
         private Map<String, ? extends org.jreleaser.model.api.announce.WebhookAnnouncer> webhooks;
 
         @Override
@@ -57,7 +61,7 @@ public final class WebhooksAnnouncer extends AbstractAnnouncer<WebhooksAnnouncer
 
         @Override
         public String getName() {
-            return name;
+            return WebhooksAnnouncer.this.getName();
         }
 
         @Override
@@ -67,7 +71,7 @@ public final class WebhooksAnnouncer extends AbstractAnnouncer<WebhooksAnnouncer
 
         @Override
         public Active getActive() {
-            return active;
+            return WebhooksAnnouncer.this.getActive();
         }
 
         @Override
@@ -87,17 +91,17 @@ public final class WebhooksAnnouncer extends AbstractAnnouncer<WebhooksAnnouncer
 
         @Override
         public Map<String, Object> getExtraProperties() {
-            return unmodifiableMap(extraProperties);
+            return unmodifiableMap(WebhooksAnnouncer.this.getExtraProperties());
         }
 
         @Override
         public Integer getConnectTimeout() {
-            return connectTimeout;
+            return WebhooksAnnouncer.this.getConnectTimeout();
         }
 
         @Override
         public Integer getReadTimeout() {
-            return readTimeout;
+            return WebhooksAnnouncer.this.getReadTimeout();
         }
     };
 

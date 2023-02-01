@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@ package org.jreleaser.model.internal.hooks;
 import org.jreleaser.model.Active;
 import org.jreleaser.model.api.hooks.ExecutionEvent;
 import org.jreleaser.model.internal.JReleaserContext;
-import org.jreleaser.model.internal.project.Project;
+import org.jreleaser.mustache.TemplateContext;
 
 import java.util.Map;
 
@@ -32,9 +32,13 @@ import static org.jreleaser.mustache.Templates.resolveTemplate;
  * @since 1.2.0
  */
 public final class CommandHook extends AbstractHook<CommandHook> {
+    private static final long serialVersionUID = 6669599201326933824L;
+
     private String cmd;
 
     private final org.jreleaser.model.api.hooks.CommandHook immutable = new org.jreleaser.model.api.hooks.CommandHook() {
+        private static final long serialVersionUID = 4950097179887952669L;
+
         @Override
         public String getCmd() {
             return cmd;
@@ -42,7 +46,7 @@ public final class CommandHook extends AbstractHook<CommandHook> {
 
         @Override
         public Filter getFilter() {
-            return filter.asImmutable();
+            return CommandHook.this.getFilter().asImmutable();
         }
 
         @Override
@@ -52,7 +56,7 @@ public final class CommandHook extends AbstractHook<CommandHook> {
 
         @Override
         public Active getActive() {
-            return active;
+            return CommandHook.this.getActive();
         }
 
         @Override
@@ -73,66 +77,13 @@ public final class CommandHook extends AbstractHook<CommandHook> {
     @Override
     public void merge(CommandHook source) {
         super.merge(source);
-        this.active = merge(this.active, source.active);
+        this.cmd = merge(this.cmd, source.cmd);
     }
 
     public String getResolvedCmd(JReleaserContext context, ExecutionEvent event) {
-        Map<String, Object> props = context.fullProps();
-        props.put("event", event);
+        TemplateContext props = context.fullProps();
+        props.set("event", event);
         return resolveTemplate(cmd, props);
-    }
-
-    @Override
-    public boolean isEnabled() {
-        return enabled;
-    }
-
-    public void disable() {
-        active = Active.NEVER;
-        enabled = false;
-    }
-
-    public boolean resolveEnabled(Project project) {
-        if (null == active) {
-            setActive(Active.ALWAYS);
-        }
-        enabled = active.check(project);
-        return enabled;
-    }
-
-    @Override
-    public Active getActive() {
-        return active;
-    }
-
-    @Override
-    public void setActive(Active active) {
-        this.active = active;
-    }
-
-    @Override
-    public void setActive(String str) {
-        setActive(Active.of(str));
-    }
-
-    @Override
-    public boolean isActiveSet() {
-        return active != null;
-    }
-
-    @Override
-    public boolean isContinueOnError() {
-        return continueOnError != null && continueOnError;
-    }
-
-    @Override
-    public void setContinueOnError(Boolean continueOnError) {
-        this.continueOnError = continueOnError;
-    }
-
-    @Override
-    public boolean isContinueOnErrorSet() {
-        return continueOnError != null;
     }
 
     public String getCmd() {
@@ -141,15 +92,6 @@ public final class CommandHook extends AbstractHook<CommandHook> {
 
     public void setCmd(String cmd) {
         this.cmd = cmd;
-    }
-
-    @Override
-    public Filter getFilter() {
-        return filter;
-    }
-
-    public void setFilter(Filter filter) {
-        this.filter.merge(filter);
     }
 
     @Override

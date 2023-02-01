@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ package org.jreleaser.model.internal.deploy.maven;
 
 import org.jreleaser.model.Active;
 import org.jreleaser.model.Http;
+import org.jreleaser.mustache.TemplateContext;
 
 import java.util.List;
 import java.util.Map;
@@ -32,9 +33,13 @@ import static org.jreleaser.mustache.Templates.resolveTemplate;
  * @since 1.3.0
  */
 public final class GitlabMavenDeployer extends AbstractMavenDeployer<GitlabMavenDeployer, org.jreleaser.model.api.deploy.maven.GitlabMavenDeployer> {
+    private static final long serialVersionUID = 924140634644168936L;
+
     private String projectIdentifier;
 
     private final org.jreleaser.model.api.deploy.maven.GitlabMavenDeployer immutable = new org.jreleaser.model.api.deploy.maven.GitlabMavenDeployer() {
+        private static final long serialVersionUID = -7592311646357396039L;
+
         @Override
         public String getGroup() {
             return org.jreleaser.model.api.deploy.maven.MavenDeployer.GROUP;
@@ -47,22 +52,22 @@ public final class GitlabMavenDeployer extends AbstractMavenDeployer<GitlabMaven
 
         @Override
         public String getUrl() {
-            return url;
+            return GitlabMavenDeployer.this.getUrl();
         }
 
         @Override
         public String getUsername() {
-            return username;
+            return GitlabMavenDeployer.this.getUsername();
         }
 
         @Override
         public String getPassword() {
-            return password;
+            return GitlabMavenDeployer.this.getPassword();
         }
 
         @Override
         public Http.Authorization getAuthorization() {
-            return authorization;
+            return GitlabMavenDeployer.this.getAuthorization();
         }
 
         @Override
@@ -82,22 +87,22 @@ public final class GitlabMavenDeployer extends AbstractMavenDeployer<GitlabMaven
 
         @Override
         public List<String> getStagingRepositories() {
-            return unmodifiableList(stagingRepositories);
+            return unmodifiableList(GitlabMavenDeployer.this.getStagingRepositories());
         }
 
         @Override
         public String getType() {
-            return type;
+            return GitlabMavenDeployer.this.getType();
         }
 
         @Override
         public String getName() {
-            return name;
+            return GitlabMavenDeployer.this.getName();
         }
 
         @Override
         public Active getActive() {
-            return active;
+            return GitlabMavenDeployer.this.getActive();
         }
 
         @Override
@@ -117,17 +122,17 @@ public final class GitlabMavenDeployer extends AbstractMavenDeployer<GitlabMaven
 
         @Override
         public Map<String, Object> getExtraProperties() {
-            return unmodifiableMap(extraProperties);
+            return unmodifiableMap(GitlabMavenDeployer.this.getExtraProperties());
         }
 
         @Override
         public Integer getConnectTimeout() {
-            return connectTimeout;
+            return GitlabMavenDeployer.this.getConnectTimeout();
         }
 
         @Override
         public Integer getReadTimeout() {
-            return readTimeout;
+            return GitlabMavenDeployer.this.getReadTimeout();
         }
     };
 
@@ -160,17 +165,17 @@ public final class GitlabMavenDeployer extends AbstractMavenDeployer<GitlabMaven
     }
 
     @Override
-    public String getResolvedUrl(Map<String, Object> props) {
-        props.put("username", username);
-        props.put("owner", username);
-        props.put("projectIdentifier", projectIdentifier);
-        props.putAll(getExtraProperties());
-        return resolveTemplate(url, props);
+    public String getResolvedUrl(TemplateContext props) {
+        props.set("username", getUsername());
+        props.set("owner", getUsername());
+        props.set("projectIdentifier", projectIdentifier);
+        props.setAll(getExtraProperties());
+        return resolveTemplate(getUrl(), props);
     }
 
     @Override
     public Http.Authorization resolveAuthorization() {
-        authorization = Http.Authorization.BEARER;
-        return authorization;
+        setAuthorization(Http.Authorization.BEARER);
+        return getAuthorization();
     }
 }

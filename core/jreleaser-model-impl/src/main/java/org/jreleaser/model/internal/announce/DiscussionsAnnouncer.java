@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,20 +17,14 @@
  */
 package org.jreleaser.model.internal.announce;
 
-import org.jreleaser.bundle.RB;
 import org.jreleaser.model.Active;
-import org.jreleaser.model.Constants;
-import org.jreleaser.model.JReleaserException;
 import org.jreleaser.model.internal.JReleaserContext;
+import org.jreleaser.mustache.TemplateContext;
 
-import java.io.IOException;
-import java.io.Reader;
-import java.nio.file.Path;
 import java.util.Map;
 
 import static java.util.Collections.unmodifiableMap;
 import static org.jreleaser.model.api.announce.DiscussionsAnnouncer.TYPE;
-import static org.jreleaser.mustache.MustacheUtils.applyTemplate;
 import static org.jreleaser.mustache.MustacheUtils.applyTemplates;
 import static org.jreleaser.mustache.Templates.resolveTemplate;
 
@@ -38,14 +32,16 @@ import static org.jreleaser.mustache.Templates.resolveTemplate;
  * @author Andres Almiray
  * @since 0.1.0
  */
-public final class DiscussionsAnnouncer extends AbstractAnnouncer<DiscussionsAnnouncer, org.jreleaser.model.api.announce.DiscussionsAnnouncer> {
+public final class DiscussionsAnnouncer extends AbstractMessageAnnouncer<DiscussionsAnnouncer, org.jreleaser.model.api.announce.DiscussionsAnnouncer> {
+    private static final long serialVersionUID = -3953718151030666891L;
+
     private String organization;
     private String team;
     private String title;
-    private String message;
-    private String messageTemplate;
 
     private final org.jreleaser.model.api.announce.DiscussionsAnnouncer immutable = new org.jreleaser.model.api.announce.DiscussionsAnnouncer() {
+        private static final long serialVersionUID = -3455087550754390394L;
+
         @Override
         public String getType() {
             return org.jreleaser.model.api.announce.DiscussionsAnnouncer.TYPE;
@@ -68,17 +64,17 @@ public final class DiscussionsAnnouncer extends AbstractAnnouncer<DiscussionsAnn
 
         @Override
         public String getMessage() {
-            return message;
+            return DiscussionsAnnouncer.this.getMessage();
         }
 
         @Override
         public String getMessageTemplate() {
-            return messageTemplate;
+            return DiscussionsAnnouncer.this.getMessageTemplate();
         }
 
         @Override
         public String getName() {
-            return name;
+            return DiscussionsAnnouncer.this.getName();
         }
 
         @Override
@@ -88,7 +84,7 @@ public final class DiscussionsAnnouncer extends AbstractAnnouncer<DiscussionsAnn
 
         @Override
         public Active getActive() {
-            return active;
+            return DiscussionsAnnouncer.this.getActive();
         }
 
         @Override
@@ -108,17 +104,17 @@ public final class DiscussionsAnnouncer extends AbstractAnnouncer<DiscussionsAnn
 
         @Override
         public Map<String, Object> getExtraProperties() {
-            return unmodifiableMap(extraProperties);
+            return unmodifiableMap(DiscussionsAnnouncer.this.getExtraProperties());
         }
 
         @Override
         public Integer getConnectTimeout() {
-            return connectTimeout;
+            return DiscussionsAnnouncer.this.getConnectTimeout();
         }
 
         @Override
         public Integer getReadTimeout() {
-            return readTimeout;
+            return DiscussionsAnnouncer.this.getReadTimeout();
         }
     };
 
@@ -137,37 +133,12 @@ public final class DiscussionsAnnouncer extends AbstractAnnouncer<DiscussionsAnn
         this.organization = merge(this.organization, source.organization);
         this.team = merge(this.team, source.team);
         this.title = merge(this.title, source.title);
-        this.message = merge(this.message, source.message);
-        this.messageTemplate = merge(this.messageTemplate, source.messageTemplate);
     }
 
     public String getResolvedTitle(JReleaserContext context) {
-        Map<String, Object> props = context.fullProps();
+        TemplateContext props = context.fullProps();
         applyTemplates(props, getResolvedExtraProperties());
         return resolveTemplate(title, props);
-    }
-
-    public String getResolvedMessage(JReleaserContext context) {
-        Map<String, Object> props = context.fullProps();
-        applyTemplates(props, getResolvedExtraProperties());
-        return resolveTemplate(message, props);
-    }
-
-    public String getResolvedMessageTemplate(JReleaserContext context, Map<String, Object> extraProps) {
-        Map<String, Object> props = context.fullProps();
-        applyTemplates(props, getResolvedExtraProperties());
-        props.put(Constants.KEY_TAG_NAME, context.getModel().getRelease().getReleaser()
-            .getEffectiveTagName(context.getModel()));
-        props.putAll(extraProps);
-
-        Path templatePath = context.getBasedir().resolve(messageTemplate);
-        try {
-            Reader reader = java.nio.file.Files.newBufferedReader(templatePath);
-            return applyTemplate(reader, props);
-        } catch (IOException e) {
-            throw new JReleaserException(RB.$("ERROR_unexpected_error_reading_template",
-                context.relativizeToBasedir(templatePath)));
-        }
     }
 
     public String getOrganization() {
@@ -194,28 +165,11 @@ public final class DiscussionsAnnouncer extends AbstractAnnouncer<DiscussionsAnn
         this.title = title;
     }
 
-    public String getMessage() {
-        return message;
-    }
-
-    public void setMessage(String message) {
-        this.message = message;
-    }
-
-    public String getMessageTemplate() {
-        return messageTemplate;
-    }
-
-    public void setMessageTemplate(String messageTemplate) {
-        this.messageTemplate = messageTemplate;
-    }
-
     @Override
     protected void asMap(boolean full, Map<String, Object> props) {
         props.put("organization", organization);
         props.put("team", team);
         props.put("title", title);
-        props.put("message", message);
-        props.put("messageTemplate", messageTemplate);
+        super.asMap(full, props);
     }
 }

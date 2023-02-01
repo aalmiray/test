@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,6 +26,7 @@ import org.jreleaser.model.api.common.Java;
 import org.jreleaser.model.api.common.Screenshot;
 import org.jreleaser.version.Version;
 
+import java.io.Serializable;
 import java.util.List;
 
 /**
@@ -44,6 +45,7 @@ public interface Project extends Domain, ExtraProperties, Active.Releaseable {
 
     boolean isSnapshot();
 
+    @Override
     boolean isRelease();
 
     String getName();
@@ -129,7 +131,7 @@ public interface Project extends Domain, ExtraProperties, Active.Releaseable {
      * @author Andres Almiray
      * @since 0.5.0
      */
-    interface VersionPattern {
+    interface VersionPattern extends Serializable {
         org.jreleaser.model.VersionPattern.Type getType();
 
         String getFormat();

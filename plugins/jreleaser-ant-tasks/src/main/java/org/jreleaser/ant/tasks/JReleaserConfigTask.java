@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,12 +17,12 @@
  */
 package org.jreleaser.ant.tasks;
 
-import org.jreleaser.ant.tasks.internal.JReleaserModelPrinter;
+import org.jreleaser.ant.tasks.internal.AntJReleaserModelPrinter;
 import org.jreleaser.engine.context.ModelValidator;
 import org.jreleaser.model.api.JReleaserContext.Mode;
 import org.jreleaser.model.internal.JReleaserContext;
 
-import java.io.PrintWriter;
+import static org.jreleaser.util.IoUtils.newPrintWriter;
 
 /**
  * @author Andres Almiray
@@ -58,11 +58,12 @@ public class JReleaserConfigTask extends AbstractPlatformAwareJReleaserTask {
     @Override
     protected void doExecute(JReleaserContext context) {
         ModelValidator.validate(context);
-        new JReleaserModelPrinter(new PrintWriter(System.out, true))
+        new AntJReleaserModelPrinter(newPrintWriter(System.out))
             .print(context.getModel().asMap(full));
         context.report();
     }
 
+    @Override
     protected Mode getMode() {
         if (download) return Mode.DOWNLOAD;
         if (assembly) return Mode.ASSEMBLE;

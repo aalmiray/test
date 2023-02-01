@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ package org.jreleaser.model.internal.deploy.maven;
 
 import org.jreleaser.model.Active;
 import org.jreleaser.model.Http;
+import org.jreleaser.mustache.TemplateContext;
 
 import java.util.List;
 import java.util.Map;
@@ -32,6 +33,8 @@ import static org.jreleaser.mustache.Templates.resolveTemplate;
  * @since 1.3.0
  */
 public final class Nexus2MavenDeployer extends AbstractMavenDeployer<Nexus2MavenDeployer, org.jreleaser.model.api.deploy.maven.Nexus2MavenDeployer> {
+    private static final long serialVersionUID = 5297196267872863920L;
+
     private String snapshotUrl;
     private Boolean closeRepository;
     private Boolean releaseRepository;
@@ -39,6 +42,8 @@ public final class Nexus2MavenDeployer extends AbstractMavenDeployer<Nexus2Maven
     private int transitionMaxRetries;
 
     private final org.jreleaser.model.api.deploy.maven.Nexus2MavenDeployer immutable = new org.jreleaser.model.api.deploy.maven.Nexus2MavenDeployer() {
+        private static final long serialVersionUID = -325247395895899196L;
+
         @Override
         public String getGroup() {
             return org.jreleaser.model.api.deploy.maven.MavenDeployer.GROUP;
@@ -51,22 +56,22 @@ public final class Nexus2MavenDeployer extends AbstractMavenDeployer<Nexus2Maven
 
         @Override
         public String getUrl() {
-            return url;
+            return Nexus2MavenDeployer.this.getUrl();
         }
 
         @Override
         public String getUsername() {
-            return username;
+            return Nexus2MavenDeployer.this.getUsername();
         }
 
         @Override
         public String getPassword() {
-            return password;
+            return Nexus2MavenDeployer.this.getPassword();
         }
 
         @Override
         public Http.Authorization getAuthorization() {
-            return authorization;
+            return Nexus2MavenDeployer.this.getAuthorization();
         }
 
         @Override
@@ -96,22 +101,22 @@ public final class Nexus2MavenDeployer extends AbstractMavenDeployer<Nexus2Maven
 
         @Override
         public List<String> getStagingRepositories() {
-            return unmodifiableList(stagingRepositories);
+            return unmodifiableList(Nexus2MavenDeployer.this.getStagingRepositories());
         }
 
         @Override
         public String getType() {
-            return type;
+            return Nexus2MavenDeployer.this.getType();
         }
 
         @Override
         public String getName() {
-            return name;
+            return Nexus2MavenDeployer.this.getName();
         }
 
         @Override
         public Active getActive() {
-            return active;
+            return Nexus2MavenDeployer.this.getActive();
         }
 
         @Override
@@ -131,17 +136,17 @@ public final class Nexus2MavenDeployer extends AbstractMavenDeployer<Nexus2Maven
 
         @Override
         public Map<String, Object> getExtraProperties() {
-            return unmodifiableMap(extraProperties);
+            return unmodifiableMap(Nexus2MavenDeployer.this.getExtraProperties());
         }
 
         @Override
         public Integer getConnectTimeout() {
-            return connectTimeout;
+            return Nexus2MavenDeployer.this.getConnectTimeout();
         }
 
         @Override
         public Integer getReadTimeout() {
-            return readTimeout;
+            return Nexus2MavenDeployer.this.getReadTimeout();
         }
 
         @Override
@@ -183,7 +188,7 @@ public final class Nexus2MavenDeployer extends AbstractMavenDeployer<Nexus2Maven
     }
 
     public boolean isCloseRepository() {
-        return closeRepository != null && closeRepository;
+        return null != closeRepository && closeRepository;
     }
 
     public void setCloseRepository(Boolean closeRepository) {
@@ -191,11 +196,11 @@ public final class Nexus2MavenDeployer extends AbstractMavenDeployer<Nexus2Maven
     }
 
     public boolean isCloseRepositorySet() {
-        return closeRepository != null;
+        return null != closeRepository;
     }
 
     public boolean isReleaseRepository() {
-        return releaseRepository != null && releaseRepository;
+        return null != releaseRepository && releaseRepository;
     }
 
     public void setReleaseRepository(Boolean releaseRepository) {
@@ -203,7 +208,7 @@ public final class Nexus2MavenDeployer extends AbstractMavenDeployer<Nexus2Maven
     }
 
     public boolean isReleaseRepositorySet() {
-        return releaseRepository != null;
+        return null != releaseRepository;
     }
 
     public Integer getTransitionDelay() {
@@ -223,14 +228,14 @@ public final class Nexus2MavenDeployer extends AbstractMavenDeployer<Nexus2Maven
     }
 
     @Override
-    public boolean isSnapshotAllowed() {
+    public boolean isSnapshotSupported() {
         return true;
     }
 
-    public String getResolvedSnapshotUrl(Map<String, Object> props) {
-        props.put("username", username);
-        props.put("owner", username);
-        props.putAll(getExtraProperties());
+    public String getResolvedSnapshotUrl(TemplateContext props) {
+        props.set("username", getUsername());
+        props.set("owner", getUsername());
+        props.setAll(getExtraProperties());
         return resolveTemplate(snapshotUrl, props);
     }
 

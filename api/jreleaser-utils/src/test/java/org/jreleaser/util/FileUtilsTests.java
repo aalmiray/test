@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,6 +25,8 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -32,26 +34,31 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * @author Andres Almiray
  * @since 1.0.0
  */
-public class FileUtilsTests {
+class FileUtilsTests {
+    private static final ZonedDateTime TIMESTAMP = ZonedDateTime.of(2000, 1, 1, 0, 0, 0, 0, ZoneId.of("UTC"));
+
     @ParameterizedTest
     @EnumSource(value = FileType.class,
-        names = {"TAR", "TAR_BZ2", "TAR_GZ", "TAR_XZ", "TBZ2", "TGZ", "TXZ", "ZIP"})
+        names = {"TAR", "TAR_BZ2", "TAR_GZ", "TAR_XZ", "TAR_ZST", "TBZ2", "TGZ", "TXZ", "ZIP"})
     @Platform(platform = "windows", match = false)
-    public void unpackArchiveWithExecutable(FileType fileType) throws IOException {
+    void packAndUnpackArchive(FileType fileType) throws IOException {
         // given:
         Path resourcesDir = Paths.get(".")
             .resolve("src/test/resources")
             .normalize();
-        Path archive = resourcesDir.resolve("app-1.0.0" + fileType.extension());
-        Path tmp = Files.createTempDirectory(fileType.name());
+        Path src = resourcesDir.resolve("archive");
+        Path tmp1 = Files.createTempDirectory(fileType.name());
+        Path tmp2 = Files.createTempDirectory(fileType.name());
+        Path archive = tmp1.resolve("app-1.0.0" + fileType.extension());
 
         // when:
-        FileUtils.unpackArchive(archive, tmp, false);
+        FileUtils.packArchive(src, archive, TIMESTAMP);
+        FileUtils.unpackArchive(archive, tmp2, false);
 
         // then:
-        Path license = tmp.resolve("app-1.0.0").resolve("LICENSE");
+        Path license = tmp2.resolve("app-1.0.0").resolve("LICENSE");
         assertTrue(() -> Files.exists(license), "LICENSE exists");
-        Path executable = tmp.resolve("app-1.0.0").resolve("bin/executable");
+        Path executable = tmp2.resolve("app-1.0.0").resolve("bin/executable");
         assertTrue(() -> Files.exists(executable), "executable exists");
         assertTrue(() -> Files.isExecutable(executable), "executable has executable bit set");
     }

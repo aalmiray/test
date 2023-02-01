@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,7 +21,6 @@ import org.jreleaser.bundle.RB;
 import org.jreleaser.model.internal.JReleaserContext;
 import org.jreleaser.model.internal.assemble.ArchiveAssembler;
 import org.jreleaser.model.internal.common.Artifact;
-import org.jreleaser.model.internal.validation.common.Validator;
 import org.jreleaser.util.Errors;
 import org.jreleaser.util.PlatformUtils;
 
@@ -33,7 +32,11 @@ import java.util.List;
  * @author Andres Almiray
  * @since 0.8.0
  */
-public abstract class ArchiveAssemblerResolver extends Validator {
+public final class ArchiveAssemblerResolver {
+    private ArchiveAssemblerResolver() {
+        // noop
+    }
+
     public static void resolveArchiveOutputs(JReleaserContext context, Errors errors) {
         List<ArchiveAssembler> activeArchives = context.getModel().getAssemble().getActiveArchives();
         if (!activeArchives.isEmpty()) context.getLogger().debug("assemble.archive");

@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,8 +18,6 @@
 package org.jreleaser.sdk.zulip;
 
 import feign.auth.BasicAuthRequestInterceptor;
-import feign.form.FormEncoder;
-import feign.jackson.JacksonEncoder;
 import org.jreleaser.bundle.RB;
 import org.jreleaser.logging.JReleaserLogger;
 import org.jreleaser.sdk.commons.ClientUtils;
@@ -54,7 +52,6 @@ public class ZulipSdk {
         this.logger = logger;
         this.dryrun = dryrun;
         this.api = ClientUtils.builder(logger, connectTimeout, readTimeout)
-            .encoder(new FormEncoder(new JacksonEncoder()))
             .requestInterceptor(new BasicAuthRequestInterceptor(account, apiKey))
             .target(ZulipAPI.class, apiHost);
 

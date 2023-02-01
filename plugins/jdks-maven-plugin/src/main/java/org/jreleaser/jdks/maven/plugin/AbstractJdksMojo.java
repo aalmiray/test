@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@
 package org.jreleaser.jdks.maven.plugin;
 
 import org.apache.maven.plugin.AbstractMojo;
+import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
 import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.project.MavenProject;
@@ -38,8 +39,20 @@ abstract class AbstractJdksMojo extends AbstractMojo {
     @Parameter(required = true)
     protected List<Jdk> jdks;
 
+    @Override
+    public void execute() throws MojoExecutionException, MojoFailureException {
+        Banner.display(project, getLog());
+
+        if (null == jdks || jdks.isEmpty()) return;
+        validate();
+
+        doExecute();
+    }
+
+    protected abstract void doExecute() throws MojoExecutionException;
+
     protected void validate() throws MojoFailureException {
-        if (jdks == null || jdks.isEmpty()) return;
+        if (null == jdks || jdks.isEmpty()) return;
 
         Errors errors = new Errors();
         jdks.forEach(jdk -> jdk.validate(errors));

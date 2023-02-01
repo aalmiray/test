@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,7 +21,6 @@ import org.eclipse.jgit.api.CommitCommand;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.transport.UsernamePasswordCredentialsProvider;
 import org.jreleaser.bundle.RB;
-import org.jreleaser.model.Constants;
 import org.jreleaser.model.JReleaserException;
 import org.jreleaser.model.internal.JReleaserContext;
 import org.jreleaser.model.internal.common.Artifact;
@@ -29,6 +28,7 @@ import org.jreleaser.model.internal.release.BaseReleaser;
 import org.jreleaser.model.spi.announce.AnnounceException;
 import org.jreleaser.model.spi.announce.Announcer;
 import org.jreleaser.model.spi.release.Repository;
+import org.jreleaser.mustache.TemplateContext;
 import org.jreleaser.sdk.git.JReleaserGpgSigner;
 import org.jreleaser.util.FileUtils;
 
@@ -36,13 +36,12 @@ import java.io.IOException;
 import java.io.Reader;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Map;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.nio.file.StandardOpenOption.CREATE;
 import static java.nio.file.StandardOpenOption.TRUNCATE_EXISTING;
 import static java.nio.file.StandardOpenOption.WRITE;
 import static org.jreleaser.mustache.MustacheUtils.applyTemplate;
-import static org.jreleaser.mustache.MustacheUtils.passThrough;
 import static org.jreleaser.util.FileUtils.createDirectoriesWithFullAccess;
 import static org.jreleaser.util.StringUtils.isNotBlank;
 
@@ -95,10 +94,10 @@ public class ArticleAnnouncer implements Announcer<org.jreleaser.model.api.annou
 
         context.getLogger().debug(RB.$("announcer.article.resolve.templates"));
 
-        Map<String, Object> props = context.fullProps();
-        props.put(Constants.KEY_CHANGELOG, passThrough(context.getChangelog()));
+        TemplateContext props = context.fullProps();
+        context.getChangelog().apply(props);
         context.getModel().getRelease().getReleaser().fillProps(props, context.getModel());
-        props.putAll(article.getResolvedExtraProperties());
+        props.setAll(article.getResolvedExtraProperties());
 
         try {
             for (Artifact file : article.getFiles()) {
@@ -108,11 +107,12 @@ public class ArticleAnnouncer implements Announcer<org.jreleaser.model.api.annou
                     output = file.getResolvedPath(context, prepareDirectory, false);
                 }
 
-                Reader reader = Files.newBufferedReader(input);
-                context.getLogger().debug(RB.$("announcer.article.eval.template"), context.relativizeToBasedir(input));
-                String content = applyTemplate(reader, props);
-                context.getLogger().debug(RB.$("announcer.article.write.template"), context.relativizeToBasedir(input));
-                writeFile(content, output);
+                try (Reader reader = Files.newBufferedReader(input)) {
+                    context.getLogger().debug(RB.$("announcer.article.eval.template"), context.relativizeToBasedir(input));
+                    String content = applyTemplate(reader, props);
+                    context.getLogger().debug(RB.$("announcer.article.write.template"), context.relativizeToBasedir(input));
+                    writeFile(content, output);
+                }
             }
         } catch (JReleaserException e) {
             context.getLogger().warn(e.getMessage());
@@ -161,7 +161,7 @@ public class ArticleAnnouncer implements Announcer<org.jreleaser.model.api.annou
                 .addFilepattern(".")
                 .call();
 
-            Map<String, Object> props = context.fullProps();
+            TemplateContext props = context.fullProps();
             context.getModel().getRelease().getReleaser().fillProps(props, context.getModel());
 
             // setup commit
@@ -213,7 +213,7 @@ public class ArticleAnnouncer implements Announcer<org.jreleaser.model.api.annou
     private void writeFile(String content, Path outputFile) throws AnnounceException {
         try {
             createDirectoriesWithFullAccess(outputFile.getParent());
-            Files.write(outputFile, content.getBytes(), CREATE, WRITE, TRUNCATE_EXISTING);
+            Files.write(outputFile, content.getBytes(UTF_8), CREATE, WRITE, TRUNCATE_EXISTING);
         } catch (IOException e) {
             throw new AnnounceException(RB.$("ERROR_unexpected_error_writing_file", outputFile.toAbsolutePath()), e);
         }

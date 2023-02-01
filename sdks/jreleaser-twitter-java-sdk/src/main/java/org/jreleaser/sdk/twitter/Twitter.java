@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -73,8 +73,7 @@ public class Twitter {
 
     public void updateStatus(List<String> statuses) throws TwitterException {
         wrap(() -> {
-            String message = statuses.get(0);
-            Status status = twitter.updateStatus(message);
+            Status status = twitter.updateStatus(statuses.get(0));
             for (int i = 1; i < statuses.size(); i++) {
                 status = twitter.updateStatus(new StatusUpdate(statuses.get(i))
                     .inReplyToStatusId(status.getId()));

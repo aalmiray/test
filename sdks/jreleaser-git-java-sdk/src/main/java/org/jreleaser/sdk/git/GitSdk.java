@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,10 +19,12 @@ package org.jreleaser.sdk.git;
 
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.ListBranchCommand;
+import org.eclipse.jgit.api.errors.EmptyCommitException;
 import org.eclipse.jgit.api.errors.GitAPIException;
 import org.eclipse.jgit.errors.RepositoryNotFoundException;
 import org.eclipse.jgit.lib.Constants;
 import org.eclipse.jgit.lib.ObjectId;
+import org.eclipse.jgit.lib.PersonIdent;
 import org.eclipse.jgit.lib.Ref;
 import org.eclipse.jgit.revwalk.RevCommit;
 import org.eclipse.jgit.revwalk.RevWalk;
@@ -39,8 +41,14 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.Comparator;
+import java.util.Date;
+import java.util.Iterator;
 import java.util.List;
+import java.util.TimeZone;
 
 import static java.util.stream.Collectors.toList;
 import static org.jreleaser.util.StringUtils.isBlank;
@@ -69,7 +77,7 @@ public class GitSdk {
 
         File dir = basedir;
 
-        while (dir != null) {
+        while (null != dir) {
             try {
                 return Git.open(dir);
             } catch (RepositoryNotFoundException e) {
@@ -111,6 +119,8 @@ public class GitSdk {
                 case "codeberg.org":
                     kind = Repository.Kind.CODEBERG;
                     break;
+                default:
+                    // noop
             }
 
             String[] parts = uri.getPath().split("/");
@@ -170,16 +180,48 @@ public class GitSdk {
 
         try {
             commit = walk.parseCommit(head);
-        } catch(NullPointerException e) {
+        } catch (NullPointerException e) {
             throw new IllegalStateException(RB.$("ERROR_head_commit_not_found"));
         }
 
         Ref ref = git.getRepository().findRef(Constants.HEAD);
+        PersonIdent authorIdent = commit.getAuthorIdent();
+        Date authorDate = authorIdent.getWhen();
+        TimeZone authorTimeZone = authorIdent.getTimeZone();
+
+        ZoneId zoneId = ZoneId.of(authorTimeZone.getID());
+        LocalDateTime local = LocalDateTime.ofInstant(authorDate.toInstant(), zoneId);
+        ZonedDateTime zoned = ZonedDateTime.of(local, zoneId);
 
         return new Commit(
             commit.getId().abbreviate(7).name(),
             commit.getId().name(),
-            extractHeadName(ref));
+            extractHeadName(ref),
+            commit.getCommitTime(),
+            zoned);
+    }
+
+    public RevCommit resolveSingleCommit(Git git, Ref tag) throws GitAPIException {
+        try {
+            Iterable<RevCommit> commits = git.log().add(getObjectId(git, tag))
+                .setMaxCount(1)
+                .call();
+            if (null == commits) {
+                throw new EmptyCommitException(RB.$("ERROR_git_commit_not_found", tag.getName()));
+            }
+            Iterator<RevCommit> iterator = commits.iterator();
+            if (iterator.hasNext()) {
+                return iterator.next();
+            }
+            throw new EmptyCommitException(RB.$("ERROR_git_commit_not_found", tag.getName()));
+        } catch (IOException e) {
+            throw new EmptyCommitException(RB.$("ERROR_git_commit_not_found", tag.getName()), e);
+        }
+    }
+
+    public ObjectId getObjectId(Git git, Ref ref) throws IOException {
+        Ref peeled = git.getRepository().getRefDatabase().peel(ref);
+        return null != peeled.getPeeledObjectId() ? peeled.getPeeledObjectId() : peeled.getObjectId();
     }
 
     public void deleteTag(String tagName) throws IOException {
@@ -233,7 +275,7 @@ public class GitSdk {
     }
 
     public static String resolveDefaultGitRemoteName() {
-        String remoteName = Env.env("DEFAULT_GIT_REMOTE", "");
+        String remoteName = Env.env(org.jreleaser.model.Constants.DEFAULT_GIT_REMOTE, "");
         if (isBlank(remoteName)) remoteName = "origin";
         return remoteName;
     }

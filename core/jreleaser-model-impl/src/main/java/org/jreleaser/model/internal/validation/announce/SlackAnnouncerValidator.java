@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,13 +20,16 @@ package org.jreleaser.model.internal.validation.announce;
 import org.jreleaser.bundle.RB;
 import org.jreleaser.model.internal.JReleaserContext;
 import org.jreleaser.model.internal.announce.SlackAnnouncer;
-import org.jreleaser.model.internal.validation.common.Validator;
 import org.jreleaser.util.Errors;
 
 import java.nio.file.Files;
 
 import static org.jreleaser.model.api.announce.SlackAnnouncer.SLACK_TOKEN;
 import static org.jreleaser.model.api.announce.SlackAnnouncer.SLACK_WEBHOOK;
+import static org.jreleaser.model.internal.validation.common.Validator.checkProperty;
+import static org.jreleaser.model.internal.validation.common.Validator.resolveActivatable;
+import static org.jreleaser.model.internal.validation.common.Validator.validateTimeout;
+import static org.jreleaser.util.CollectionUtils.listOf;
 import static org.jreleaser.util.StringUtils.isBlank;
 import static org.jreleaser.util.StringUtils.isNotBlank;
 
@@ -34,12 +37,17 @@ import static org.jreleaser.util.StringUtils.isNotBlank;
  * @author Andres Almiray
  * @since 0.1.0
  */
-public abstract class SlackAnnouncerValidator extends Validator {
+public final class SlackAnnouncerValidator {
     private static final String DEFAULT_SLACK_TPL = "src/jreleaser/templates/slack.tpl";
+
+    private SlackAnnouncerValidator() {
+        // noop
+    }
 
     public static void validateSlack(JReleaserContext context, SlackAnnouncer slack, Errors errors) {
         context.getLogger().debug("announce.slack");
-        if (!slack.resolveEnabled(context.getModel().getProject())) {
+        resolveActivatable(context, slack, "announce.slack", "NEVER");
+        if (!slack.resolveEnabledWithSnapshot(context.getModel().getProject())) {
             context.getLogger().debug(RB.$("validation.disabled"));
             return;
         }
@@ -47,16 +55,20 @@ public abstract class SlackAnnouncerValidator extends Validator {
         Errors ignored = new Errors();
         slack.setToken(
             checkProperty(context,
-                SLACK_TOKEN,
-                "slack.token",
+                listOf(
+                    "announce.slack.token",
+                    SLACK_TOKEN),
+                "announce.slack.token",
                 slack.getToken(),
                 ignored,
                 context.isDryrun()));
 
         slack.setWebhook(
             checkProperty(context,
-                SLACK_WEBHOOK,
-                "slack.webhook",
+                listOf(
+                    "announce.slack.webhook",
+                    SLACK_WEBHOOK),
+                "announce.slack.webhook",
                 slack.getWebhook(),
                 ignored,
                 context.isDryrun()));

@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,16 +30,18 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import java.util.concurrent.Callable;
 
 import static org.jreleaser.model.JReleaserOutput.JRELEASER_QUIET;
+import static org.jreleaser.util.IoUtils.newPrintWriter;
 import static org.jreleaser.util.StringUtils.isNotBlank;
 
 /**
  * @author Andres Almiray
  * @since 0.1.0
  */
-abstract class AbstractLoggingCommand extends AbstractCommand implements Callable<Integer> {
+abstract class AbstractLoggingCommand<C extends IO> extends AbstractCommand<C> implements Callable<Integer> {
     protected JReleaserLogger logger;
 
     @CommandLine.Option(names = {"-g", "--debug"})
@@ -62,6 +64,7 @@ abstract class AbstractLoggingCommand extends AbstractCommand implements Callabl
 
     protected ColorizedJReleaserLoggerAdapter.Level level = ColorizedJReleaserLoggerAdapter.Level.INFO;
 
+    @Override
     protected void setup() {
         if (debug) {
             level = ColorizedJReleaserLoggerAdapter.Level.DEBUG;
@@ -78,19 +81,23 @@ abstract class AbstractLoggingCommand extends AbstractCommand implements Callabl
             System.setProperty(JRELEASER_QUIET, "true");
         }
 
-        Banner.display(parent().out);
+        Banner.display(parent().getErr());
+    }
+
+    @Override
+    protected void collectCandidateDeprecatedArgs(Set<AbstractCommand<C>.DeprecatedArg> args) {
+        args.add(new DeprecatedArg("-od", "--output-directory", "1.5.0"));
     }
 
     protected void initLogger() {
-        logger = new ColorizedJReleaserLoggerAdapter(createTracer(), parent().out, level);
+        logger = new ColorizedJReleaserLoggerAdapter(createTracer(), parent().getOut(), level);
     }
 
     protected PrintWriter createTracer() {
         try {
             Files.createDirectories(getOutputDirectory());
-            return new PrintWriter(new FileOutputStream(
-                getOutputDirectory().resolve("trace.log").toFile()),
-                true);
+            return newPrintWriter(new FileOutputStream(
+                    getOutputDirectory().resolve("trace.log").toFile()));
         } catch (IOException e) {
             throw new IllegalStateException($("ERROR_trace_file_init"), e);
         }
@@ -104,7 +111,7 @@ abstract class AbstractLoggingCommand extends AbstractCommand implements Callabl
 
     protected List<String> collectEntries(String[] input, boolean lowerCase) {
         List<String> list = new ArrayList<>();
-        if (input != null && input.length > 0) {
+        if (null != input && input.length > 0) {
             for (String s : input) {
                 if (isNotBlank(s)) {
                     if (!s.contains("-") && lowerCase) {

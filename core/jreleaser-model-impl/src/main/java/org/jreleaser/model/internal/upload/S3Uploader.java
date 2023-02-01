@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@ package org.jreleaser.model.internal.upload;
 import org.jreleaser.model.Active;
 import org.jreleaser.model.internal.JReleaserContext;
 import org.jreleaser.model.internal.common.Artifact;
+import org.jreleaser.mustache.TemplateContext;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -38,6 +39,8 @@ import static org.jreleaser.util.StringUtils.isNotBlank;
  * @since 0.8.0
  */
 public final class S3Uploader extends AbstractUploader<org.jreleaser.model.api.upload.S3Uploader, S3Uploader> {
+    private static final long serialVersionUID = 2634650056338097232L;
+
     private final Map<String, String> headers = new LinkedHashMap<>();
 
     private String region;
@@ -50,6 +53,8 @@ public final class S3Uploader extends AbstractUploader<org.jreleaser.model.api.u
     private String sessionToken;
 
     private final org.jreleaser.model.api.upload.S3Uploader immutable = new org.jreleaser.model.api.upload.S3Uploader() {
+        private static final long serialVersionUID = 1914562093969256669L;
+
         @Override
         public String getRegion() {
             return region;
@@ -97,12 +102,12 @@ public final class S3Uploader extends AbstractUploader<org.jreleaser.model.api.u
 
         @Override
         public String getType() {
-            return type;
+            return S3Uploader.this.getType();
         }
 
         @Override
         public String getName() {
-            return name;
+            return S3Uploader.this.getName();
         }
 
         @Override
@@ -132,7 +137,7 @@ public final class S3Uploader extends AbstractUploader<org.jreleaser.model.api.u
 
         @Override
         public Active getActive() {
-            return active;
+            return S3Uploader.this.getActive();
         }
 
         @Override
@@ -152,17 +157,17 @@ public final class S3Uploader extends AbstractUploader<org.jreleaser.model.api.u
 
         @Override
         public Map<String, Object> getExtraProperties() {
-            return unmodifiableMap(extraProperties);
+            return unmodifiableMap(S3Uploader.this.getExtraProperties());
         }
 
         @Override
         public Integer getConnectTimeout() {
-            return connectTimeout;
+            return S3Uploader.this.getConnectTimeout();
         }
 
         @Override
         public Integer getReadTimeout() {
-            return readTimeout;
+            return S3Uploader.this.getReadTimeout();
         }
     };
 
@@ -195,21 +200,21 @@ public final class S3Uploader extends AbstractUploader<org.jreleaser.model.api.u
     }
 
     @Override
-    public String getResolvedDownloadUrl(Map<String, Object> props, Artifact artifact) {
+    public String getResolvedDownloadUrl(TemplateContext props, Artifact artifact) {
         if (isNotBlank(getDownloadUrl())) {
-            Map<String, Object> p = new LinkedHashMap<>(artifactProps(props, artifact));
-            p.putAll(getResolvedExtraProperties());
-            p.put("bucket", bucket);
-            p.put("region", region);
+            TemplateContext p = new TemplateContext(artifactProps(props, artifact));
+            p.setAll(getResolvedExtraProperties());
+            p.set("bucket", bucket);
+            p.set("region", region);
             return resolveTemplate(getDownloadUrl(), p);
         }
 
         if (isBlank(getEndpoint())) {
             String url = "https://{{bucket}}.s3.{{region}}.amazonaws.com/" + path;
-            Map<String, Object> p = new LinkedHashMap<>(artifactProps(props, artifact));
-            p.putAll(getResolvedExtraProperties());
-            p.put("bucket", bucket);
-            p.put("region", region);
+            TemplateContext p = new TemplateContext(artifactProps(props, artifact));
+            p.setAll(getResolvedExtraProperties());
+            p.set("bucket", bucket);
+            p.set("region", region);
             return resolveTemplate(url, p);
         }
 
@@ -310,8 +315,8 @@ public final class S3Uploader extends AbstractUploader<org.jreleaser.model.api.u
             artifactPath = artifact.getExtraProperty(customPathKey);
         }
 
-        Map<String, Object> p = new LinkedHashMap<>(artifactProps(context, artifact));
-        p.putAll(getResolvedExtraProperties());
+        TemplateContext p = new TemplateContext(artifactProps(context, artifact));
+        p.setAll(getResolvedExtraProperties());
         return resolveTemplate(artifactPath, p);
     }
 }

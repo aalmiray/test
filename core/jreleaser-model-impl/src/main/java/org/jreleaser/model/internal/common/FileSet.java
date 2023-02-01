@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -48,6 +48,7 @@ import static org.jreleaser.util.CollectionUtils.setOf;
  */
 public final class FileSet extends AbstractModelObject<FileSet> implements Domain, ExtraProperties {
     private static final String GLOB_PREFIX = "glob:";
+    private static final long serialVersionUID = 1108903420380266057L;
 
     private final Map<String, Object> extraProperties = new LinkedHashMap<>();
     private final Set<String> includes = new LinkedHashSet<>();
@@ -58,6 +59,8 @@ public final class FileSet extends AbstractModelObject<FileSet> implements Domai
     private Boolean failOnMissingInput;
 
     private final org.jreleaser.model.api.common.FileSet immutable = new org.jreleaser.model.api.common.FileSet() {
+        private static final long serialVersionUID = 1386323645145691467L;
+
         @Override
         public Set<String> getIncludes() {
             return unmodifiableSet(includes);
@@ -153,7 +156,7 @@ public final class FileSet extends AbstractModelObject<FileSet> implements Domai
     }
 
     public boolean isFailOnMissingInput() {
-        return failOnMissingInput == null || failOnMissingInput;
+        return null == failOnMissingInput || failOnMissingInput;
     }
 
     public void setFailOnMissingInput(Boolean failOnMissingInput) {
@@ -161,7 +164,7 @@ public final class FileSet extends AbstractModelObject<FileSet> implements Domai
     }
 
     public boolean isFailOnMissingInputSet() {
-        return failOnMissingInput != null;
+        return null != failOnMissingInput;
     }
 
     @Override

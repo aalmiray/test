@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@
 package org.jreleaser.packagers;
 
 import org.jreleaser.bundle.RB;
+import org.jreleaser.model.Stereotype;
 import org.jreleaser.model.internal.JReleaserContext;
 import org.jreleaser.model.internal.common.Artifact;
 import org.jreleaser.model.internal.distributions.Distribution;
@@ -25,12 +26,14 @@ import org.jreleaser.model.internal.packagers.Packager;
 import org.jreleaser.model.internal.util.Artifacts;
 import org.jreleaser.model.spi.packagers.PackagerProcessingException;
 import org.jreleaser.model.spi.packagers.PackagerProcessor;
+import org.jreleaser.mustache.TemplateContext;
 import org.jreleaser.sdk.command.Command;
 import org.jreleaser.sdk.command.CommandException;
 import org.jreleaser.sdk.command.CommandExecutor;
 import org.jreleaser.util.Algorithm;
 import org.jreleaser.util.FileType;
 import org.jreleaser.util.FileUtils;
+import org.jreleaser.util.IoUtils;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -39,13 +42,12 @@ import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
-import java.util.Collections;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.Consumer;
-import java.util.stream.Collectors;
 
+import static java.util.stream.Collectors.toList;
 import static org.jreleaser.model.Constants.KEY_ARTIFACT_ARCH;
 import static org.jreleaser.model.Constants.KEY_ARTIFACT_FILE;
 import static org.jreleaser.model.Constants.KEY_ARTIFACT_FILE_EXTENSION;
@@ -85,7 +87,7 @@ import static org.jreleaser.util.StringUtils.isNotBlank;
  * @author Andres Almiray
  * @since 0.1.0
  */
-abstract class AbstractPackagerProcessor<T extends Packager<?>> implements PackagerProcessor<T> {
+public abstract class AbstractPackagerProcessor<T extends Packager<?>> implements PackagerProcessor<T> {
     private static final String ARTIFACT = "artifact";
     private static final String DISTRIBUTION = "distribution";
     private static final String NAME = "Name";
@@ -128,11 +130,11 @@ abstract class AbstractPackagerProcessor<T extends Packager<?>> implements Packa
     }
 
     @Override
-    public void prepareDistribution(Distribution distribution, Map<String, Object> props) throws PackagerProcessingException {
+    public void prepareDistribution(Distribution distribution, TemplateContext props) throws PackagerProcessingException {
         try {
             String distributionName = distribution.getName();
             context.getLogger().debug(RB.$("packager.create.properties"), distributionName, getPackagerName());
-            Map<String, Object> newProps = fillProps(distribution, props);
+            TemplateContext newProps = fillProps(distribution, props);
             if (newProps.isEmpty()) {
                 context.getLogger().warn(RB.$("packager.skip.distribution"), distributionName);
                 return;
@@ -144,14 +146,14 @@ abstract class AbstractPackagerProcessor<T extends Packager<?>> implements Packa
         }
     }
 
-    protected abstract void doPrepareDistribution(Distribution distribution, Map<String, Object> props) throws PackagerProcessingException;
+    protected abstract void doPrepareDistribution(Distribution distribution, TemplateContext props) throws PackagerProcessingException;
 
     @Override
-    public void packageDistribution(Distribution distribution, Map<String, Object> props) throws PackagerProcessingException {
+    public void packageDistribution(Distribution distribution, TemplateContext props) throws PackagerProcessingException {
         try {
             String distributionName = distribution.getName();
             context.getLogger().debug(RB.$("packager.create.properties"), distributionName, getPackagerName());
-            Map<String, Object> newProps = fillProps(distribution, props);
+            TemplateContext newProps = fillProps(distribution, props);
             if (newProps.isEmpty()) {
                 context.getLogger().warn(RB.$("packager.skip.distribution"), distributionName);
                 return;
@@ -164,7 +166,7 @@ abstract class AbstractPackagerProcessor<T extends Packager<?>> implements Packa
     }
 
     @Override
-    public void publishDistribution(Distribution distribution, Map<String, Object> props) throws PackagerProcessingException {
+    public void publishDistribution(Distribution distribution, TemplateContext props) throws PackagerProcessingException {
         if (context.getModel().getProject().isSnapshot() && !packager.isSnapshotSupported()) {
             context.getLogger().info(RB.$("packager.publish.snapshot.not.supported"));
             return;
@@ -173,24 +175,24 @@ abstract class AbstractPackagerProcessor<T extends Packager<?>> implements Packa
         try {
             String distributionName = distribution.getName();
             context.getLogger().debug(RB.$("packager.create.properties"), distributionName, getPackagerName());
-            Map<String, Object> newProps = fillProps(distribution, props);
+            TemplateContext newProps = fillProps(distribution, props);
             if (newProps.isEmpty()) {
                 context.getLogger().warn(RB.$("packager.skip.distribution"), distributionName);
                 return;
             }
 
             doPublishDistribution(distribution, newProps);
-        } catch (IllegalArgumentException e) {
+        } catch (RuntimeException e) {
             throw new PackagerProcessingException(e);
         }
     }
 
-    protected abstract void doPackageDistribution(Distribution distribution, Map<String, Object> props) throws PackagerProcessingException;
+    protected abstract void doPackageDistribution(Distribution distribution, TemplateContext props) throws PackagerProcessingException;
 
-    protected abstract void doPublishDistribution(Distribution distribution, Map<String, Object> props) throws PackagerProcessingException;
+    protected abstract void doPublishDistribution(Distribution distribution, TemplateContext props) throws PackagerProcessingException;
 
-    protected Map<String, Object> fillProps(Distribution distribution, Map<String, Object> props) throws PackagerProcessingException {
-        Map<String, Object> newProps = new LinkedHashMap<>(props);
+    protected TemplateContext fillProps(Distribution distribution, TemplateContext props) {
+        TemplateContext newProps = new TemplateContext(props);
         context.getLogger().debug(RB.$("packager.fill.distribution.properties"));
         fillDistributionProperties(newProps, distribution);
         context.getLogger().debug(RB.$("packager.fill.git.properties"));
@@ -198,24 +200,24 @@ abstract class AbstractPackagerProcessor<T extends Packager<?>> implements Packa
         context.getLogger().debug(RB.$("packager.fill.artifact.properties"));
         if (!verifyAndAddArtifacts(newProps, distribution)) {
             // we can't continue with this packager
-            return Collections.emptyMap();
+            return TemplateContext.empty();
         }
         context.getLogger().debug(RB.$("packager.fill.packager.properties"));
         fillPackagerProperties(newProps, distribution);
         applyTemplates(newProps, packager.getResolvedExtraProperties());
         if (isBlank(context.getModel().getRelease().getReleaser().getReverseRepoHost())) {
-            newProps.put(KEY_REVERSE_REPO_HOST,
+            newProps.set(KEY_REVERSE_REPO_HOST,
                 packager.getExtraProperties().get(KEY_REVERSE_REPO_HOST));
         }
         applyTemplates(newProps, newProps);
         return newProps;
     }
 
-    protected void fillDistributionProperties(Map<String, Object> props, Distribution distribution) {
-        props.putAll(distribution.props());
+    protected void fillDistributionProperties(TemplateContext props, Distribution distribution) {
+        props.setAll(distribution.props());
     }
 
-    protected abstract void fillPackagerProperties(Map<String, Object> props, Distribution distribution) throws PackagerProcessingException;
+    protected abstract void fillPackagerProperties(TemplateContext props, Distribution distribution);
 
     protected void executeCommand(Path directory, Command command) throws PackagerProcessingException {
         try {
@@ -266,7 +268,7 @@ abstract class AbstractPackagerProcessor<T extends Packager<?>> implements Packa
         }
     }
 
-    protected void copyPreparedFiles(Distribution distribution, Map<String, Object> props) throws PackagerProcessingException {
+    protected void copyPreparedFiles(TemplateContext props) throws PackagerProcessingException {
         Path prepareDirectory = getPrepareDirectory(props);
         Path packageDirectory = getPackageDirectory(props);
         copyFiles(prepareDirectory, packageDirectory);
@@ -290,19 +292,19 @@ abstract class AbstractPackagerProcessor<T extends Packager<?>> implements Packa
         }
     }
 
-    protected boolean verifyAndAddArtifacts(Map<String, Object> props,
-                                            Distribution distribution) throws PackagerProcessingException {
+    protected boolean verifyAndAddArtifacts(TemplateContext props,
+                                            Distribution distribution) {
         return verifyAndAddArtifacts(props, distribution, collectArtifacts(distribution));
     }
 
-    protected boolean verifyAndAddArtifacts(Map<String, Object> props,
+    protected boolean verifyAndAddArtifacts(TemplateContext props,
                                             Distribution distribution,
-                                            List<Artifact> artifacts) throws PackagerProcessingException {
+                                            List<Artifact> artifacts) {
         List<Artifact> activeArtifacts = artifacts.stream()
             .filter(Artifact::isActive)
-            .collect(Collectors.toList());
+            .collect(toList());
 
-        if (activeArtifacts.size() == 0) {
+        if (activeArtifacts.isEmpty()) {
             // we can't proceed
             context.getLogger().warn(RB.$("packager.no.matching.artifacts"),
                 distribution.getName(), capitalize(packager.getType()));
@@ -322,8 +324,8 @@ abstract class AbstractPackagerProcessor<T extends Packager<?>> implements Packa
             // add extra properties without clobbering existing keys
             Map<String, Object> artifactProps = artifact.getResolvedExtraProperties(ARTIFACT + artifactPlatform);
             artifactProps.keySet().stream()
-                .filter(k -> !props.containsKey(k))
-                .forEach(k -> props.put(k, artifactProps.get(k)));
+                .filter(k -> !props.contains(k))
+                .forEach(k -> props.set(k, artifactProps.get(k)));
 
             Path artifactPath = artifact.getEffectivePath(context, distribution);
 
@@ -337,8 +339,13 @@ abstract class AbstractPackagerProcessor<T extends Packager<?>> implements Packa
 
             String artifactFile = artifact.getEffectivePath().getFileName().toString();
             String artifactFileName = getFilename(artifactFile, FileType.getSupportedExtensions());
-            String artifactFileExtension = artifactFile.substring(artifactFileName.length());
-            String artifactFileFormat = artifactFileExtension.substring(1);
+            String artifactFileExtension = "";
+            String artifactFileFormat = "";
+
+            if (!artifactFile.equals(artifactFileName)) {
+                artifactFileExtension = artifactFile.substring(artifactFileName.length());
+                artifactFileFormat = artifactFileExtension.substring(1);
+            }
 
             String artifactName = "";
             String artifactVersion = "";
@@ -361,12 +368,10 @@ abstract class AbstractPackagerProcessor<T extends Packager<?>> implements Packa
 
             String artifactOs = "";
             String artifactArch = "";
-            if (isNotBlank(platform)) {
-                if (platform.contains("-")) {
-                    String[] parts = platform.split("-");
-                    artifactOs = parts[0];
-                    artifactArch = parts[1];
-                }
+            if (isNotBlank(platform) && platform.contains("-")) {
+                String[] parts = platform.split("-");
+                artifactOs = parts[0];
+                artifactArch = parts[1];
             }
 
             safePut(props, ARTIFACT + artifactPlatform + NAME, artifactName);
@@ -396,13 +401,13 @@ abstract class AbstractPackagerProcessor<T extends Packager<?>> implements Packa
 
             safePut(props, ARTIFACT + artifactPlatform + URL, artifactUrl);
             safePut(props, ARTIFACT + artifactPlatformReplaced + URL, artifactUrl);
-            props.putAll(context.getModel().getUpload()
+            props.setAll(context.getModel().getUpload()
                 .resolveDownloadUrls(context, distribution, artifact, ARTIFACT + artifactPlatform));
-            props.putAll(context.getModel().getUpload()
+            props.setAll(context.getModel().getUpload()
                 .resolveDownloadUrls(context, distribution, artifact, ARTIFACT + artifactPlatformReplaced));
 
             if (count == 1) {
-                props.putAll(context.getModel().getUpload()
+                props.setAll(context.getModel().getUpload()
                     .resolveDownloadUrls(context, distribution, artifact, DISTRIBUTION));
                 safePut(props, KEY_DISTRIBUTION_ARTIFACT, artifact);
                 safePut(props, KEY_DISTRIBUTION_URL, artifactUrl);
@@ -438,11 +443,11 @@ abstract class AbstractPackagerProcessor<T extends Packager<?>> implements Packa
 
                 // add extra properties without clobbering existing keys
                 Map<String, Object> aprops = artifact.getResolvedExtraProperties();
-                Map<String, Object> bprops = new LinkedHashMap<>(aprops);
+                TemplateContext bprops = new TemplateContext(aprops);
                 applyTemplates(aprops, bprops);
                 aprops.keySet().stream()
-                    .filter(k -> !props.containsKey(k))
-                    .forEach(k -> props.put(k, aprops.get(k)));
+                    .filter(k -> !props.contains(k))
+                    .forEach(k -> props.set(k, aprops.get(k)));
             }
         }
 
@@ -450,7 +455,7 @@ abstract class AbstractPackagerProcessor<T extends Packager<?>> implements Packa
     }
 
     protected List<Artifact> collectArtifacts(Distribution distribution) {
-        return packager.resolveCandidateArtifacts(context, distribution);
+        return packager.resolveNonOptionalArtifacts(context, distribution);
     }
 
     protected void info(ByteArrayOutputStream out) {
@@ -462,26 +467,34 @@ abstract class AbstractPackagerProcessor<T extends Packager<?>> implements Packa
     }
 
     private void log(ByteArrayOutputStream stream, Consumer<? super String> consumer) {
-        String str = stream.toString();
+        String str = IoUtils.toString(stream);
         if (isBlank(str)) return;
 
         Arrays.stream(str.split(System.lineSeparator()))
             .forEach(consumer);
     }
 
-    protected Path getPrepareDirectory(Map<String, Object> props) {
-        return (Path) props.get(KEY_DISTRIBUTION_PREPARE_DIRECTORY);
+    protected Path getPrepareDirectory(TemplateContext props) {
+        return props.get(KEY_DISTRIBUTION_PREPARE_DIRECTORY);
     }
 
-    protected Path getPackageDirectory(Map<String, Object> props) {
-        return (Path) props.get(KEY_DISTRIBUTION_PACKAGE_DIRECTORY);
+    protected Path getPackageDirectory(TemplateContext props) {
+        return props.get(KEY_DISTRIBUTION_PACKAGE_DIRECTORY);
     }
 
-    protected void safePut(Map<String, Object> dest, String key, Object value) {
-        if (value instanceof CharSequence && isNotBlank(String.valueOf(value))) {
-            dest.put(key, value);
-        } else if (value != null) {
-            dest.put(key, value);
+    protected void safePut(TemplateContext dest, String key, Object value) {
+        if (value instanceof CharSequence && isNotBlank(String.valueOf(value)) || null != value) {
+            dest.set(key, value);
         }
+    }
+
+    protected Optional<Stereotype> resolveStereotype(String fileName) {
+        for (Stereotype stereotype : packager.getSupportedStereotypes()) {
+            if (fileName.startsWith(stereotype.toString() + "-")) {
+                return Optional.of(stereotype);
+            }
+        }
+
+        return Optional.empty();
     }
 }

@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,8 +20,8 @@ package org.jreleaser.model.internal.validation.signing;
 import org.jreleaser.bundle.RB;
 import org.jreleaser.model.api.JReleaserContext.Mode;
 import org.jreleaser.model.internal.JReleaserContext;
+import org.jreleaser.model.internal.deploy.maven.MavenDeployer;
 import org.jreleaser.model.internal.signing.Signing;
-import org.jreleaser.model.internal.validation.common.Validator;
 import org.jreleaser.util.Errors;
 import org.jreleaser.util.PlatformUtils;
 
@@ -35,13 +35,19 @@ import static org.jreleaser.model.api.signing.Signing.GPG_PASSPHRASE;
 import static org.jreleaser.model.api.signing.Signing.GPG_PUBLIC_KEY;
 import static org.jreleaser.model.api.signing.Signing.GPG_PUBLIC_KEYRING;
 import static org.jreleaser.model.api.signing.Signing.GPG_SECRET_KEY;
+import static org.jreleaser.model.internal.validation.common.Validator.checkProperty;
+import static org.jreleaser.model.internal.validation.common.Validator.resolveActivatable;
 import static org.jreleaser.util.StringUtils.isBlank;
 
 /**
  * @author Andres Almiray
  * @since 0.1.0
  */
-public abstract class SigningValidator extends Validator {
+public final class SigningValidator {
+    private SigningValidator() {
+        // noop
+    }
+
     public static void validateSigning(JReleaserContext context, Mode mode, Errors errors) {
         if (!mode.validateConfig()) {
             errors = new Errors();
@@ -50,6 +56,7 @@ public abstract class SigningValidator extends Validator {
         context.getLogger().debug("signing");
         Signing signing = context.getModel().getSigning();
 
+        resolveActivatable(context, signing, "signing", "NEVER");
         if (!signing.resolveEnabled(context.getModel().getProject())) {
             context.getLogger().debug(RB.$("validation.disabled"));
             return;
@@ -91,12 +98,14 @@ public abstract class SigningValidator extends Validator {
                     signing.getCommand().getKeyName(),
                     ""));
 
-            signing.getCommand().setPublicKeyring(
-                checkProperty(context,
-                    GPG_PUBLIC_KEYRING,
-                    "signing.command.publicKeyRing",
-                    signing.getCommand().getPublicKeyring(),
-                    ""));
+            if (signing.isVerify()) {
+                signing.getCommand().setPublicKeyring(
+                    checkProperty(context,
+                        GPG_PUBLIC_KEYRING,
+                        "signing.command.publicKeyRing",
+                        signing.getCommand().getPublicKeyring(),
+                        ""));
+            }
         } else if (signing.resolveMode() == org.jreleaser.model.Signing.Mode.COSIGN) {
             if (isBlank(signing.getCosign().getVersion())) {
                 errors.configuration(RB.$("validation_is_missing", "signing.cosign.version"));
@@ -116,21 +125,59 @@ public abstract class SigningValidator extends Validator {
                     signing.getCosign().getPublicKeyFile(),
                     ""));
         } else {
-            signing.setPublicKey(
-                checkProperty(context,
-                    GPG_PUBLIC_KEY,
-                    "signing.publicKey",
-                    signing.getPublicKey(),
-                    errors,
-                    context.isDryrun()));
+            if (signing.isVerify()) {
+                signing.setPublicKey(
+                    checkProperty(context,
+                        GPG_PUBLIC_KEY,
+                        "signing.publicKey",
+                        signing.getPublicKey(),
+                        errors));
+            }
 
             signing.setSecretKey(
                 checkProperty(context,
                     GPG_SECRET_KEY,
                     "signing.secretKey",
                     signing.getSecretKey(),
-                    errors,
-                    context.isDryrun()));
+                    errors));
+        }
+    }
+
+    public static void postValidateSigning(JReleaserContext context, Mode mode, Errors errors) {
+        Signing signing = context.getModel().getSigning();
+        if (!signing.isEnabled()) return;
+
+        boolean checkSign = mode == Mode.DEPLOY && context.getModel().getDeploy().getMaven()
+            .getActiveDeployers().stream()
+            .map(MavenDeployer::isSign)
+            .filter(b -> b)
+            .findAny()
+            .orElseGet(() -> false);
+
+        if (!checkSign) {
+            return;
+        }
+
+        context.getLogger().debug("signing");
+
+        if (signing.resolveMode() == org.jreleaser.model.Signing.Mode.COMMAND) {
+            if (signing.isVerify()) {
+                signing.getCommand().setPublicKeyring(
+                    checkProperty(context,
+                        GPG_PUBLIC_KEYRING,
+                        "signing.command.publicKeyRing",
+                        signing.getCommand().getPublicKeyring(),
+                        ""));
+            }
+        } else if (signing.resolveMode() != org.jreleaser.model.Signing.Mode.COSIGN) {
+            if (signing.isVerify()) {
+                signing.setPublicKey(
+                    checkProperty(context,
+                        GPG_PUBLIC_KEY,
+                        "signing.publicKey",
+                        signing.getPublicKey(),
+                        errors));
+            }
         }
     }
 }

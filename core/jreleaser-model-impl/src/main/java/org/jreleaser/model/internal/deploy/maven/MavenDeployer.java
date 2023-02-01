@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@ package org.jreleaser.model.internal.deploy.maven;
 import org.jreleaser.model.Http;
 import org.jreleaser.model.internal.common.TimeoutAware;
 import org.jreleaser.model.internal.deploy.Deployer;
+import org.jreleaser.mustache.TemplateContext;
 
 import java.util.List;
 
@@ -70,5 +71,5 @@ public interface MavenDeployer<A extends org.jreleaser.model.api.deploy.maven.Ma
 
     Http.Authorization resolveAuthorization();
 
-    boolean isSnapshotAllowed();
+    String getResolvedUrl(TemplateContext props);
 }

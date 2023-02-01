@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,12 +33,12 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  * @author Andres Almiray
  * @since 0.9.1
  */
-public class CalVerTest {
+class CalVerTest {
     @ParameterizedTest
     @MethodSource("version_parsing")
-    public void testVersionParsing(String format, String input,
-                                   String year, String month, String day, String week,
-                                   String minor, String micro, String modifier) {
+    void testVersionParsing(String format, String input,
+                            String year, String month, String day, String week,
+                            String minor, String micro, String modifier) {
         // given:
         CalVer v = CalVer.of(format, input);
 
@@ -54,14 +54,14 @@ public class CalVerTest {
 
     @ParameterizedTest
     @MethodSource("version_invalid")
-    public void testVersionInvalid(String format, String input) {
+    void testVersionInvalid(String format, String input) {
         // expect:
         assertThrows(IllegalArgumentException.class, () -> CalVer.of(format, input));
     }
 
     @ParameterizedTest
     @MethodSource("version_comparison")
-    public void testVersionComparison(String format, String input1, String input2) {
+    void testVersionComparison(String format, String input1, String input2) {
         // given:
         CalVer v1 = CalVer.of(format, input1);
         CalVer v2 = CalVer.of(format, input2);

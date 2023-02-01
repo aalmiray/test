@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,7 +29,6 @@ import org.jreleaser.model.internal.release.BaseReleaser;
 import org.jreleaser.model.internal.release.Changelog;
 import org.jreleaser.model.internal.release.GenericGitReleaser;
 import org.jreleaser.model.internal.release.GithubReleaser;
-import org.jreleaser.model.internal.validation.common.Validator;
 import org.jreleaser.util.Errors;
 
 import java.io.IOException;
@@ -47,11 +46,14 @@ import static java.util.stream.Collectors.groupingBy;
 import static org.jreleaser.model.api.release.Releaser.BRANCH;
 import static org.jreleaser.model.api.release.Releaser.MILESTONE_NAME;
 import static org.jreleaser.model.api.release.Releaser.OVERWRITE;
+import static org.jreleaser.model.api.release.Releaser.PREVIOUS_TAG_NAME;
 import static org.jreleaser.model.api.release.Releaser.RELEASE_NAME;
 import static org.jreleaser.model.api.release.Releaser.SKIP_RELEASE;
 import static org.jreleaser.model.api.release.Releaser.SKIP_TAG;
 import static org.jreleaser.model.api.release.Releaser.TAG_NAME;
 import static org.jreleaser.model.api.release.Releaser.UPDATE;
+import static org.jreleaser.model.internal.validation.common.Validator.checkProperty;
+import static org.jreleaser.model.internal.validation.common.Validator.validateTimeout;
 import static org.jreleaser.util.StringUtils.isBlank;
 import static org.jreleaser.util.StringUtils.isNotBlank;
 
@@ -59,10 +61,14 @@ import static org.jreleaser.util.StringUtils.isNotBlank;
  * @author Andres Almiray
  * @since 0.1.0
  */
-public abstract class BaseReleaserValidator extends Validator {
+public final class BaseReleaserValidator {
     private static final String DEFAULT_CHANGELOG_TPL = "src/jreleaser/templates/changelog.tpl";
+    private static final String DEFAULT_APPEND_CHANGELOG_TPL = "src/jreleaser/templates/append-changelog.tpl";
+    private BaseReleaserValidator() {
+        // noop
+    }
 
-    public static void validateGitService(JReleaserContext context, Mode mode, BaseReleaser service, Errors errors) {
+    public static void validateGitService(JReleaserContext context, Mode mode, BaseReleaser<?, ?> service, Errors errors) {
         JReleaserModel model = context.getModel();
         Project project = model.getProject();
 
@@ -75,42 +81,48 @@ public abstract class BaseReleaserValidator extends Validator {
             return;
         }
 
-        if (!mode.validateStandalone()) {
-            if (isBlank(service.getOwner()) && !(service instanceof GenericGitReleaser)) {
-                errors.configuration(RB.$("validation_must_not_be_blank", service.getServiceName() + ".owner"));
-            }
+        if (!mode.validateStandalone() && isBlank(service.getOwner()) && !(service instanceof GenericGitReleaser)) {
+            errors.configuration(RB.$("validation_must_not_be_blank", service.getServiceName() + ".owner"));
         }
 
         if (isBlank(service.getName())) {
             service.setName(project.getName());
         }
 
+        String baseKey = "release." + service.getServiceName() + ".";
         service.setUsername(
             checkProperty(context,
                 service.getServiceName().toUpperCase(Locale.ENGLISH) + "_USERNAME",
-                service.getServiceName() + ".username",
+                baseKey + "username",
                 service.getUsername(),
                 service.getOwner()));
 
         service.setToken(
             checkProperty(context,
                 service.getServiceName().toUpperCase(Locale.ENGLISH) + "_TOKEN",
-                service.getServiceName() + ".token",
+                baseKey + "token",
                 service.getToken(),
                 !mode.validateStandalone() ? errors : new Errors()));
 
         service.setTagName(
             checkProperty(context,
                 TAG_NAME,
-                service.getServiceName() + ".tagName",
+                baseKey + "tagName",
                 service.getTagName(),
                 "v{{projectVersion}}"));
+
+        service.setPreviousTagName(
+            checkProperty(context,
+                PREVIOUS_TAG_NAME,
+                baseKey + "previousTagName",
+                service.getPreviousTagName(),
+                ""));
 
         if (service.isReleaseSupported()) {
             service.setReleaseName(
                 checkProperty(context,
                     RELEASE_NAME,
-                    service.getServiceName() + ".releaseName",
+                    baseKey + "releaseName",
                     service.getReleaseName(),
                     "Release {{tagName}}"));
         }
@@ -118,7 +130,7 @@ public abstract class BaseReleaserValidator extends Validator {
         service.setBranch(
             checkProperty(context,
                 BRANCH,
-                service.getServiceName() + ".branch",
+                baseKey + "branch",
                 service.getBranch(),
                 "main"));
 
@@ -126,7 +138,7 @@ public abstract class BaseReleaserValidator extends Validator {
             service.setOverwrite(
                 checkProperty(context,
                     OVERWRITE,
-                    service.getServiceName() + ".overwrite",
+                    baseKey + "overwrite",
                     null,
                     false));
         }
@@ -136,7 +148,7 @@ public abstract class BaseReleaserValidator extends Validator {
                 service.getUpdate().setEnabled(
                     checkProperty(context,
                         UPDATE,
-                        service.getServiceName() + ".update",
+                        baseKey + "update",
                         null,
                         false));
             }
@@ -150,7 +162,7 @@ public abstract class BaseReleaserValidator extends Validator {
             service.setSkipTag(
                 checkProperty(context,
                     SKIP_TAG,
-                    service.getServiceName() + ".skipTag",
+                    baseKey + "skipTag",
                     null,
                     false));
         }
@@ -159,7 +171,7 @@ public abstract class BaseReleaserValidator extends Validator {
             service.setSkipRelease(
                 checkProperty(context,
                     SKIP_RELEASE,
-                    service.getServiceName() + ".skipRelease",
+                    baseKey + "skipRelease",
                     null,
                     false));
         }
@@ -176,7 +188,7 @@ public abstract class BaseReleaserValidator extends Validator {
             service.getMilestone().setName(
                 checkProperty(context,
                     MILESTONE_NAME,
-                    service.getServiceName() + ".milestone.name",
+                    baseKey + "milestone.name",
                     service.getMilestone().getName(),
                     "{{tagName}}"));
 
@@ -246,12 +258,10 @@ public abstract class BaseReleaserValidator extends Validator {
         }
 
         if (mode.validateConfig()) {
-            if (service.isSign()) {
-                if (model.getSigning().getMode() == org.jreleaser.model.Signing.Mode.COSIGN) {
-                    service.setSign(false);
-                    errors.warning(RB.$("validation_git_signing_cosign", service.getServiceName()));
-                    return;
-                }
+            if (service.isSign() && model.getSigning().getMode() == org.jreleaser.model.Signing.Mode.COSIGN) {
+                service.setSign(false);
+                errors.warning(RB.$("validation_git_signing_cosign", service.getServiceName()));
+                return;
             }
             if (service.isSign() && !model.getSigning().isEnabled()) {
                 if (context.isDryrun()) {
@@ -263,7 +273,7 @@ public abstract class BaseReleaserValidator extends Validator {
         }
     }
 
-    private static void validateChangelog(JReleaserContext context, BaseReleaser service, Errors errors) {
+    private static void validateChangelog(JReleaserContext context, BaseReleaser<?, ?> service, Errors errors) {
         Changelog changelog = service.getChangelog();
 
         if (isNotBlank(changelog.getExternal())) {
@@ -292,8 +302,12 @@ public abstract class BaseReleaserValidator extends Validator {
             changelog.setSort(org.jreleaser.model.Changelog.Sort.DESC);
         }
 
-        if (isBlank(changelog.getFormat())) {
-            changelog.setFormat("- {{commitShortHash}} {{commitTitle}} ({{commitAuthor}})");
+        if (isBlank(changelog.getCategoryTitleFormat())) {
+            changelog.setCategoryTitleFormat("## {{categoryTitle}}");
+        }
+
+        if (isBlank(changelog.getContributorsTitleFormat())) {
+            changelog.setContributorsTitleFormat("## Contributors");
         }
 
         if (isBlank(changelog.getContent()) && isBlank(changelog.getContentTemplate())) {
@@ -313,6 +327,11 @@ public abstract class BaseReleaserValidator extends Validator {
 
         if (isNotBlank(changelog.getPreset())) {
             loadPreset(context, changelog, errors);
+        }
+
+        // set the default format after the preset, as preset can contain a default format too
+        if (isBlank(changelog.getFormat())) {
+            changelog.setFormat("- {{commitShortHash}} {{commitTitle}} ({{commitAuthor}})");
         }
 
         if (changelog.getCategories().isEmpty()) {
@@ -372,6 +391,35 @@ public abstract class BaseReleaserValidator extends Validator {
         if (!changelog.getContributors().isEnabledSet()) {
             changelog.getContributors().setEnabled(true);
         }
+
+        // append changelog
+        if (!changelog.getAppend().isEnabled()) return;
+
+        if (isBlank(changelog.getAppend().getTitle())) {
+            changelog.getAppend().setTitle("## [{{tagName}}]");
+        }
+
+        if (isBlank(changelog.getAppend().getTarget())) {
+            changelog.getAppend().setTarget("CHANGELOG.md");
+        }
+
+        if (isBlank(changelog.getAppend().getTarget())) {
+            errors.configuration(RB.$("validation_is_missing", service.getServiceName() + ".changelog.append.target"));
+        }
+
+        if (isBlank(changelog.getAppend().getContent()) && isBlank(changelog.getAppend().getContentTemplate())) {
+            if (Files.exists(context.getBasedir().resolve(DEFAULT_APPEND_CHANGELOG_TPL))) {
+                changelog.getAppend().setContentTemplate(DEFAULT_APPEND_CHANGELOG_TPL);
+            } else {
+                changelog.getAppend().setContent(lineSeparator() + "{{changelogTitle}}" +
+                    lineSeparator() + lineSeparator() + "{{changelogContent}}");
+            }
+        }
+
+        if (isNotBlank(changelog.getAppend().getContentTemplate()) &&
+            !Files.exists(context.getBasedir().resolve(changelog.getAppend().getContentTemplate().trim()))) {
+            errors.configuration(RB.$("validation_directory_not_exist", "changelog.append.contentTemplate", changelog.getAppend().getContentTemplate()));
+        }
     }
 
     private static void loadPreset(JReleaserContext context, Changelog changelog, Errors errors) {
@@ -385,7 +433,11 @@ public abstract class BaseReleaserValidator extends Validator {
             if (null != inputStream) {
                 Changelog loaded = JReleaserConfigLoader.load(Changelog.class, presetFileName, inputStream);
 
-                Set<Changelog.Labeler> labelersCopy = new TreeSet<>(Changelog.Labeler.ORDER);
+                if (isBlank(changelog.getFormat())) {
+                    changelog.setFormat(loaded.getFormat());
+                }
+
+                Set<Changelog.Labeler> labelersCopy = new TreeSet<>(Changelog.Labeler.ORDER_COMPARATOR);
                 labelersCopy.addAll(changelog.getLabelers());
                 labelersCopy.addAll(loaded.getLabelers());
                 changelog.setLabelers(labelersCopy);

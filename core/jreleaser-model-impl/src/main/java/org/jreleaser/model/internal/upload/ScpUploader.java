@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,70 +29,74 @@ import static org.jreleaser.model.api.upload.ScpUploader.TYPE;
  * @since 1.1.0
  */
 public final class ScpUploader extends AbstractSshUploader<org.jreleaser.model.api.upload.ScpUploader, ScpUploader> {
+    private static final long serialVersionUID = -6887462905710198298L;
+
     private final org.jreleaser.model.api.upload.ScpUploader immutable = new org.jreleaser.model.api.upload.ScpUploader() {
+        private static final long serialVersionUID = -8857037637920388079L;
+
         @Override
         public String getPath() {
-            return path;
+            return ScpUploader.this.getPath();
         }
 
         @Override
         public String getDownloadUrl() {
-            return downloadUrl;
+            return ScpUploader.this.getDownloadUrl();
         }
 
         @Override
         public String getUsername() {
-            return username;
+            return ScpUploader.this.getUsername();
         }
 
         @Override
         public String getPassword() {
-            return password;
+            return ScpUploader.this.getPassword();
         }
 
         @Override
         public String getHost() {
-            return host;
+            return ScpUploader.this.getHost();
         }
 
         @Override
         public Integer getPort() {
-            return port;
+            return ScpUploader.this.getPort();
         }
 
         @Override
         public String getKnownHostsFile() {
-            return knownHostsFile;
+            return ScpUploader.this.getKnownHostsFile();
         }
 
         @Override
         public String getPublicKey() {
-            return publicKey;
+            return ScpUploader.this.getPublicKey();
         }
 
         @Override
         public String getPrivateKey() {
-            return privateKey;
+            return ScpUploader.this.getPrivateKey();
         }
 
         @Override
         public String getPassphrase() {
-            return passphrase;
+            return ScpUploader.this.getPassphrase();
         }
 
         @Override
         public String getFingerprint() {
-            return fingerprint;
+            return ScpUploader.this.getFingerprint();
         }
 
         @Override
         public String getType() {
-            return type;
+            return ScpUploader.this.getType();
         }
 
         @Override
         public String getName() {
-            return name;
+            return ScpUploader.this.getName();
         }
 
         @Override
@@ -122,7 +126,7 @@ public final class ScpUploader extends AbstractSshUploader<org.jreleaser.model.a
 
         @Override
         public Active getActive() {
-            return active;
+            return ScpUploader.this.getActive();
         }
 
         @Override
@@ -142,17 +146,17 @@ public final class ScpUploader extends AbstractSshUploader<org.jreleaser.model.a
 
         @Override
         public Map<String, Object> getExtraProperties() {
-            return unmodifiableMap(extraProperties);
+            return unmodifiableMap(ScpUploader.this.getExtraProperties());
         }
 
         @Override
         public Integer getConnectTimeout() {
-            return connectTimeout;
+            return ScpUploader.this.getConnectTimeout();
         }
 
         @Override
         public Integer getReadTimeout() {
-            return readTimeout;
+            return ScpUploader.this.getReadTimeout();
         }
     };
 

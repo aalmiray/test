@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,11 +22,17 @@ import org.jreleaser.model.internal.JReleaserContext;
 import org.jreleaser.model.internal.release.GenericGitReleaser;
 import org.jreleaser.util.Errors;
 
+import static org.jreleaser.model.internal.validation.release.BaseReleaserValidator.validateGitService;
+
 /**
  * @author Andres Almiray
  * @since 0.4.0
  */
-public abstract class GenericGitReleaserValidator extends BaseReleaserValidator {
+public final class GenericGitReleaserValidator {
+    private GenericGitReleaserValidator() {
+        // noop
+    }
+
     public static boolean validateGeneric(JReleaserContext context, Mode mode, GenericGitReleaser generic, Errors errors) {
         if (null == generic) return false;
         context.getLogger().debug("release.generic");

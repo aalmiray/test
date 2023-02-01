@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,14 +35,32 @@ import static org.jreleaser.model.internal.JReleaserSupport.supportedAssemblers;
  * @author Andres Almiray
  * @since 0.2.0
  */
-public class Assemblers {
+public final class Assemblers {
+    private Assemblers() {
+        // noop
+    }
+
     public static void assemble(JReleaserContext context) {
+        context.getLogger().info(RB.$("assemblers.header"));
+        context.getLogger().increaseIndent();
+        context.getLogger().setPrefix("assemble");
+
         Assemble assemble = context.getModel().getAssemble();
         if (!assemble.isEnabled()) {
             context.getLogger().info(RB.$("assemblers.not.enabled"));
+            context.getLogger().restorePrefix();
             return;
         }
 
+        try {
+            doAssemble(context, assemble);
+        } finally {
+            context.getLogger().decreaseIndent();
+            context.getLogger().restorePrefix();
+        }
+    }
+
+    private static void doAssemble(JReleaserContext context, Assemble assemble) {
         if (!context.getIncludedAssemblers().isEmpty()) {
             for (String assemblerType : context.getIncludedAssemblers()) {
                 // check if the assemblerType is valid
@@ -54,12 +72,13 @@ public class Assemblers {
                 Map<String, Assembler<?>> assemblers = assemble.findAssemblersByType(assemblerType);
 
                 if (assemblers.isEmpty()) {
-                    context.getLogger().debug(RB.$("assemblers.no.match"), assemblerType);
+                    context.getLogger().info(RB.$("assemblers.no.match"), assemblerType);
                     return;
                 }
 
                 if (!context.getIncludedDistributions().isEmpty()) {
                     for (String distributionName : context.getIncludedDistributions()) {
+                        boolean[] assembled = new boolean[]{false};
                         if (!assemblers.containsKey(distributionName)) {
                             context.getLogger().error(RB.$("assemblers.distribution.not.configured"), assemblerType, distributionName);
                             continue;
@@ -69,22 +88,44 @@ public class Assemblers {
                             .filter(a -> distributionName.equals(a.getName()))
                             .peek(assembler -> context.getLogger().info(RB.$("assemblers.assemble.distribution.with"),
                                 distributionName, assembler.getName()))
-                            .forEach(assembler -> assemble(context, assembler));
+                            .forEach(assembler -> {
+                                if (assemble(context, assembler)) assembled[0] = true;
+                            });
+
+                        if (!assembled[0]) {
+                            context.getLogger().info(RB.$("assemblers.not.triggered"));
+                        }
                     }
                 } else {
                     context.getLogger().info(RB.$("assemblers.assemble.all.distributions.with"), assemblerType);
-                    assemblers.values().forEach(assembler -> assemble(context, assembler));
+                    boolean[] assembled = new boolean[]{false};
+                    assemblers.values().forEach(assembler -> {
+                        if (assemble(context, assembler)) assembled[0] = true;
+                    });
+
+                    if (!assembled[0]) {
+                        context.getLogger().info(RB.$("assemblers.not.triggered"));
+                    }
                 }
             }
         } else if (!context.getIncludedDistributions().isEmpty()) {
             for (String distributionName : context.getIncludedDistributions()) {
                 context.getLogger().info(RB.$("assemblers.assemble.distribution.with.all"), distributionName);
+
+                boolean[] assembled = new boolean[]{false};
                 assemble.findAllAssemblers().stream()
                     .filter(a -> distributionName.equals(a.getName()))
-                    .forEach(assembler -> assemble(context, assembler));
+                    .forEach(assembler -> {
+                        if (assemble(context, assembler)) assembled[0] = true;
+                    });
+
+                if (!assembled[0]) {
+                    context.getLogger().info(RB.$("assemblers.not.triggered"));
+                }
             }
         } else {
             context.getLogger().info(RB.$("assemblers.assemble.all.distributions"));
+            boolean assembled = false;
             for (Assembler<?> assembler : assemble.findAllAssemblers()) {
                 String assemblerType = assembler.getType();
                 String distributionName = assembler.getName();
@@ -94,12 +135,16 @@ public class Assemblers {
                     continue;
                 }
 
-                assemble(context, assembler);
+                if (assemble(context, assembler)) assembled = true;
+            }
+
+            if (!assembled) {
+                context.getLogger().info(RB.$("assemblers.not.triggered"));
             }
         }
     }
 
-    private static void assemble(JReleaserContext context, Assembler<?> assembler) {
+    private static boolean assemble(JReleaserContext context, Assembler<?> assembler) {
         try {
             context.getLogger().increaseIndent();
             context.getLogger().setPrefix(assembler.getType());
@@ -107,9 +152,10 @@ public class Assemblers {
             fireAssembleEvent(ExecutionEvent.before(JReleaserCommand.ASSEMBLE.toStep()), context, assembler);
 
             DistributionAssembler processor = createDistributionAssembler(context, assembler);
-            processor.assemble();
+            boolean assembled = processor.assemble();
 
             fireAssembleEvent(ExecutionEvent.success(JReleaserCommand.ASSEMBLE.toStep()), context, assembler);
+            return assembled;
         } catch (AssemblerProcessingException e) {
             fireAssembleEvent(ExecutionEvent.failure(JReleaserCommand.ASSEMBLE.toStep(), e), context, assembler);
             throw new JReleaserException(e.getMessage(), e);

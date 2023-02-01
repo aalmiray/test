@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@
  */
 package org.jreleaser.model.internal.packagers;
 
-import org.jreleaser.model.internal.common.AbstractModelObject;
+import org.jreleaser.model.internal.common.AbstractActivatable;
 import org.jreleaser.model.internal.common.Domain;
 
 import java.util.LinkedHashMap;
@@ -29,7 +29,9 @@ import static java.util.Collections.unmodifiableMap;
  * @author Andres Almiray
  * @since 0.1.0
  */
-public class Packagers<S extends Packagers<S>> extends AbstractModelObject<S> implements Domain {
+public class Packagers<S extends Packagers<S>> extends AbstractActivatable<S> implements Domain {
+    private static final long serialVersionUID = -3865388447433152980L;
+
     protected final AppImagePackager appImage = new AppImagePackager();
     protected final AsdfPackager asdf = new AsdfPackager();
     protected final BrewPackager brew = new BrewPackager();
@@ -43,8 +45,11 @@ public class Packagers<S extends Packagers<S>> extends AbstractModelObject<S> im
     protected final SdkmanPackager sdkman = new SdkmanPackager();
     protected final SnapPackager snap = new SnapPackager();
     protected final SpecPackager spec = new SpecPackager();
+    protected final WingetPackager winget = new WingetPackager();
 
     private final org.jreleaser.model.api.packagers.Packagers immutable = new org.jreleaser.model.api.packagers.Packagers() {
+        private static final long serialVersionUID = 4269097370946118575L;
+
         @Override
         public org.jreleaser.model.api.packagers.AppImagePackager getAppImage() {
             return appImage.asImmutable();
@@ -111,6 +116,11 @@ public class Packagers<S extends Packagers<S>> extends AbstractModelObject<S> im
         }
 
         @Override
+        public org.jreleaser.model.api.packagers.WingetPackager getWinget() {
+            return winget.asImmutable();
+        }
+
+        @Override
         public Map<String, Object> asMap(boolean full) {
             return unmodifiableMap(Packagers.this.asMap(full));
         }
@@ -133,11 +143,13 @@ public class Packagers<S extends Packagers<S>> extends AbstractModelObject<S> im
             scoop.isEnabled() ||
             sdkman.isEnabled() ||
             snap.isEnabled() ||
-            spec.isEnabled();
+            spec.isEnabled() ||
+            winget.isEnabled();
     }
 
     @Override
     public void merge(S source) {
+        super.merge(source);
         setAppImage(source.appImage);
         setAsdf(source.asdf);
         setBrew(source.brew);
@@ -151,14 +163,15 @@ public class Packagers<S extends Packagers<S>> extends AbstractModelObject<S> im
         setSdkman(source.sdkman);
         setSnap(source.snap);
         setSpec(source.spec);
+        setWinget(source.winget);
     }
 
     public AppImagePackager getAppImage() {
         return appImage;
     }
 
-    public void setAppImage(AppImagePackager appimage) {
-        this.appImage.merge(appimage);
+    public void setAppImage(AppImagePackager appImage) {
+        this.appImage.merge(appImage);
     }
 
     public AsdfPackager getAsdf() {
@@ -257,6 +270,14 @@ public class Packagers<S extends Packagers<S>> extends AbstractModelObject<S> im
         this.spec.merge(spec);
     }
 
+    public WingetPackager getWinget() {
+        return winget;
+    }
+
+    public void setWinget(WingetPackager winget) {
+        this.winget.merge(winget);
+    }
+
     @Override
     public Map<String, Object> asMap(boolean full) {
         Map<String, Object> map = new LinkedHashMap<>();
@@ -273,6 +294,7 @@ public class Packagers<S extends Packagers<S>> extends AbstractModelObject<S> im
         map.putAll(sdkman.asMap(full));
         map.putAll(snap.asMap(full));
         map.putAll(spec.asMap(full));
+        map.putAll(winget.asMap(full));
         return map;
     }
 }

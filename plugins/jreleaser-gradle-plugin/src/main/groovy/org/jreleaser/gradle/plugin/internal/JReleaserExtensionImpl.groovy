@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -318,11 +318,11 @@ class JReleaserExtensionImpl implements JReleaserExtension {
     JReleaserModel toModel(org.gradle.api.Project gradleProject, JReleaserLogger logger) {
         if (configFile.present) {
             JReleaserModel jreleaser = ContextCreator.resolveModel(logger, configFile.asFile.get().toPath())
-            if (isBlank(jreleaser.project.name)) jreleaser.project.name = project.name.orNull
-            if (isBlank(jreleaser.project.version)) jreleaser.project.version = project.version.orNull
-            if (isBlank(jreleaser.project.description)) jreleaser.project.description = project.description.orNull
+            if (isBlank(jreleaser.project.name)) jreleaser.project.name = gradleProject.name
+            if (isBlank(jreleaser.project.version)) jreleaser.project.version = gradleProject.version
+            if (isBlank(jreleaser.project.description)) jreleaser.project.description = gradleProject.description
             jreleaser.environment.propertiesSource = new org.jreleaser.model.internal.environment.Environment.MapPropertiesSource(
-                filterProperties(project.properties))
+                filterProperties(gradleProject.properties))
             return jreleaser
         }
 

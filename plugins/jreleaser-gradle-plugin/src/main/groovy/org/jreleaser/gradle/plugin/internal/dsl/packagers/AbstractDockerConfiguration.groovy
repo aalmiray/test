@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,7 +29,6 @@ import org.gradle.api.provider.Property
 import org.gradle.api.provider.SetProperty
 import org.gradle.api.tasks.Internal
 import org.jreleaser.gradle.plugin.dsl.packagers.DockerConfiguration
-import org.jreleaser.gradle.plugin.dsl.packagers.Registry
 import org.jreleaser.model.Active
 import org.kordamp.gradle.util.ConfigureUtil
 
@@ -57,6 +56,7 @@ abstract class AbstractDockerConfiguration implements DockerConfiguration {
     final MapProperty<String, String> labels
 
     final NamedDomainObjectContainer<RegistryImpl> registries
+    final BuildxImpl buildx
 
     @Inject
     AbstractDockerConfiguration(ObjectFactory objects) {
@@ -73,6 +73,7 @@ abstract class AbstractDockerConfiguration implements DockerConfiguration {
         labels = objects.mapProperty(String, String).convention(Providers.notDefined())
 
         registries = objects.domainObjectContainer(RegistryImpl)
+        buildx = objects.newInstance(BuildxImpl, objects)
     }
 
     @Override
@@ -128,8 +129,18 @@ abstract class AbstractDockerConfiguration implements DockerConfiguration {
     }
 
     @Override
+    void buildx(Action<? super Buildx> action) {
+        action.execute(buildx)
+    }
+
+    @Override
     void registries(@DelegatesTo(strategy = Closure.DELEGATE_FIRST, value = NamedDomainObjectContainer) Closure<Void> action) {
         ConfigureUtil.configure(action, registries)
+    }
+
+    @Override
+    void buildx(@DelegatesTo(strategy = Closure.DELEGATE_FIRST, value = Buildx) Closure<Void> action) {
+        ConfigureUtil.configure(action, buildx)
     }
 
     @Internal
@@ -145,9 +156,9 @@ abstract class AbstractDockerConfiguration implements DockerConfiguration {
             preCommands.present ||
             postCommands.present ||
             labels.present ||
-            registries.size()
+            registries.size() ||
+            buildx.isSet()
     }
-
 
     void skipTemplate(String template) {
         if (isNotBlank(template)) {
@@ -171,6 +182,85 @@ abstract class AbstractDockerConfiguration implements DockerConfiguration {
         if (labels.present) docker.labels.putAll(labels.get())
         for (RegistryImpl registry : registries) {
             docker.addRegistry(registry.toModel())
+        }
+        docker.buildx = buildx.toModel()
+    }
+
+    @CompileStatic
+    static class RegistryImpl implements Registry {
+        final String name
+        final Property<String> server
+        final Property<String> repositoryName
+        final Property<String> username
+        final Property<String> password
+        final Property<Boolean> externalLogin
+
+        @Inject
+        RegistryImpl(String name, ObjectFactory objects) {
+            this.name = name
+            server = objects.property(String).convention(Providers.<String> notDefined())
+            repositoryName = objects.property(String).convention(Providers.<String> notDefined())
+            username = objects.property(String).convention(Providers.<String> notDefined())
+            password = objects.property(String).convention(Providers.<String> notDefined())
+            externalLogin = objects.property(Boolean).convention(Providers.<Boolean> notDefined())
+        }
+
+        org.jreleaser.model.internal.packagers.DockerConfiguration.Registry toModel() {
+            org.jreleaser.model.internal.packagers.DockerConfiguration.Registry registry = new org.jreleaser.model.internal.packagers.DockerConfiguration.Registry()
+            registry.serverName = name
+            if (server.present) registry.server = server.get()
+            if (repositoryName.present) registry.repositoryName = repositoryName.get()
+            if (username.present) registry.username = username.get()
+            if (password.present) registry.password = password.get()
+            if (externalLogin.present) registry.externalLogin = externalLogin.get()
+            registry
+        }
+    }
+
+    @CompileStatic
+    static class BuildxImpl implements Buildx {
+        final Property<Boolean> enabled
+        final Property<Boolean> createBuilder
+        final ListProperty<String> createBuilderFlags
+        final ListProperty<String> platforms
+
+        @Inject
+        BuildxImpl(ObjectFactory objects) {
+            enabled = objects.property(Boolean).convention(Providers.<Boolean> notDefined())
+            createBuilder = objects.property(Boolean).convention(Providers.<Boolean> notDefined())
+            createBuilderFlags = objects.listProperty(String).convention(Providers.<List<String>> notDefined())
+            platforms = objects.listProperty(String).convention(Providers.<List<String>> notDefined())
+        }
+
+        @Internal
+        boolean isSet() {
+            enabled.present ||
+                createBuilder.present ||
+                createBuilderFlags.present ||
+                platforms.present
+        }
+
+        @Override
+        void createBuilderFlag(String createBuilderFlag) {
+            if (isNotBlank(createBuilderFlag)) {
+                createBuilderFlags.add(createBuilderFlag.trim())
+            }
+        }
+
+        @Override
+        void platform(String platform) {
+            if (isNotBlank(platform)) {
+                platforms.add(platform.trim())
+            }
+        }
+
+        org.jreleaser.model.internal.packagers.DockerConfiguration.Buildx toModel() {
+            org.jreleaser.model.internal.packagers.DockerConfiguration.Buildx buildx = new org.jreleaser.model.internal.packagers.DockerConfiguration.Buildx()
+            if (enabled.present) buildx.enabled = enabled.get()
+            if (createBuilder.present) buildx.createBuilder = createBuilder.get()
+            if (createBuilderFlags.present) buildx.createBuilderFlags.addAll(createBuilderFlags.get())
+            if (platforms.present) buildx.platforms.addAll(platforms.get())
+            buildx
         }
     }
 }

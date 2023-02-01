@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ package org.jreleaser.workflow;
 
 import org.jreleaser.bundle.RB;
 import org.jreleaser.engine.context.ModelValidator;
+import org.jreleaser.extensions.api.ExtensionManagerHolder;
 import org.jreleaser.extensions.api.workflow.WorkflowListenerException;
 import org.jreleaser.model.JReleaserException;
 import org.jreleaser.model.api.hooks.ExecutionEvent;
@@ -45,7 +46,17 @@ class WorkflowImpl implements Workflow {
         this.items.addAll(items);
     }
 
+    @Override
     public void execute() {
+        try {
+            doExecute();
+        } finally {
+            ExtensionManagerHolder.cleanup();
+            context.getLogger().close();
+        }
+    }
+
+    private void doExecute() {
         RuntimeException stepException = null;
         Throwable listenerException = null;
         Throwable startSessionException = null;
@@ -85,8 +96,8 @@ class WorkflowImpl implements Workflow {
         }
 
         if (null == startSessionException) {
-            boolean failure = false;
             for (WorkflowItem item : items) {
+                boolean failure = false;
                 try {
                     context.fireWorkflowEvent(ExecutionEvent.before(item.getCommand().toStep()));
                 } catch (WorkflowListenerException beforeException) {
@@ -115,7 +126,6 @@ class WorkflowImpl implements Workflow {
                             break;
                         }
                     }
-                    break;
                 }
 
                 if (!failure) {

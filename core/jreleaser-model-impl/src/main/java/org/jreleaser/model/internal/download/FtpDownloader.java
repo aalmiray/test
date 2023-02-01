@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,45 +19,44 @@ package org.jreleaser.model.internal.download;
 
 import org.jreleaser.model.Active;
 import org.jreleaser.model.internal.common.Ftp;
+import org.jreleaser.model.internal.common.FtpDelegate;
 
 import java.util.List;
 import java.util.Map;
 
 import static java.util.Collections.unmodifiableMap;
 import static java.util.stream.Collectors.toList;
-import static org.jreleaser.model.Constants.HIDE;
-import static org.jreleaser.model.Constants.UNSET;
 import static org.jreleaser.model.api.download.FtpDownloader.TYPE;
-import static org.jreleaser.util.StringUtils.isNotBlank;
 
 /**
  * @author Andres Almiray
  * @since 1.1.0
  */
 public final class FtpDownloader extends AbstractDownloader<org.jreleaser.model.api.download.FtpDownloader, FtpDownloader> implements Ftp {
-    private String username;
-    private String password;
-    private String host;
-    private Integer port;
+    private static final long serialVersionUID = 8625938906357137469L;
+
+    private final FtpDelegate delegate = new FtpDelegate();
 
     private final org.jreleaser.model.api.download.FtpDownloader immutable = new org.jreleaser.model.api.download.FtpDownloader() {
+        private static final long serialVersionUID = -3069423247317140050L;
+
         private List<? extends org.jreleaser.model.api.download.Downloader.Asset> assets;
 
         @Override
         public String getType() {
-            return type;
+            return FtpDownloader.this.getType();
         }
 
         @Override
         public String getName() {
-            return name;
+            return FtpDownloader.this.getName();
         }
 
         @Override
         public List<? extends org.jreleaser.model.api.download.Downloader.Asset> getAssets() {
             if (null == assets) {
-                assets = FtpDownloader.this.assets.stream()
-                    .map(AbstractDownloader.Asset::asImmutable)
+                assets = FtpDownloader.this.getAssets().stream()
+                    .map(Downloader.Asset::asImmutable)
                     .collect(toList());
             }
             return assets;
@@ -65,7 +64,7 @@ public final class FtpDownloader extends AbstractDownloader<org.jreleaser.model.
 
         @Override
         public Active getActive() {
-            return active;
+            return FtpDownloader.this.getActive();
         }
 
         @Override
@@ -85,38 +84,39 @@ public final class FtpDownloader extends AbstractDownloader<org.jreleaser.model.
 
         @Override
         public Map<String, Object> getExtraProperties() {
-            return unmodifiableMap(extraProperties);
-        }
-
-        @Override
-        public String getUsername() {
-            return username;
-        }
-
-        @Override
-        public String getPassword() {
-            return password;
-        }
-
-        @Override
-        public String getHost() {
-            return host;
-        }
-
-        @Override
-        public Integer getPort() {
-            return port;
+            return unmodifiableMap(FtpDownloader.this.getExtraProperties());
         }
 
         @Override
         public Integer getConnectTimeout() {
-            return connectTimeout;
+            return FtpDownloader.this.getConnectTimeout();
         }
 
         @Override
         public Integer getReadTimeout() {
-            return readTimeout;
+            return FtpDownloader.this.getReadTimeout();
         }
+
+        @Override
+        public String getUsername() {
+            return FtpDownloader.this.getUsername();
+        }
+
+        @Override
+        public String getPassword() {
+            return FtpDownloader.this.getPassword();
+        }
+
+        @Override
+        public String getHost() {
+            return FtpDownloader.this.getHost();
+        }
+
+        @Override
+        public Integer getPort() {
+            return FtpDownloader.this.getPort();
+        }
+
     };
 
     public FtpDownloader() {
@@ -131,49 +131,51 @@ public final class FtpDownloader extends AbstractDownloader<org.jreleaser.model.
     @Override
     public void merge(FtpDownloader source) {
         super.merge(source);
-        this.username = merge(this.username, source.username);
-        this.password = merge(this.password, source.password);
-        this.host = merge(this.host, source.host);
-        this.port = merge(this.port, source.port);
+        this.delegate.merge(source.delegate);
     }
 
+    @Override
     public String getUsername() {
-        return username;
+        return delegate.getUsername();
     }
 
+    @Override
     public void setUsername(String username) {
-        this.username = username;
+        delegate.setUsername(username);
     }
 
+    @Override
     public String getPassword() {
-        return password;
+        return delegate.getPassword();
     }
 
+    @Override
     public void setPassword(String password) {
-        this.password = password;
+        delegate.setPassword(password);
     }
 
+    @Override
     public String getHost() {
-        return host;
+        return delegate.getHost();
     }
 
+    @Override
     public void setHost(String host) {
-        this.host = host;
+        delegate.setHost(host);
     }
 
+    @Override
     public Integer getPort() {
-        return null != port ? port : 21;
+        return delegate.getPort();
     }
 
+    @Override
     public void setPort(Integer port) {
-        this.port = port;
+        delegate.setPort(port);
     }
 
     @Override
     protected void asMap(boolean full, Map<String, Object> props) {
-        props.put("host", host);
-        props.put("port", getPort());
-        props.put("username", isNotBlank(username) ? HIDE : UNSET);
-        props.put("password", isNotBlank(password) ? HIDE : UNSET);
+        delegate.asMap(props);
     }
 }

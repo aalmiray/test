@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,6 +35,8 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 /**
  * @author Andres Almiray
  * @since 1.3.0
@@ -46,10 +48,12 @@ public class ArtifactoryMavenDeployer extends AbstractMavenDeployer<org.jrelease
         super(context);
     }
 
+    @Override
     public org.jreleaser.model.internal.deploy.maven.ArtifactoryMavenDeployer getDeployer() {
         return deployer;
     }
 
+    @Override
     public void setDeployer(org.jreleaser.model.internal.deploy.maven.ArtifactoryMavenDeployer deployer) {
         this.deployer = deployer;
     }
@@ -71,12 +75,7 @@ public class ArtifactoryMavenDeployer extends AbstractMavenDeployer<org.jrelease
         String password = deployer.getPassword();
 
         for (Deployable deployable : deployables) {
-            if (!deployable.getFilename().endsWith(".jar") &&
-                !deployable.getFilename().endsWith(".pom") &&
-                !deployable.getFilename().endsWith(".asc")) {
-                continue;
-            }
-
+            if (deployable.isChecksum()) continue;
             Path localPath = Paths.get(deployable.getStagingRepository(), deployable.getPath(), deployable.getFilename());
             context.getLogger().info(" - {}", deployable.getFilename());
 
@@ -88,8 +87,8 @@ public class ArtifactoryMavenDeployer extends AbstractMavenDeployer<org.jrelease
                     switch (deployer.resolveAuthorization()) {
                         case BASIC:
                             String auth = username + ":" + password;
-                            byte[] encodedAuth = Base64.getEncoder().encode(auth.getBytes());
-                            auth = new String(encodedAuth);
+                            byte[] encodedAuth = Base64.getEncoder().encode(auth.getBytes(UTF_8));
+                            auth = new String(encodedAuth, UTF_8);
                             headers.put("Authorization", "Basic " + auth);
                             break;
                         case BEARER:
@@ -104,7 +103,7 @@ public class ArtifactoryMavenDeployer extends AbstractMavenDeployer<org.jrelease
                     headers.put("X-Checksum-Sha256", ChecksumUtils.checksum(Algorithm.SHA_256, data.getData()));
                     headers.put("X-Checksum", ChecksumUtils.checksum(Algorithm.MD5, data.getData()));
 
-                    String url = baseUrl + deployable.getPath() + "/" + deployable.getFilename();
+                    String url = baseUrl + deployable.getFullDeployPath();
                     ClientUtils.putFile(context.getLogger(),
                         url,
                         deployer.getConnectTimeout(),

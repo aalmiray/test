@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,27 +21,35 @@ import org.jreleaser.bundle.RB;
 import org.jreleaser.model.internal.JReleaserContext;
 import org.jreleaser.model.internal.announce.ArticleAnnouncer;
 import org.jreleaser.model.internal.release.BaseReleaser;
-import org.jreleaser.model.internal.validation.common.Validator;
-import org.jreleaser.util.Env;
 import org.jreleaser.util.Errors;
 
 import java.io.File;
 
+import static org.jreleaser.model.internal.validation.common.Validator.checkProperty;
+import static org.jreleaser.model.internal.validation.common.Validator.resolveActivatable;
+import static org.jreleaser.model.internal.validation.common.Validator.validateCommitAuthor;
+import static org.jreleaser.model.internal.validation.common.Validator.validateOwner;
+import static org.jreleaser.util.CollectionUtils.listOf;
 import static org.jreleaser.util.StringUtils.isBlank;
 
 /**
  * @author Andres Almiray
  * @since 0.6.0
  */
-public abstract class ArticleAnnouncerValidator extends Validator {
+public final class ArticleAnnouncerValidator {
+    private ArticleAnnouncerValidator() {
+        // noop
+    }
+
     public static void validateArticle(JReleaserContext context, ArticleAnnouncer article, Errors errors) {
         context.getLogger().debug("announce.article");
-        if (!article.resolveEnabled(context.getModel().getProject())) {
+        resolveActivatable(context, article, "announce.article", "NEVER");
+        if (!article.resolveEnabledWithSnapshot(context.getModel().getProject())) {
             context.getLogger().debug(RB.$("validation.disabled"));
             return;
         }
 
-        BaseReleaser service = context.getModel().getRelease().getReleaser();
+        BaseReleaser<?, ?> service = context.getModel().getRelease().getReleaser();
         ArticleAnnouncer.Repository repository = article.getRepository();
 
         validateCommitAuthor(article, service);
@@ -57,21 +65,27 @@ public abstract class ArticleAnnouncerValidator extends Validator {
 
         repository.setUsername(
             checkProperty(context,
-                Env.toVar(repository.getBasename() + "_" + service.getServiceName()) + "_USERNAME",
+                listOf(
+                    "announce.article.repository.username",
+                    repository.getBasename() + "." + service.getServiceName() + ".username"),
                 "announce.article.repository.username",
                 repository.getUsername(),
                 service.getUsername()));
 
         repository.setToken(
             checkProperty(context,
-                Env.toVar(repository.getBasename() + "_" + service.getServiceName()) + "_TOKEN",
+                listOf(
+                    "announce.article.repository.token",
+                    repository.getBasename() + "." + service.getServiceName() + ".token"),
                 "announce.article.repository.token",
                 repository.getToken(),
                 service.getToken()));
 
         repository.setBranch(
             checkProperty(context,
-                Env.toVar(repository.getBasename() + "_" + service.getServiceName()) + "_BRANCH",
+                listOf(
+                    "announce.article.repository.branch",
+                    repository.getBasename() + "." + service.getServiceName() + ".branch"),
                 "announce.article.repository.branch",
                 repository.getBranch(),
                 "HEAD"));
@@ -93,7 +107,7 @@ public abstract class ArticleAnnouncerValidator extends Validator {
             errors.configuration(RB.$("validation_is_not_a_directory", "announce.article.templateDirectory", article.getTemplateDirectory()));
         }
 
-        if (templateDirectoryFile.listFiles() == null || templateDirectoryFile.listFiles().length == 0) {
+        if (null == templateDirectoryFile.listFiles() || templateDirectoryFile.listFiles().length == 0) {
             errors.configuration(RB.$("validation_directory_is_empty", "announce.article.templateDirectory", article.getTemplateDirectory()));
         }
 

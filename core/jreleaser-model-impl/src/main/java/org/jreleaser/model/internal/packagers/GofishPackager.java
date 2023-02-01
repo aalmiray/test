@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,7 +35,6 @@ import static java.util.Collections.unmodifiableSet;
 import static org.jreleaser.model.Distribution.DistributionType.BINARY;
 import static org.jreleaser.model.Distribution.DistributionType.JAVA_BINARY;
 import static org.jreleaser.model.Distribution.DistributionType.JLINK;
-import static org.jreleaser.model.Distribution.DistributionType.NATIVE_IMAGE;
 import static org.jreleaser.model.api.packagers.GofishPackager.SKIP_GOFISH;
 import static org.jreleaser.model.api.packagers.GofishPackager.TYPE;
 import static org.jreleaser.util.CollectionUtils.setOf;
@@ -54,6 +53,7 @@ import static org.jreleaser.util.StringUtils.isFalse;
  */
 public final class GofishPackager extends AbstractRepositoryPackager<org.jreleaser.model.api.packagers.GofishPackager, GofishPackager> {
     private static final Map<org.jreleaser.model.Distribution.DistributionType, Set<String>> SUPPORTED = new LinkedHashMap<>();
+    private static final long serialVersionUID = -4053286282850852250L;
 
     static {
         Set<String> extensions = setOf(
@@ -67,12 +67,13 @@ public final class GofishPackager extends AbstractRepositoryPackager<org.jreleas
         SUPPORTED.put(BINARY, extensions);
         SUPPORTED.put(JAVA_BINARY, extensions);
         SUPPORTED.put(JLINK, extensions);
-        SUPPORTED.put(NATIVE_IMAGE, extensions);
     }
 
     private final GofishRepository repository = new GofishRepository();
 
     private final org.jreleaser.model.api.packagers.GofishPackager immutable = new org.jreleaser.model.api.packagers.GofishPackager() {
+        private static final long serialVersionUID = 7575986906210858224L;
+
         @Override
         public org.jreleaser.model.api.packagers.PackagerRepository getRepository() {
             return repository.asImmutable();
@@ -85,27 +86,27 @@ public final class GofishPackager extends AbstractRepositoryPackager<org.jreleas
 
         @Override
         public org.jreleaser.model.api.common.CommitAuthor getCommitAuthor() {
-            return commitAuthor.asImmutable();
+            return GofishPackager.this.getCommitAuthor().asImmutable();
         }
 
         @Override
         public String getTemplateDirectory() {
-            return templateDirectory;
+            return GofishPackager.this.getTemplateDirectory();
         }
 
         @Override
         public List<String> getSkipTemplates() {
-            return unmodifiableList(skipTemplates);
+            return unmodifiableList(GofishPackager.this.getSkipTemplates());
         }
 
         @Override
         public String getType() {
-            return type;
+            return GofishPackager.this.getType();
         }
 
         @Override
         public String getDownloadUrl() {
-            return downloadUrl;
+            return GofishPackager.this.getDownloadUrl();
         }
 
         @Override
@@ -140,7 +141,7 @@ public final class GofishPackager extends AbstractRepositoryPackager<org.jreleas
 
         @Override
         public Active getActive() {
-            return active;
+            return GofishPackager.this.getActive();
         }
 
         @Override
@@ -160,7 +161,7 @@ public final class GofishPackager extends AbstractRepositoryPackager<org.jreleas
 
         @Override
         public Map<String, Object> getExtraProperties() {
-            return unmodifiableMap(extraProperties);
+            return unmodifiableMap(GofishPackager.this.getExtraProperties());
         }
     };
 
@@ -199,7 +200,7 @@ public final class GofishPackager extends AbstractRepositoryPackager<org.jreleas
     }
 
     public PackagerRepository getPackagerRepository() {
-        return repository;
+        return getRepository();
     }
 
     @Override
@@ -226,6 +227,8 @@ public final class GofishPackager extends AbstractRepositoryPackager<org.jreleas
     }
 
     public static final class GofishRepository extends PackagerRepository {
+        private static final long serialVersionUID = 2534363121328369670L;
+
         public GofishRepository() {
             super("gofish", "fish-food");
         }

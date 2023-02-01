@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,7 +33,6 @@ import org.jreleaser.sdk.disco.api.EphemeralId;
 import org.jreleaser.sdk.disco.api.Pkg;
 import org.jreleaser.sdk.disco.api.Result;
 
-import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -50,7 +49,7 @@ public class Disco {
     private final JReleaserLogger logger;
     private final DiscoAPI api;
 
-    public Disco(JReleaserLogger logger, int connectTimeout, int readTimeout) throws IOException {
+    public Disco(JReleaserLogger logger, int connectTimeout, int readTimeout) {
         ObjectMapper objectMapper = new ObjectMapper()
             .setPropertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE)
             .setSerializationInclusion(JsonInclude.Include.NON_NULL)

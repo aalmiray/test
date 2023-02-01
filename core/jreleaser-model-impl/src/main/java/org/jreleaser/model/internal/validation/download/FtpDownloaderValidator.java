@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,24 +18,29 @@
 package org.jreleaser.model.internal.validation.download;
 
 import org.jreleaser.bundle.RB;
-import org.jreleaser.model.Active;
 import org.jreleaser.model.api.JReleaserContext.Mode;
 import org.jreleaser.model.internal.JReleaserContext;
 import org.jreleaser.model.internal.download.Downloader;
 import org.jreleaser.model.internal.download.FtpDownloader;
-import org.jreleaser.model.internal.validation.common.Validator;
-import org.jreleaser.util.Env;
+import org.jreleaser.model.internal.validation.common.FtpValidator;
 import org.jreleaser.util.Errors;
 
 import java.util.Map;
 
+import static org.jreleaser.model.internal.validation.common.Validator.resolveActivatable;
+import static org.jreleaser.model.internal.validation.common.Validator.validateTimeout;
+import static org.jreleaser.util.CollectionUtils.listOf;
 import static org.jreleaser.util.StringUtils.isBlank;
 
 /**
  * @author Andres Almiray
  * @since 1.1.0
  */
-public abstract class FtpDownloaderValidator extends Validator {
+public final class FtpDownloaderValidator {
+    private FtpDownloaderValidator() {
+        // noop
+    }
+
     public static void validateFtpDownloader(JReleaserContext context, Mode mode, Errors errors) {
         Map<String, FtpDownloader> ftp = context.getModel().getDownload().getFtp();
         if (!ftp.isEmpty()) context.getLogger().debug("download.ftp");
@@ -43,64 +48,33 @@ public abstract class FtpDownloaderValidator extends Validator {
         for (Map.Entry<String, FtpDownloader> e : ftp.entrySet()) {
             e.getValue().setName(e.getKey());
             if (mode.validateConfig() || mode.validateDownload()) {
-                validateFtp(context, mode, e.getValue(), errors);
+                validateFtp(context, e.getValue(), errors);
             }
         }
     }
 
-    private static void validateFtp(JReleaserContext context, Mode mode, FtpDownloader ftp, Errors errors) {
+    private static void validateFtp(JReleaserContext context, FtpDownloader ftp, Errors errors) {
         context.getLogger().debug("download.ftp.{}", ftp.getName());
 
-        if (!ftp.isActiveSet()) {
-            ftp.setActive(Active.ALWAYS);
-        }
+        resolveActivatable(context, ftp,
+            listOf("download.ftp." + ftp.getName(), "download.ftp"),
+            "ALWAYS");
         if (!ftp.resolveEnabled(context.getModel().getProject())) {
             context.getLogger().debug(RB.$("validation.disabled"));
             return;
         }
 
         // allow anonymous access
-        ftp.setUsername(
-            checkProperty(context,
-                "FTP_" + Env.toVar(ftp.getName()) + "_USERNAME",
-                "ftp.username",
-                ftp.getUsername(),
-                errors,
-                true));
-
-        ftp.setPassword(
-            checkProperty(context,
-                "FTP_" + Env.toVar(ftp.getName()) + "_PASSWORD",
-                "ftp.password",
-                ftp.getPassword(),
-                errors,
-                true));
-
-        ftp.setHost(
-            checkProperty(context,
-                "FTP_" + Env.toVar(ftp.getName()) + "_HOST",
-                "ftp.host",
-                ftp.getHost(),
-                errors,
-                context.isDryrun()));
-
-        ftp.setPort(
-            checkProperty(context,
-                "FTP_" + Env.toVar(ftp.getName()) + "_PORT",
-                "ftp.port",
-                ftp.getPort(),
-                errors,
-                context.isDryrun()));
-
+        FtpValidator.validateFtp(context, ftp, "upload", ftp.getName(), errors, true);
         validateTimeout(ftp);
 
         if (ftp.getAssets().isEmpty()) {
-            errors.configuration(RB.$("validation_must_not_be_empty", "ftp." + ftp.getName() + ".assets"));
+            errors.configuration(RB.$("validation_must_not_be_empty", "download.ftp." + ftp.getName() + ".assets"));
         } else {
             int index = 0;
             for (Downloader.Asset asset : ftp.getAssets()) {
                 if (isBlank(asset.getInput())) {
-                    errors.configuration(RB.$("validation_must_not_be_null", "ftp." + ftp.getName() + ".asset[" + (index++) + "].input"));
+                    errors.configuration(RB.$("validation_must_not_be_null", "download.ftp." + ftp.getName() + ".asset[" + (index++) + "].input"));
                 }
             }
         }

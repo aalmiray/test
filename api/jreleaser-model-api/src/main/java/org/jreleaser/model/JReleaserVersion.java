@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,6 +21,8 @@ import java.io.PrintStream;
 import java.io.PrintWriter;
 import java.util.ResourceBundle;
 
+import static org.jreleaser.util.IoUtils.newPrintWriter;
+
 /**
  * @author Andres Almiray
  * @since 0.1.0
@@ -31,6 +33,12 @@ public class JReleaserVersion {
     private static final String BUILD_DATE = BUNDLE.getString("build_date");
     private static final String BUILD_TIME = BUNDLE.getString("build_time");
     private static final String BUILD_REVISION = BUNDLE.getString("build_revision");
+    private static final String SEPARATOR = "------------------------------------------------------------";
+    private static final String JRELEASER_FORMAT = "jreleaser %s%n";
+
+    private JReleaserVersion() {
+        // noop
+    }
 
     public static String getPlainVersion() {
         return JRELEASER_VERSION;
@@ -41,17 +49,7 @@ public class JReleaserVersion {
     }
 
     public static void banner(PrintStream out, boolean full) {
-        if (full) {
-            out.printf("------------------------------------------------------------%n");
-            out.printf("jreleaser %s%n", JRELEASER_VERSION);
-
-            out.printf("------------------------------------------------------------%n");
-            out.printf("Build time:   %s %s%n", BUILD_DATE, BUILD_TIME);
-            out.println("Revision:     " + BUILD_REVISION);
-            out.printf("------------------------------------------------------------%n");
-        } else {
-            out.printf("jreleaser %s%n", JRELEASER_VERSION);
-        }
+        banner(newPrintWriter(out), full);
     }
 
     public static void banner(PrintWriter out) {
@@ -60,15 +58,20 @@ public class JReleaserVersion {
 
     public static void banner(PrintWriter out, boolean full) {
         if (full) {
-            out.printf("------------------------------------------------------------%n");
-            out.printf("jreleaser %s%n", JRELEASER_VERSION);
+            out.println(SEPARATOR);
+            out.printf(JRELEASER_FORMAT, JRELEASER_VERSION);
 
-            out.printf("------------------------------------------------------------%n");
+            String jvm = System.getProperty("java.version") + " (" +
+                System.getProperty("java.vendor") + " " +
+                System.getProperty("java.vm.version") + ")";
+
+            out.println(SEPARATOR);
             out.printf("Build time:   %s %s%n", BUILD_DATE, BUILD_TIME);
             out.println("Revision:     " + BUILD_REVISION);
-            out.printf("------------------------------------------------------------%n");
+            out.println("JVM:          " + jvm);
+            out.println(SEPARATOR);
         } else {
-            out.printf("jreleaser %s%n", JRELEASER_VERSION);
+            out.printf(JRELEASER_FORMAT, JRELEASER_VERSION);
         }
     }
 }

@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,10 +23,12 @@ import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.model.ObjectFactory
 import org.gradle.api.provider.Property
 import org.gradle.api.tasks.Input
+import org.gradle.api.tasks.InputDirectory
 import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.options.Option
 import org.jreleaser.engine.context.ContextCreator
 import org.jreleaser.gradle.plugin.JReleaserExtension
+import org.jreleaser.gradle.plugin.internal.JReleaserLoggerService
 import org.jreleaser.logging.JReleaserLogger
 import org.jreleaser.model.JReleaserVersion
 import org.jreleaser.model.internal.JReleaserContext
@@ -59,14 +61,14 @@ abstract class AbstractJReleaserTask extends DefaultTask {
     @Input
     final Property<Boolean> strict
 
-    @Input
+    @InputDirectory
     final DirectoryProperty outputDirectory
 
     @Internal
     final Property<JReleaserModel> model
 
     @Internal
-    final Property<JReleaserLogger> jlogger
+    final Property<JReleaserLoggerService> jlogger
 
     @Internal
     org.jreleaser.model.api.JReleaserContext.Mode mode
@@ -74,7 +76,7 @@ abstract class AbstractJReleaserTask extends DefaultTask {
     @Inject
     AbstractJReleaserTask(ObjectFactory objects) {
         model = objects.property(JReleaserModel)
-        jlogger = objects.property(JReleaserLogger)
+        jlogger = objects.property(JReleaserLoggerService)
         mode = FULL
         dryrun = objects.property(Boolean)
         gitRootSearch = objects.property(Boolean)
@@ -82,7 +84,7 @@ abstract class AbstractJReleaserTask extends DefaultTask {
         outputDirectory = objects.directoryProperty()
     }
 
-    @Option(option = 'dry-run', description = 'Skip remote operations (OPTIONAL).')
+    @Option(option = 'dryrun', description = 'Skip remote operations (OPTIONAL).')
     void setDryrun(boolean dryrun) {
         this.dryrun.set(dryrun)
     }
@@ -98,13 +100,14 @@ abstract class AbstractJReleaserTask extends DefaultTask {
     }
 
     protected JReleaserContext createContext() {
-        JReleaserLogger logger = jlogger.get()
+        JReleaserLogger logger = jlogger.get().logger
         PlatformUtils.resolveCurrentPlatform(logger)
 
         logger.info('JReleaser {}', JReleaserVersion.getPlainVersion())
         JReleaserVersion.banner(logger.getTracer())
         logger.increaseIndent()
         logger.info('- basedir set to {}', project.projectDir.toPath().toAbsolutePath())
+        logger.info('- outputdir set to {}', outputDirectory.get().asFile.toPath().toAbsolutePath())
         logger.decreaseIndent()
 
         return ContextCreator.create(
@@ -128,7 +131,7 @@ abstract class AbstractJReleaserTask extends DefaultTask {
     }
 
     protected List<String> resolveCollection(String key, List<String> values) {
-        if (!values.isEmpty()) return values;
+        if (!values.isEmpty()) return values
         String resolvedValue = Env.resolve(key, '')
         if (isBlank(resolvedValue)) return Collections.emptyList()
         return Arrays.stream(resolvedValue.trim().split(','))

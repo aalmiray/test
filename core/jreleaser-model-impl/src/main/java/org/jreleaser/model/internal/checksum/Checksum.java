@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@ package org.jreleaser.model.internal.checksum;
 import org.jreleaser.model.internal.JReleaserContext;
 import org.jreleaser.model.internal.common.AbstractModelObject;
 import org.jreleaser.model.internal.common.Domain;
+import org.jreleaser.mustache.TemplateContext;
 import org.jreleaser.util.Algorithm;
 
 import java.util.LinkedHashMap;
@@ -36,12 +37,16 @@ import static org.jreleaser.mustache.Templates.resolveTemplate;
  * @since 0.4.0
  */
 public final class Checksum extends AbstractModelObject<Checksum> implements Domain {
+    private static final long serialVersionUID = -2684650548296767434L;
+
     private final Set<Algorithm> algorithms = new LinkedHashSet<>();
     private Boolean individual;
     private String name;
     private Boolean files;
 
     private final org.jreleaser.model.api.checksum.Checksum immutable = new org.jreleaser.model.api.checksum.Checksum() {
+        private static final long serialVersionUID = -7632183071376409444L;
+
         @Override
         public String getName() {
             return name;
@@ -81,7 +86,7 @@ public final class Checksum extends AbstractModelObject<Checksum> implements Dom
     }
 
     public String getResolvedName(JReleaserContext context) {
-        Map<String, Object> props = context.fullProps();
+        TemplateContext props = context.fullProps();
         context.getModel().getRelease().getReleaser().fillProps(props, context.getModel());
         return resolveTemplate(name, props);
     }
@@ -107,7 +112,7 @@ public final class Checksum extends AbstractModelObject<Checksum> implements Dom
     }
 
     public boolean isIndividual() {
-        return individual != null && individual;
+        return null != individual && individual;
     }
 
     public void setIndividual(Boolean individual) {
@@ -115,7 +120,7 @@ public final class Checksum extends AbstractModelObject<Checksum> implements Dom
     }
 
     public boolean isIndividualSet() {
-        return individual != null;
+        return null != individual;
     }
 
     public Set<Algorithm> getAlgorithms() {
@@ -128,7 +133,7 @@ public final class Checksum extends AbstractModelObject<Checksum> implements Dom
     }
 
     public boolean isFiles() {
-        return files == null || files;
+        return null == files || files;
     }
 
     public void setFiles(Boolean files) {
@@ -136,7 +141,7 @@ public final class Checksum extends AbstractModelObject<Checksum> implements Dom
     }
 
     public boolean isFilesSet() {
-        return files != null;
+        return null != files;
     }
 
     @Override

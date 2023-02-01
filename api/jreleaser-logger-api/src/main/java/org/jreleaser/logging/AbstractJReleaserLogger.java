@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,14 +18,14 @@
 package org.jreleaser.logging;
 
 import java.io.PrintWriter;
-import java.util.Stack;
+import java.util.ArrayDeque;
 
 /**
  * @author Andres Almiray
  * @since 0.1.0
  */
 public abstract class AbstractJReleaserLogger implements JReleaserLogger {
-    private final Stack<String> prefix = new Stack<>();
+    private final ArrayDeque<String> prefix = new ArrayDeque<>();
     private final PrintWriter tracer;
     private String indent = "";
 
@@ -34,12 +34,19 @@ public abstract class AbstractJReleaserLogger implements JReleaserLogger {
     }
 
     protected boolean isIndented() {
-        return !indent.equals("");
+        return !"".equals(indent);
     }
 
     @Override
     public PrintWriter getTracer() {
         return tracer;
+    }
+
+    @Override
+    public void close() {
+        if (null == tracer) return;
+        tracer.flush();
+        tracer.close();
     }
 
     @Override

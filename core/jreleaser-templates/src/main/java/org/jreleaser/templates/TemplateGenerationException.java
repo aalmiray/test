@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,6 +22,8 @@ package org.jreleaser.templates;
  * @since 0.1.0
  */
 public class TemplateGenerationException extends Exception {
+    private static final long serialVersionUID = -3122515007150410783L;
+
     public TemplateGenerationException(String message) {
         super(message);
     }

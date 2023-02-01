@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,8 +18,7 @@
 package org.jreleaser.model.spi.assemble;
 
 import org.jreleaser.model.internal.assemble.Assembler;
-
-import java.util.Map;
+import org.jreleaser.mustache.TemplateContext;
 
 /**
  * @author Andres Almiray
@@ -30,5 +29,5 @@ public interface AssemblerProcessor<A extends org.jreleaser.model.api.assemble.A
 
     void setAssembler(S assembler);
 
-    void assemble(Map<String, Object> props) throws AssemblerProcessingException;
+    void assemble(TemplateContext props) throws AssemblerProcessingException;
 }

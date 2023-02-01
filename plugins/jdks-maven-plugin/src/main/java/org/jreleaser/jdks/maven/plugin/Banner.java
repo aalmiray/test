@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,17 +31,20 @@ import java.util.List;
 import java.util.ResourceBundle;
 import java.util.Scanner;
 
+import static org.jreleaser.util.IoUtils.newPrintStream;
+import static org.jreleaser.util.IoUtils.newScanner;
+
 /**
  * @author Andres Almiray
  * @since 0.3.0
  */
 final class Banner {
-    private static final Banner BANNER = new Banner();
+    private static final Banner INSTANCE = new Banner();
     private final ResourceBundle bundle = ResourceBundle.getBundle(Banner.class.getName());
     private final String productVersion = bundle.getString("product.version");
     private final String productId = bundle.getString("product.id");
     private final String productName = bundle.getString("product.name");
-    private final String banner = MessageFormat.format(bundle.getString("product.banner"), productName, productVersion);
+    private final String message = MessageFormat.format(bundle.getString("product.banner"), productName, productVersion);
     private final List<String> visited = new ArrayList<>();
 
     private Banner() {
@@ -49,32 +52,35 @@ final class Banner {
     }
 
     public static void display(MavenProject project, Log log) {
-        if (BANNER.visited.contains(project.getName())) {
+        if (INSTANCE.visited.contains(project.getName())) {
             return;
         }
 
-        BANNER.visited.add(project.getName());
+        INSTANCE.visited.add(project.getName());
+
+        boolean quiet = log.isErrorEnabled() &&
+            !log.isWarnEnabled() &&
+            !log.isInfoEnabled() &&
+            !log.isDebugEnabled();
 
         try {
             File parent = new File(System.getProperty("user.home"), "/.m2/caches");
-            File markerFile = getMarkerFile(parent, BANNER);
+            File markerFile = getMarkerFile(parent);
             if (!markerFile.exists()) {
-                System.out.println(BANNER.banner);
+                if (!quiet) log.info(INSTANCE.message);
                 markerFile.getParentFile().mkdirs();
-                PrintStream out = new PrintStream(new FileOutputStream(markerFile));
+                PrintStream out = newPrintStream(new FileOutputStream(markerFile));
                 out.println("1");
                 out.close();
                 writeQuietly(markerFile, "1");
             } else {
                 try {
                     int count = Integer.parseInt(readQuietly(markerFile));
-                    if (count < 3) {
-                        System.out.println(BANNER.banner);
-                    }
+                    if (count < 3 && !quiet) log.info(INSTANCE.message);
                     writeQuietly(markerFile, (count + 1) + "");
                 } catch (NumberFormatException e) {
                     writeQuietly(markerFile, "1");
-                    System.out.println(BANNER.banner);
+                    if (!quiet) log.info(INSTANCE.message);
                 }
             }
         } catch (IOException ignored) {
@@ -84,7 +90,7 @@ final class Banner {
 
     private static void writeQuietly(File file, String text) {
         try {
-            PrintStream out = new PrintStream(new FileOutputStream(file));
+            PrintStream out = newPrintStream(new FileOutputStream(file));
             out.println(text);
             out.close();
         } catch (IOException ignored) {
@@ -93,21 +99,20 @@ final class Banner {
     }
 
     private static String readQuietly(File file) {
-        try {
-            Scanner in = new Scanner(new FileInputStream(file));
+        try (Scanner in = newScanner(new FileInputStream(file))) {
             return in.next();
         } catch (Exception ignored) {
             return "";
         }
     }
 
-    private static File getMarkerFile(File parent, Banner b) {
+    private static File getMarkerFile(File parent) {
         return new File(parent,
             "jreleaser" +
                 File.separator +
-                b.productId +
+                INSTANCE.productId +
                 File.separator +
-                b.productVersion +
+                INSTANCE.productVersion +
                 File.separator +
                 "marker.txt");
     }

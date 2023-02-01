@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -40,6 +40,8 @@ public interface Signing extends Domain, Activatable {
     String GPG_PUBLIC_KEYRING = "GPG_PUBLIC_KEYRING";
 
     boolean isArmored();
+
+    boolean isVerify();
 
     String getPublicKey();
 

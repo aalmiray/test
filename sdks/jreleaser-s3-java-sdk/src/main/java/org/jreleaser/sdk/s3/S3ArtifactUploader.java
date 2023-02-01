@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -91,7 +91,7 @@ public class S3ArtifactUploader extends AbstractArtifactUploader<org.jreleaser.m
 
         // does the bucket exist?
         context.getLogger().debug(RB.$("s3.bucket.check"), bucketName);
-        if (!s3.doesBucketExistV2(bucketName)) {
+        if (!context.isDryrun() && !s3.doesBucketExistV2(bucketName)) {
             // create the bucket
             context.getLogger().debug(RB.$("s3.bucket.create"), bucketName);
             s3.createBucket(bucketName);
@@ -151,10 +151,10 @@ public class S3ArtifactUploader extends AbstractArtifactUploader<org.jreleaser.m
             }
 
             Map<String, String> headers = uploader.getHeaders();
-            if (headers != null) {
+            if (null != headers) {
                 ClientConfiguration clientConfiguration = new ClientConfiguration();
                 for (Map.Entry<String, String> header : headers.entrySet()) {
-                    if (header.getKey() != null && header.getValue() != null) {
+                    if (null != header.getKey() && null != header.getValue()) {
                         clientConfiguration.addHeader(header.getKey(), header.getValue());
                     }
                 }

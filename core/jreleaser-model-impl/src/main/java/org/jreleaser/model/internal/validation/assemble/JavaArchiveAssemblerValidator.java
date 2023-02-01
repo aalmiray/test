@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,19 +18,21 @@
 package org.jreleaser.model.internal.validation.assemble;
 
 import org.jreleaser.bundle.RB;
-import org.jreleaser.model.Active;
 import org.jreleaser.model.Archive;
 import org.jreleaser.model.api.JReleaserContext.Mode;
 import org.jreleaser.model.internal.JReleaserContext;
 import org.jreleaser.model.internal.assemble.JavaArchiveAssembler;
 import org.jreleaser.model.internal.common.FileSet;
 import org.jreleaser.model.internal.project.Project;
-import org.jreleaser.model.internal.validation.common.Validator;
 import org.jreleaser.util.Errors;
 
 import java.nio.file.Files;
 import java.util.Map;
 
+import static org.jreleaser.model.internal.validation.common.Validator.resolveActivatable;
+import static org.jreleaser.model.internal.validation.common.Validator.validateFileSet;
+import static org.jreleaser.model.internal.validation.common.Validator.validateGlobs;
+import static org.jreleaser.util.CollectionUtils.listOf;
 import static org.jreleaser.util.StringUtils.isBlank;
 import static org.jreleaser.util.StringUtils.isNotBlank;
 
@@ -38,7 +40,11 @@ import static org.jreleaser.util.StringUtils.isNotBlank;
  * @author Andres Almiray
  * @since 1.4.0
  */
-public abstract class JavaArchiveAssemblerValidator extends Validator {
+public final class JavaArchiveAssemblerValidator {
+    private JavaArchiveAssemblerValidator() {
+        // noop
+    }
+
     public static void validateJavaArchive(JReleaserContext context, Mode mode, Errors errors) {
         Map<String, JavaArchiveAssembler> archive = context.getModel().getAssemble().getJavaArchive();
         if (!archive.isEmpty()) context.getLogger().debug("assemble.java-archive");
@@ -54,9 +60,9 @@ public abstract class JavaArchiveAssemblerValidator extends Validator {
     private static void validateJavaArchive(JReleaserContext context, Mode mode, JavaArchiveAssembler archive, Errors errors) {
         context.getLogger().debug("assemble.java-archive.{}", archive.getName());
 
-        if (!archive.isActiveSet()) {
-            archive.setActive(Active.NEVER);
-        }
+        resolveActivatable(context, archive,
+            listOf("assemble.java.archive." + archive.getName(), "assemble.java.archive"),
+            "NEVER");
         if (!archive.resolveEnabled(context.getModel().getProject())) {
             context.getLogger().debug(RB.$("validation.disabled"));
             return;
@@ -92,20 +98,20 @@ public abstract class JavaArchiveAssemblerValidator extends Validator {
         if (archive.getJars().isEmpty() && isBlank(archive.getMainJar().getPath())) {
             errors.configuration(RB.$("validation_java_archive_empty_jars", archive.getName()));
         } else {
-            validateGlobs(context,
+            validateGlobs(
                 archive.getJars(),
                 "java-archive." + archive.getName() + ".jars",
                 errors);
         }
 
-        validateGlobs(context,
+        validateGlobs(
             archive.getFiles(),
             "java-archive." + archive.getName() + ".files",
             errors);
 
         int i = 0;
         for (FileSet fileSet : archive.getFileSets()) {
-            validateFileSet(context, mode, archive, fileSet, i++, errors);
+            validateFileSet(mode, archive, fileSet, i++, errors);
         }
 
         String defaultTemplateDirectory = "src/jreleaser/assemblers/" + archive.getName() + "/" + archive.getType();

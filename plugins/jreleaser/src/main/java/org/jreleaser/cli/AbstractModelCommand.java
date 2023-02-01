@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -50,8 +50,7 @@ import static org.jreleaser.util.StringUtils.isNotBlank;
  * @author Andres Almiray
  * @since 0.1.0
  */
-@CommandLine.Command
-public abstract class AbstractModelCommand extends AbstractLoggingCommand {
+public abstract class AbstractModelCommand<C extends IO> extends AbstractLoggingCommand<C> {
     @CommandLine.Option(names = {"-c", "--config-file"})
     Path configFile;
 
@@ -65,17 +64,16 @@ public abstract class AbstractModelCommand extends AbstractLoggingCommand {
         paramLabel = "<key=value>")
     String[] properties;
 
-    @CommandLine.ParentCommand
-    Main parent;
-
     Path actualConfigFile;
     Path actualBasedir;
 
     @Override
-    protected Main parent() {
-        return parent;
+    protected void collectCandidateDeprecatedArgs(Set<AbstractCommand<C>.DeprecatedArg> args) {
+        super.collectCandidateDeprecatedArgs(args);
+        args.add(new DeprecatedArg("-grs", "--git-root-search", "1.5.0"));
     }
 
+    @Override
     protected void execute() {
         resolveConfigFile();
         resolveBasedir();
@@ -86,6 +84,7 @@ public abstract class AbstractModelCommand extends AbstractLoggingCommand {
         logger.info($("TEXT_config_file"), actualConfigFile);
         logger.increaseIndent();
         logger.info($("TEXT_basedir_set"), actualBasedir.toAbsolutePath());
+        logger.info($("TEXT_outputdir_set"), getOutputDirectory().toAbsolutePath());
         logger.decreaseIndent();
         doExecute(createContext());
     }
@@ -96,7 +95,7 @@ public abstract class AbstractModelCommand extends AbstractLoggingCommand {
         } else {
             Path directory = Paths.get(".").normalize();
             Optional<Path> file = resolveConfigFileAt(directory);
-            if (!file.isPresent() && basedir != null) {
+            if (!file.isPresent() && null != basedir) {
                 file = resolveConfigFileAt(basedir);
             }
             actualConfigFile = file.orElse(null);
@@ -109,7 +108,7 @@ public abstract class AbstractModelCommand extends AbstractLoggingCommand {
                     .errorText($("ERROR_missing_config_file",
                         String.join("|", getSupportedConfigFormats())
                     )));
-            spec.commandLine().usage(parent.out);
+            spec.commandLine().usage(parent().getOut());
             throw new HaltExecutionException();
         }
     }
@@ -135,7 +134,7 @@ public abstract class AbstractModelCommand extends AbstractLoggingCommand {
             spec.commandLine().getErr()
                 .println(spec.commandLine().getColorScheme().errorText(
                     $("ERROR_missing_required_option", "--basedir=<basedir>")));
-            spec.commandLine().usage(parent.out);
+            spec.commandLine().usage(parent().getOut());
             throw new HaltExecutionException();
         }
     }
@@ -186,11 +185,13 @@ public abstract class AbstractModelCommand extends AbstractLoggingCommand {
                 return JReleaserContext.Configurer.CLI_TOML;
             case "json":
                 return JReleaserContext.Configurer.CLI_JSON;
+            default:
+                // should not happen!
+                throw new IllegalArgumentException($("ERROR_invalid_config_format", configFile.getFileName()));
         }
-        // should not happen!
-        throw new IllegalArgumentException($("ERROR_invalid_config_format", configFile.getFileName()));
     }
 
+    @Override
     protected Path getOutputDirectory() {
         return resolveOutputDirectory(actualBasedir, outputdir, "out");
     }
@@ -235,7 +236,7 @@ public abstract class AbstractModelCommand extends AbstractLoggingCommand {
     protected Properties collectProperties() {
         Properties props = new Properties();
 
-        if (properties != null && properties.length > 0) {
+        if (null != properties && properties.length > 0) {
             for (String property : properties) {
                 if (property.contains("=")) {
                     int d = property.indexOf('=');

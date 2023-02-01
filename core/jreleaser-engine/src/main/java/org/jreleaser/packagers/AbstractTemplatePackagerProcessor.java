@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,8 +22,9 @@ import org.jreleaser.bundle.RB;
 import org.jreleaser.model.internal.JReleaserContext;
 import org.jreleaser.model.internal.distributions.Distribution;
 import org.jreleaser.model.internal.packagers.TemplatePackager;
-import org.jreleaser.model.internal.project.Project;
 import org.jreleaser.model.spi.packagers.PackagerProcessingException;
+import org.jreleaser.mustache.MustacheUtils;
+import org.jreleaser.mustache.TemplateContext;
 import org.jreleaser.templates.TemplateResource;
 import org.jreleaser.util.FileUtils;
 
@@ -35,10 +36,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.nio.file.StandardOpenOption.CREATE;
 import static java.nio.file.StandardOpenOption.TRUNCATE_EXISTING;
 import static java.nio.file.StandardOpenOption.WRITE;
-import static org.jreleaser.mustache.MustacheUtils.applyTemplate;
 import static org.jreleaser.templates.TemplateUtils.resolveAndMergeTemplates;
 import static org.jreleaser.templates.TemplateUtils.trimTplExtension;
 import static org.jreleaser.util.FileUtils.createDirectoriesWithFullAccess;
@@ -48,12 +49,13 @@ import static org.jreleaser.util.FileUtils.grantFullAccess;
  * @author Andres Almiray
  * @since 0.6.0
  */
-abstract class AbstractTemplatePackagerProcessor<T extends TemplatePackager<?>> extends AbstractPackagerProcessor<T> {
+public abstract class AbstractTemplatePackagerProcessor<T extends TemplatePackager<?>> extends AbstractPackagerProcessor<T> {
     protected AbstractTemplatePackagerProcessor(JReleaserContext context) {
         super(context);
     }
 
-    protected void doPrepareDistribution(Distribution distribution, Map<String, Object> props) throws PackagerProcessingException {
+    @Override
+    protected void doPrepareDistribution(Distribution distribution, TemplateContext props) throws PackagerProcessingException {
         try {
             doPrepareDistribution(distribution, props, distribution.getName(),
                 getPrepareDirectory(props), getPackager().getTemplateDirectory(), getPackagerName(), true);
@@ -63,7 +65,7 @@ abstract class AbstractTemplatePackagerProcessor<T extends TemplatePackager<?>> 
     }
 
     protected void doPrepareDistribution(Distribution distribution,
-                                         Map<String, Object> props,
+                                         TemplateContext props,
                                          String distributionName,
                                          Path prepareDirectory,
                                          String templateDirectory,
@@ -91,15 +93,15 @@ abstract class AbstractTemplatePackagerProcessor<T extends TemplatePackager<?>> 
             TemplateResource value = entry.getValue();
             if (value.isReader()) {
                 context.getLogger().debug(RB.$("packager.evaluate.template"), filename, distributionName, packagerName);
-                String content = applyTemplate(value.getReader(), props);
+                String content = applyTemplate(filename, value.getReader(), props);
                 if (!content.endsWith(System.lineSeparator())) {
                     content += System.lineSeparator();
                 }
                 context.getLogger().debug(RB.$("packager.write.template"), filename, distributionName, packagerName);
-                writeFile(context.getModel().getProject(), distribution, content, props, prepareDirectory, filename);
+                writeFile(distribution, content, props, prepareDirectory, filename);
             } else {
                 context.getLogger().debug(RB.$("packager.write.file"), filename, distributionName, packagerName);
-                writeFile(context.getModel().getProject(), distribution, value.getInputStream(), props, prepareDirectory, filename);
+                writeFile(distribution, value.getInputStream(), props, prepareDirectory, filename);
             }
         }
 
@@ -109,6 +111,10 @@ abstract class AbstractTemplatePackagerProcessor<T extends TemplatePackager<?>> 
                 context.getBasedir(),
                 prepareDirectory, path -> path.getFileName().startsWith("LICENSE"));
         }
+    }
+
+    protected String applyTemplate(String fileName, Reader reader, TemplateContext props) {
+        return MustacheUtils.applyTemplate(reader, props);
     }
 
     public boolean isSkipped(String filename) {
@@ -134,11 +140,12 @@ abstract class AbstractTemplatePackagerProcessor<T extends TemplatePackager<?>> 
             .anyMatch(fname::matches);
     }
 
-    protected void doPackageDistribution(Distribution distribution, Map<String, Object> props) throws PackagerProcessingException {
+    @Override
+    protected void doPackageDistribution(Distribution distribution, TemplateContext props) throws PackagerProcessingException {
         doPackageDistribution(distribution, props, getPackageDirectory(props));
     }
 
-    protected void doPackageDistribution(Distribution distribution, Map<String, Object> props, Path packageDirectory) throws PackagerProcessingException {
+    protected void doPackageDistribution(Distribution distribution, TemplateContext props, Path packageDirectory) throws PackagerProcessingException {
         try {
             // cleanup from previous session
             FileUtils.deleteFiles(packageDirectory);
@@ -148,16 +155,12 @@ abstract class AbstractTemplatePackagerProcessor<T extends TemplatePackager<?>> 
         }
     }
 
-    protected abstract void writeFile(Project project, Distribution distribution, String content, Map<String, Object> props, Path outputDirectory, String fileName) throws PackagerProcessingException;
+    protected abstract void writeFile(Distribution distribution, String content, TemplateContext props, Path outputDirectory, String fileName) throws PackagerProcessingException;
 
-    protected void writeFile(Project project, Distribution distribution, InputStream inputStream, Map<String, Object> props, Path outputDirectory, String fileName) throws PackagerProcessingException {
+    protected void writeFile(Distribution distribution, InputStream inputStream, TemplateContext props, Path outputDirectory, String fileName) throws PackagerProcessingException {
         Path outputFile = outputDirectory.resolve(fileName);
 
         writeFile(inputStream, outputFile);
-    }
-
-    protected void writeFile(Project project, Distribution distribution, Reader reader, Map<String, Object> props, Path outputDirectory, String fileName) throws PackagerProcessingException {
-        writeFile(reader, outputDirectory.resolve(fileName));
     }
 
     protected void writeFile(Reader reader, Path outputFile) throws PackagerProcessingException {
@@ -191,6 +194,6 @@ abstract class AbstractTemplatePackagerProcessor<T extends TemplatePackager<?>> 
     }
 
     protected void writeFile(String content, Path outputFile) throws PackagerProcessingException {
-        writeFile(content.getBytes(), outputFile);
+        writeFile(content.getBytes(UTF_8), outputFile);
     }
 }

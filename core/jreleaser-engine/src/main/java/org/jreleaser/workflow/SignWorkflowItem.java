@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,8 +21,8 @@ import org.jreleaser.bundle.RB;
 import org.jreleaser.engine.sign.Signer;
 import org.jreleaser.model.JReleaserException;
 import org.jreleaser.model.api.JReleaserCommand;
-import org.jreleaser.model.internal.JReleaserContext;
 import org.jreleaser.model.api.signing.SigningException;
+import org.jreleaser.model.internal.JReleaserContext;
 
 /**
  * @author Andres Almiray

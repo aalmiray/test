@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,18 +17,21 @@
  */
 package org.jreleaser.sdk.discourse.api;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+
 /**
  * @author shblue21
  * @since 1.3.0
  */
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class CategoryResponse {
-    public CategoryList getCategory_list() {
-        return category_list;
+    private CategoryList categoryList;
+
+    public CategoryList getCategoryList() {
+        return categoryList;
     }
 
-    public void setCategory_list(CategoryList category_list) {
-        this.category_list = category_list;
+    public void setCategoryList(CategoryList categoryList) {
+        this.categoryList = categoryList;
     }
-
-    public CategoryList category_list;
 }

@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,9 +36,9 @@ import static java.util.Collections.unmodifiableList;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.Collections.unmodifiableSet;
 import static org.jreleaser.model.Distribution.DistributionType.BINARY;
+import static org.jreleaser.model.Distribution.DistributionType.FLAT_BINARY;
 import static org.jreleaser.model.Distribution.DistributionType.JAVA_BINARY;
 import static org.jreleaser.model.Distribution.DistributionType.JLINK;
-import static org.jreleaser.model.Distribution.DistributionType.NATIVE_IMAGE;
 import static org.jreleaser.model.Distribution.DistributionType.NATIVE_PACKAGE;
 import static org.jreleaser.model.api.packagers.MacportsPackager.SKIP_MACPORTS;
 import static org.jreleaser.model.api.packagers.MacportsPackager.TYPE;
@@ -55,14 +55,15 @@ import static org.jreleaser.util.StringUtils.isNotBlank;
  */
 public final class MacportsPackager extends AbstractRepositoryPackager<org.jreleaser.model.api.packagers.MacportsPackager, MacportsPackager> {
     private static final Map<org.jreleaser.model.Distribution.DistributionType, Set<String>> SUPPORTED = new LinkedHashMap<>();
+    private static final long serialVersionUID = 6339866408211084697L;
 
     static {
         Set<String> extensions = setOf(ZIP.extension());
         SUPPORTED.put(BINARY, extensions);
         SUPPORTED.put(JAVA_BINARY, extensions);
         SUPPORTED.put(JLINK, extensions);
-        SUPPORTED.put(NATIVE_IMAGE, extensions);
         SUPPORTED.put(NATIVE_PACKAGE, setOf(DMG.extension()));
+        SUPPORTED.put(FLAT_BINARY, emptySet());
     }
 
     private final List<String> categories = new ArrayList<>();
@@ -73,6 +74,8 @@ public final class MacportsPackager extends AbstractRepositoryPackager<org.jrele
     private Integer revision;
 
     private final org.jreleaser.model.api.packagers.MacportsPackager immutable = new org.jreleaser.model.api.packagers.MacportsPackager() {
+        private static final long serialVersionUID = 1625817436978161466L;
+
         @Override
         public String getPackageName() {
             return packageName;
@@ -105,27 +108,27 @@ public final class MacportsPackager extends AbstractRepositoryPackager<org.jrele
 
         @Override
         public org.jreleaser.model.api.common.CommitAuthor getCommitAuthor() {
-            return commitAuthor.asImmutable();
+            return MacportsPackager.this.getCommitAuthor().asImmutable();
         }
 
         @Override
         public String getTemplateDirectory() {
-            return templateDirectory;
+            return MacportsPackager.this.getTemplateDirectory();
         }
 
         @Override
         public List<String> getSkipTemplates() {
-            return unmodifiableList(skipTemplates);
+            return unmodifiableList(MacportsPackager.this.getSkipTemplates());
         }
 
         @Override
         public String getType() {
-            return type;
+            return MacportsPackager.this.getType();
         }
 
         @Override
         public String getDownloadUrl() {
-            return downloadUrl;
+            return MacportsPackager.this.getDownloadUrl();
         }
 
         @Override
@@ -160,7 +163,7 @@ public final class MacportsPackager extends AbstractRepositoryPackager<org.jrele
 
         @Override
         public Active getActive() {
-            return active;
+            return MacportsPackager.this.getActive();
         }
 
         @Override
@@ -180,7 +183,7 @@ public final class MacportsPackager extends AbstractRepositoryPackager<org.jrele
 
         @Override
         public Map<String, Object> getExtraProperties() {
-            return unmodifiableMap(extraProperties);
+            return unmodifiableMap(MacportsPackager.this.getExtraProperties());
         }
     };
 
@@ -206,7 +209,7 @@ public final class MacportsPackager extends AbstractRepositoryPackager<org.jrele
     public List<String> getResolvedMaintainers(JReleaserContext context) {
         if (maintainers.isEmpty()) {
             GithubReleaser github = context.getModel().getRelease().getGithub();
-            if (github != null) {
+            if (null != github) {
                 String maintainer = github.getUsername();
                 if (isNotBlank(maintainer)) {
                     maintainers.add("@" + maintainer);
@@ -274,7 +277,7 @@ public final class MacportsPackager extends AbstractRepositoryPackager<org.jrele
     }
 
     public PackagerRepository getPackagerRepository() {
-        return repository;
+        return getRepository();
     }
 
     @Override
@@ -299,6 +302,8 @@ public final class MacportsPackager extends AbstractRepositoryPackager<org.jrele
     }
 
     public static final class MacportsRepository extends PackagerRepository {
+        private static final long serialVersionUID = 2162971034366096607L;
+
         public MacportsRepository() {
             super("macports", "macports");
         }

@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,13 +19,10 @@ package org.jreleaser.model.internal.files;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.jreleaser.model.Active;
-import org.jreleaser.model.internal.common.AbstractModelObject;
-import org.jreleaser.model.internal.common.Activatable;
+import org.jreleaser.model.internal.common.AbstractActivatable;
 import org.jreleaser.model.internal.common.Artifact;
 import org.jreleaser.model.internal.common.Domain;
 import org.jreleaser.model.internal.common.Glob;
-import org.jreleaser.model.internal.project.Project;
-import org.jreleaser.util.Env;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -43,18 +40,19 @@ import static java.util.stream.Collectors.toSet;
  * @author Andres Almiray
  * @since 0.1.0
  */
-public final class Files extends AbstractModelObject<Files> implements Domain, Activatable {
+public final class Files extends AbstractActivatable<Files> implements Domain {
+    private static final long serialVersionUID = -7799032884331569570L;
+
     private final Set<Artifact> artifacts = new LinkedHashSet<>();
     private final List<Glob> globs = new ArrayList<>();
     @JsonIgnore
     private final Set<Artifact> paths = new LinkedHashSet<>();
     @JsonIgnore
     private boolean resolved;
-    private Active active;
-    @JsonIgnore
-    private boolean enabled;
 
     private final org.jreleaser.model.api.files.Files immutable = new org.jreleaser.model.api.files.Files() {
+        private static final long serialVersionUID = -328612924170955820L;
+
         private Set<? extends org.jreleaser.model.api.common.Artifact> paths;
         private Set<? extends org.jreleaser.model.api.common.Artifact> artifacts;
         private List<? extends org.jreleaser.model.api.common.Glob> globs;
@@ -91,7 +89,7 @@ public final class Files extends AbstractModelObject<Files> implements Domain, A
 
         @Override
         public Active getActive() {
-            return active;
+            return Files.this.getActive();
         }
 
         @Override
@@ -111,48 +109,9 @@ public final class Files extends AbstractModelObject<Files> implements Domain, A
 
     @Override
     public void merge(Files source) {
-        this.active = merge(this.active, source.active);
-        this.enabled = merge(this.enabled, source.enabled);
+        super.merge(source);
         setArtifacts(merge(this.artifacts, source.artifacts));
         setGlobs(merge(this.globs, source.globs));
-    }
-
-    @Override
-    public boolean isEnabled() {
-        return enabled;
-    }
-
-    public void disable() {
-        active = Active.NEVER;
-        enabled = false;
-    }
-
-    public boolean resolveEnabled(Project project) {
-        if (null == active) {
-            setActive(Env.resolveOrDefault("files.active", "", "NEVER"));
-        }
-        enabled = active.check(project);
-        return enabled;
-    }
-
-    @Override
-    public Active getActive() {
-        return active;
-    }
-
-    @Override
-    public void setActive(Active active) {
-        this.active = active;
-    }
-
-    @Override
-    public void setActive(String str) {
-        setActive(Active.of(str));
-    }
-
-    @Override
-    public boolean isActiveSet() {
-        return active != null;
     }
 
     public boolean isEmpty() {
@@ -217,7 +176,7 @@ public final class Files extends AbstractModelObject<Files> implements Domain, A
 
         Map<String, Object> map = new LinkedHashMap<>();
         map.put("enabled", isEnabled());
-        map.put("active", active);
+        map.put("active", getActive());
 
         Map<String, Map<String, Object>> mappedArtifacts = new LinkedHashMap<>();
         int i = 0;

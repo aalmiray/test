@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,6 +36,8 @@ import javax.inject.Inject
  */
 @CompileStatic
 abstract class JReleaserReleaseTask extends AbstractJReleaserDistributionTask {
+    static final String NAME = 'jreleaserRelease'
+
     @Input
     @Optional
     final ListProperty<String> deployerTypes
@@ -51,7 +53,7 @@ abstract class JReleaserReleaseTask extends AbstractJReleaserDistributionTask {
     @Input
     @Optional
     final ListProperty<String> excludedDeployerNames
-    
+
     @Input
     @Optional
     final ListProperty<String> uploaderTypes
@@ -100,7 +102,7 @@ abstract class JReleaserReleaseTask extends AbstractJReleaserDistributionTask {
     void setExcludeDeployerName(List<String> excludedDeployerNames) {
         this.excludedDeployerNames.set(excludedDeployerNames)
     }
-    
+
     @Option(option = 'uploader', description = 'Include an uploader by type (OPTIONAL).')
     void setUploaderType(List<String> uploaderTypes) {
         this.uploaderTypes.set(uploaderTypes)

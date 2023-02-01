@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,8 @@
  */
 package org.jreleaser.model.api.announce;
 
+import java.util.List;
+
 /**
  * @author Andres Almiray
  * @since 0.4.0
@@ -30,4 +32,8 @@ public interface MastodonAnnouncer extends Announcer {
     String getAccessToken();
 
     String getStatus();
+
+    List<String> getStatuses();
+
+    String getStatusTemplate();
 }

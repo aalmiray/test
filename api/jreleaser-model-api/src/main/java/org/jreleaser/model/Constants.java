@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,6 +27,11 @@ public interface Constants {
 
     String MAGIC_SET = "__MAGIC_SET__";
     String SKIP_OPENJDK = "skipOpenjdk";
+    String DEFAULT_GIT_REMOTE = "DEFAULT_GIT_REMOTE";
+    String JRELEASER_USER_HOME = "JRELEASER_USER_HOME";
+    String XDG_CONFIG_HOME = "XDG_CONFIG_HOME";
+    String XDG_CACHE_HOME = "XDG_CACHE_HOME";
+    String OPTIONAL = "optional";
 
     // General
     String KEY_ZONED_DATE_TIME_NOW = "__ZonedDateTime_now__";
@@ -51,11 +56,11 @@ public interface Constants {
     String KEY_VERSION_MICRO = "versionMicro";
     String KEY_VERSION_MODIFIER = "versionModifier";
     String KEY_VERSION_WITH_UNDERSCORES = "versionWithUnderscores";
-    String KEY_VERSION_WITH_DASHES      = "versionWithDashes";
+    String KEY_VERSION_WITH_DASHES = "versionWithDashes";
     String KEY_VERSION_NUMBER_WITH_UNDERSCORES = "versionNumberWithUnderscores";
-    String KEY_VERSION_NUMBER_WITH_DASHES      = "versionNumberWithDashes";
+    String KEY_VERSION_NUMBER_WITH_DASHES = "versionNumberWithDashes";
     String KEY_EFFECTIVE_VERSION_WITH_UNDERSCORES = "effectiveVersionWithUnderscores";
-    String KEY_EFFECTIVE_VERSION_WITH_DASHES      = "effectiveVersionWithDashes";
+    String KEY_EFFECTIVE_VERSION_WITH_DASHES = "effectiveVersionWithDashes";
 
     // Project
     String KEY_PROJECT_NAME = "projectName";
@@ -103,6 +108,7 @@ public interface Constants {
     String KEY_PROJECT_IDENTIFIER = "projectIdentifier";
     String KEY_REPO_BRANCH = "repoBranch";
     String KEY_TAG_NAME = "tagName";
+    String KEY_PREVIOUS_TAG_NAME = "previousTagName";
     String KEY_RELEASE_NAME = "releaseName";
     String KEY_MILESTONE_NAME = "milestoneName";
     String KEY_CANONICAL_REPO_NAME = "repoCanonicalName";
@@ -118,6 +124,8 @@ public interface Constants {
     String KEY_CHANGELOG = "changelog";
     String KEY_CHANGELOG_CHANGES = "changelogChanges";
     String KEY_CHANGELOG_CONTRIBUTORS = "changelogContributors";
+    String KEY_CHANGELOG_CONTENT = "changelogContent";
+    String KEY_CHANGELOG_TITLE = "changelogTitle";
 
     // Distribution
     String KEY_DISTRIBUTION_NAME = "distributionName";
@@ -200,6 +208,9 @@ public interface Constants {
     // Brew
     String KEY_BREW_FORMULA_NAME = "brewFormulaName";
     String KEY_BREW_DEPENDENCIES = "brewDependencies";
+    String KEY_HOMEBREW_TAP_REPO_OWNER = "brewTapRepoOwner";
+    String KEY_HOMEBREW_TAP_REPO_NAME = "brewTapRepoName";
+    String KEY_HOMEBREW_TAP_NAME = "brewTapName";
     String KEY_HOMEBREW_TAP_REPO_URL = "brewTapRepoUrl";
     String KEY_HOMEBREW_TAP_REPO_CLONE_URL = "brewTapRepoCloneUrl";
     String KEY_BREW_HAS_LIVECHECK = "brewHasLivecheck";
@@ -316,7 +327,31 @@ public interface Constants {
     String KEY_FLATPAK_RUNTIME = "flatpakRuntime";
     String KEY_FLATPAK_RUNTIME_VERSION = "flatpakRuntimeVersion";
     String KEY_FLATPAK_SDK = "flatpakSdk";
-    String KEY_FLATPAK_INCLUDE_OPENJDK = "flatpakIncludeOpendJdk";
+    String KEY_FLATPAK_INCLUDE_OPENJDK = "flatpakIncludeOpenJdk";
+
+    // winget
+    String KEY_WINGET_PACKAGE_IDENTIFIER = "wingetPackageIdentifier";
+    String KEY_WINGET_PACKAGE_NAME = "wingetPackageName";
+    String KEY_WINGET_PACKAGE_VERSION = "wingetPackageVersion";
+    String KEY_WINGET_PACKAGE_URL = "wingetPackageUrl";
+    String KEY_WINGET_PACKAGE_LOCALE = "wingetPackageLocale";
+    String KEY_WINGET_PUBLISHER_NAME = "wingetPackagePublisher";
+    String KEY_WINGET_PUBLISHER_URL = "wingetPublisherUrl";
+    String KEY_WINGET_PUBLISHER_SUPPORT_URL = "wingetPublisherSupportUrl";
+    String KEY_WINGET_DEFAULT_LOCALE = "wingetDefaultLocale";
+    String KEY_WINGET_AUTHOR = "wingetAuthor";
+    String KEY_WINGET_MONIKER = "wingetMoniker";
+    String KEY_WINGET_MINIMUM_OS_VERSION = "wingetMinimumOsVersion";
+    String KEY_WINGET_PRODUCT_CODE = "wingetProductCode";
+    String KEY_WINGET_HAS_TAGS = "wingetHasTags";
+    String KEY_WINGET_TAGS = "wingetTags";
+    String KEY_WINGET_MANIFEST_TYPE = "wingetManifestType";
+    String KEY_WINGET_INSTALLER_TYPE = "wingetInstallerType";
+    String KEY_WINGET_SCOPE= "wingetScope";
+    String KEY_WINGET_INSTALL_MODES= "wingetInstallModes";
+    String KEY_WINGET_UPGRADE_BEHAVIOR= "wingetUpgradeBehavior";
+    String KEY_WINGET_RELEASE_DATE= "wingetReleaseDate";
+    String KEY_WINGET_INSTALLER_ARCHITECTURE= "wingetInstallerArchitecture";
 
     // Gofish
     String KEY_GOFISH_PACKAGES = "gofishPackages";
@@ -341,4 +376,6 @@ public interface Constants {
     String KEY_PACKAGE_DIRECTORY = "packageDirectory";
     String KEY_DISTRIBUTION_PREPARE_DIRECTORY = "distributionPrepareDirectory";
     String KEY_DISTRIBUTION_PACKAGE_DIRECTORY = "distributionPackageDirectory";
+
+    String KEY_GRAALVM_NAGIVE_IMAGE = "graalVMNativeImage";
 }

@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,24 +18,29 @@
 package org.jreleaser.model.internal.validation.download;
 
 import org.jreleaser.bundle.RB;
-import org.jreleaser.model.Active;
 import org.jreleaser.model.api.JReleaserContext.Mode;
 import org.jreleaser.model.internal.JReleaserContext;
 import org.jreleaser.model.internal.download.Downloader;
 import org.jreleaser.model.internal.download.HttpDownloader;
-import org.jreleaser.model.internal.validation.common.Validator;
-import org.jreleaser.util.Env;
+import org.jreleaser.model.internal.validation.common.HttpValidator;
 import org.jreleaser.util.Errors;
 
 import java.util.Map;
 
+import static org.jreleaser.model.internal.validation.common.Validator.resolveActivatable;
+import static org.jreleaser.model.internal.validation.common.Validator.validateTimeout;
+import static org.jreleaser.util.CollectionUtils.listOf;
 import static org.jreleaser.util.StringUtils.isBlank;
 
 /**
  * @author Andres Almiray
  * @since 1.1.0
  */
-public abstract class HttpDownloaderValidator extends Validator {
+public final class HttpDownloaderValidator {
+    private HttpDownloaderValidator() {
+        // noop
+    }
+
     public static void validateHttpDownloader(JReleaserContext context, Mode mode, Errors errors) {
         Map<String, HttpDownloader> http = context.getModel().getDownload().getHttp();
         if (!http.isEmpty()) context.getLogger().debug("download.http");
@@ -43,62 +48,32 @@ public abstract class HttpDownloaderValidator extends Validator {
         for (Map.Entry<String, HttpDownloader> e : http.entrySet()) {
             e.getValue().setName(e.getKey());
             if (mode.validateConfig() || mode.validateDownload()) {
-                validateHttp(context, mode, e.getValue(), errors);
+                validateHttp(context, e.getValue(), errors);
             }
         }
     }
 
-    private static void validateHttp(JReleaserContext context, Mode mode, HttpDownloader http, Errors errors) {
+    private static void validateHttp(JReleaserContext context, HttpDownloader http, Errors errors) {
         context.getLogger().debug("download.http.{}", http.getName());
 
-        if (!http.isActiveSet()) {
-            http.setActive(Active.ALWAYS);
-        }
+        resolveActivatable(context, http,
+            listOf("download.http." + http.getName(), "download.http"),
+            "ALWAYS");
         if (!http.resolveEnabled(context.getModel().getProject())) {
             context.getLogger().debug(RB.$("validation.disabled"));
             return;
         }
 
-        switch (http.resolveAuthorization()) {
-            case BEARER:
-                http.setPassword(
-                    checkProperty(context,
-                        "HTTP_" + Env.toVar(http.getName()) + "_PASSWORD",
-                        "http.password",
-                        http.getPassword(),
-                        errors,
-                        context.isDryrun()));
-                break;
-            case BASIC:
-                http.setUsername(
-                    checkProperty(context,
-                        "HTTP_" + Env.toVar(http.getName()) + "_USERNAME",
-                        "http.username",
-                        http.getUsername(),
-                        errors,
-                        context.isDryrun()));
-
-                http.setPassword(
-                    checkProperty(context,
-                        "HTTP_" + Env.toVar(http.getName()) + "_PASSWORD",
-                        "http.password",
-                        http.getPassword(),
-                        errors,
-                        context.isDryrun()));
-                break;
-            case NONE:
-                break;
-        }
-
+        HttpValidator.validateHttp(context, http, "download", http.getName(), errors);
         validateTimeout(http);
 
         if (http.getAssets().isEmpty()) {
-            errors.configuration(RB.$("validation_must_not_be_empty", "http." + http.getName() + ".assets"));
+            errors.configuration(RB.$("validation_must_not_be_empty", "download.http." + http.getName() + ".assets"));
         } else {
             int index = 0;
             for (Downloader.Asset asset : http.getAssets()) {
                 if (isBlank(asset.getInput())) {
-                    errors.configuration(RB.$("validation_must_not_be_null", "http." + http.getName() + ".asset[" + (index++) + "].input"));
+                    errors.configuration(RB.$("validation_must_not_be_null", "download.http." + http.getName() + ".asset[" + (index++) + "].input"));
                 }
             }
         }

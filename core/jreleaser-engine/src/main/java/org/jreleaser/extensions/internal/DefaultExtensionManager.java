@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -51,7 +51,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.ServiceLoader;
 import java.util.Set;
+import java.util.stream.Stream;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.nio.file.StandardOpenOption.TRUNCATE_EXISTING;
 import static java.nio.file.StandardOpenOption.WRITE;
 import static java.util.stream.Collectors.toList;
@@ -102,6 +104,7 @@ public final class DefaultExtensionManager implements ExtensionManager {
         context.setWorkflowListeners(findExtensionPoints(WorkflowListener.class));
     }
 
+    @Override
     public <T extends ExtensionPoint> Set<T> findExtensionPoints(Class<T> extensionPointType) {
         return (Set<T>) extensionPoints.computeIfAbsent(extensionPointType.getName(), k -> {
             Set<T> set = new LinkedHashSet<>();
@@ -134,8 +137,8 @@ public final class DefaultExtensionManager implements ExtensionManager {
         }
 
         List<Path> jars = null;
-        try {
-            jars = Files.list(directoryPath)
+        try (Stream<Path> jarPaths = Files.list(directoryPath)) {
+            jars = jarPaths
                 .filter(path -> path.getFileName().toString().endsWith(".jar"))
                 .collect(toList());
         } catch (IOException e) {
@@ -189,11 +192,11 @@ public final class DefaultExtensionManager implements ExtensionManager {
             String[] gav = extensionDef.getGav().split(":");
 
             String content = IOUtils.toString(template.getReader());
-            content = content.replaceAll("@groupId@", gav[0])
-                .replaceAll("@artifactId@", gav[1])
-                .replaceAll("@version@", gav[2]);
+            content = content.replace("@groupId@", gav[0])
+                .replace("@artifactId@", gav[1])
+                .replace("@version@", gav[2]);
 
-            Files.write(pom, content.getBytes(), WRITE, TRUNCATE_EXISTING);
+            Files.write(pom, content.getBytes(UTF_8), WRITE, TRUNCATE_EXISTING);
 
             List<String> args = new ArrayList<>();
             args.add("-B");

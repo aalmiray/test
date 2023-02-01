@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,7 +22,6 @@ import org.jreleaser.model.JReleaserException;
 import org.jreleaser.model.internal.JReleaserContext;
 import org.jreleaser.model.internal.assemble.JpackageAssembler;
 import org.jreleaser.model.internal.common.Artifact;
-import org.jreleaser.model.internal.validation.common.Validator;
 import org.jreleaser.util.Errors;
 
 import java.io.IOException;
@@ -36,7 +35,11 @@ import static org.jreleaser.util.FileUtils.listFilesAndProcess;
  * @author Andres Almiray
  * @since 0.10.0
  */
-public abstract class JpackageAssemblerResolver extends Validator {
+public final class JpackageAssemblerResolver {
+    private JpackageAssemblerResolver() {
+        // noop
+    }
+
     public static void resolveJpackageOutputs(JReleaserContext context, Errors errors) {
         List<JpackageAssembler> activeJpackages = context.getModel().getAssemble().getActiveJpackages();
         if (!activeJpackages.isEmpty()) context.getLogger().debug("assemble.jpackage");

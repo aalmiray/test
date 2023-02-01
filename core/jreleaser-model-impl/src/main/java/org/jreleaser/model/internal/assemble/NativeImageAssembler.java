@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,19 +17,18 @@
  */
 package org.jreleaser.model.internal.assemble;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.jreleaser.model.Active;
 import org.jreleaser.model.Archive;
 import org.jreleaser.model.Distribution;
 import org.jreleaser.model.Stereotype;
 import org.jreleaser.model.internal.JReleaserContext;
+import org.jreleaser.model.internal.common.AbstractActivatable;
 import org.jreleaser.model.internal.common.AbstractModelObject;
-import org.jreleaser.model.internal.common.Activatable;
 import org.jreleaser.model.internal.common.Artifact;
 import org.jreleaser.model.internal.common.Domain;
 import org.jreleaser.model.internal.common.FileSet;
 import org.jreleaser.model.internal.common.Glob;
-import org.jreleaser.model.internal.project.Project;
+import org.jreleaser.mustache.TemplateContext;
 import org.jreleaser.util.PlatformUtils;
 
 import java.util.ArrayList;
@@ -54,6 +53,8 @@ import static org.jreleaser.util.StringUtils.isBlank;
  * @since 0.2.0
  */
 public final class NativeImageAssembler extends AbstractJavaAssembler<NativeImageAssembler, org.jreleaser.model.api.assemble.NativeImageAssembler> {
+    private static final long serialVersionUID = -8815074350596679986L;
+
     private final List<String> args = new ArrayList<>();
     private final Set<String> components = new LinkedHashSet<>();
     private final Artifact graal = new Artifact();
@@ -68,6 +69,8 @@ public final class NativeImageAssembler extends AbstractJavaAssembler<NativeImag
     private Archive.Format archiveFormat;
 
     private final org.jreleaser.model.api.assemble.NativeImageAssembler immutable = new org.jreleaser.model.api.assemble.NativeImageAssembler() {
+        private static final long serialVersionUID = 9006136650468947726L;
+
         private Set<? extends org.jreleaser.model.api.common.Artifact> graalJdks;
         private List<? extends org.jreleaser.model.api.common.FileSet> fileSets;
         private Set<? extends org.jreleaser.model.api.common.Artifact> outputs;
@@ -136,28 +139,28 @@ public final class NativeImageAssembler extends AbstractJavaAssembler<NativeImag
 
         @Override
         public String getExecutable() {
-            return executable;
+            return NativeImageAssembler.this.getExecutable();
         }
 
         @Override
         public String getTemplateDirectory() {
-            return templateDirectory;
+            return NativeImageAssembler.this.getTemplateDirectory();
         }
 
         @Override
         public org.jreleaser.model.api.common.Java getJava() {
-            return java.asImmutable();
+            return NativeImageAssembler.this.getJava().asImmutable();
         }
 
         @Override
         public org.jreleaser.model.api.common.Artifact getMainJar() {
-            return mainJar.asImmutable();
+            return NativeImageAssembler.this.getMainJar().asImmutable();
         }
 
         @Override
         public List<? extends org.jreleaser.model.api.common.Glob> getJars() {
             if (null == jars) {
-                jars = NativeImageAssembler.this.jars.stream()
+                jars = NativeImageAssembler.this.getJars().stream()
                     .map(Glob::asImmutable)
                     .collect(toList());
             }
@@ -167,7 +170,7 @@ public final class NativeImageAssembler extends AbstractJavaAssembler<NativeImag
         @Override
         public List<? extends org.jreleaser.model.api.common.Glob> getFiles() {
             if (null == files) {
-                files = NativeImageAssembler.this.files.stream()
+                files = NativeImageAssembler.this.getFiles().stream()
                     .map(Glob::asImmutable)
                     .collect(toList());
             }
@@ -176,7 +179,7 @@ public final class NativeImageAssembler extends AbstractJavaAssembler<NativeImag
 
         @Override
         public org.jreleaser.model.api.platform.Platform getPlatform() {
-            return platform.asImmutable();
+            return NativeImageAssembler.this.getPlatform().asImmutable();
         }
 
         @Override
@@ -186,7 +189,7 @@ public final class NativeImageAssembler extends AbstractJavaAssembler<NativeImag
 
         @Override
         public String getType() {
-            return type;
+            return NativeImageAssembler.this.getType();
         }
 
         @Override
@@ -201,13 +204,13 @@ public final class NativeImageAssembler extends AbstractJavaAssembler<NativeImag
 
         @Override
         public String getName() {
-            return name;
+            return NativeImageAssembler.this.getName();
         }
 
         @Override
         public List<? extends org.jreleaser.model.api.common.FileSet> getFileSets() {
             if (null == fileSets) {
-                fileSets = NativeImageAssembler.this.fileSets.stream()
+                fileSets = NativeImageAssembler.this.getFileSets().stream()
                     .map(FileSet::asImmutable)
                     .collect(toList());
             }
@@ -217,7 +220,7 @@ public final class NativeImageAssembler extends AbstractJavaAssembler<NativeImag
         @Override
         public Set<? extends org.jreleaser.model.api.common.Artifact> getOutputs() {
             if (null == outputs) {
-                outputs = NativeImageAssembler.this.outputs.stream()
+                outputs = NativeImageAssembler.this.getOutputs().stream()
                     .map(Artifact::asImmutable)
                     .collect(toSet());
             }
@@ -226,7 +229,7 @@ public final class NativeImageAssembler extends AbstractJavaAssembler<NativeImag
 
         @Override
         public Active getActive() {
-            return active;
+            return NativeImageAssembler.this.getActive();
         }
 
         @Override
@@ -246,7 +249,7 @@ public final class NativeImageAssembler extends AbstractJavaAssembler<NativeImag
 
         @Override
         public Map<String, Object> getExtraProperties() {
-            return unmodifiableMap(extraProperties);
+            return unmodifiableMap(NativeImageAssembler.this.getExtraProperties());
         }
     };
 
@@ -261,7 +264,7 @@ public final class NativeImageAssembler extends AbstractJavaAssembler<NativeImag
 
     @Override
     public Distribution.DistributionType getDistributionType() {
-        return Distribution.DistributionType.NATIVE_IMAGE;
+        return Distribution.DistributionType.BINARY;
     }
 
     @Override
@@ -281,15 +284,15 @@ public final class NativeImageAssembler extends AbstractJavaAssembler<NativeImag
     }
 
     public String getResolvedImageName(JReleaserContext context) {
-        Map<String, Object> props = context.getModel().props();
-        props.putAll(props());
+        TemplateContext props = context.getModel().props();
+        props.setAll(props());
         return resolveTemplate(imageName, props);
     }
 
     public String getResolvedImageNameTransform(JReleaserContext context) {
         if (isBlank(imageNameTransform)) return null;
-        Map<String, Object> props = context.getModel().props();
-        props.putAll(props());
+        TemplateContext props = context.getModel().props();
+        props.setAll(props());
         return resolveTemplate(imageNameTransform, props);
     }
 
@@ -437,15 +440,15 @@ public final class NativeImageAssembler extends AbstractJavaAssembler<NativeImag
         void setArgs(List<String> args);
     }
 
-    public static final class Upx extends AbstractModelObject<Upx> implements Domain, Activatable {
-        private final List<String> args = new ArrayList<>();
+    public static final class Upx extends AbstractActivatable<Upx> implements Domain {
+        private static final long serialVersionUID = -4962541080085819348L;
 
-        @JsonIgnore
-        private boolean enabled;
-        private Active active;
+        private final List<String> args = new ArrayList<>();
         private String version;
 
         private final org.jreleaser.model.api.assemble.NativeImageAssembler.Upx immutable = new org.jreleaser.model.api.assemble.NativeImageAssembler.Upx() {
+            private static final long serialVersionUID = 3190807504460186043L;
+
             @Override
             public String getVersion() {
                 return version;
@@ -458,7 +461,7 @@ public final class NativeImageAssembler extends AbstractJavaAssembler<NativeImag
 
             @Override
             public Active getActive() {
-                return active;
+                return Upx.this.getActive();
             }
 
             @Override
@@ -478,48 +481,9 @@ public final class NativeImageAssembler extends AbstractJavaAssembler<NativeImag
 
         @Override
         public void merge(Upx source) {
-            this.active = this.merge(this.active, source.active);
-            this.enabled = this.merge(this.enabled, source.enabled);
+            super.merge(source);
             this.version = this.merge(this.version, source.version);
             setArgs(merge(this.args, source.args));
-        }
-
-        @Override
-        public boolean isEnabled() {
-            return enabled;
-        }
-
-        public void disable() {
-            active = Active.NEVER;
-            enabled = false;
-        }
-
-        public boolean resolveEnabled(Project project) {
-            if (null == active) {
-                active = Active.NEVER;
-            }
-            enabled = active.check(project);
-            return enabled;
-        }
-
-        @Override
-        public Active getActive() {
-            return active;
-        }
-
-        @Override
-        public void setActive(Active active) {
-            this.active = active;
-        }
-
-        @Override
-        public void setActive(String str) {
-            setActive(Active.of(str));
-        }
-
-        @Override
-        public boolean isActiveSet() {
-            return active != null;
         }
 
         public String getVersion() {
@@ -545,16 +509,18 @@ public final class NativeImageAssembler extends AbstractJavaAssembler<NativeImag
 
             Map<String, Object> props = new LinkedHashMap<>();
             props.put("enabled", isEnabled());
-            props.put("active", active);
+            props.put("active", getActive());
             props.put("version", version);
 
             return props;
         }
     }
 
-    private static abstract class AbstractPlatformCustomizer<S extends AbstractPlatformCustomizer<S>> extends AbstractModelObject<S> implements PlatformCustomizer {
-        protected final List<String> args = new ArrayList<>();
-        protected final String platform;
+    private abstract static class AbstractPlatformCustomizer<S extends AbstractPlatformCustomizer<S>> extends AbstractModelObject<S> implements PlatformCustomizer {
+        private static final long serialVersionUID = 8640931163688760790L;
+
+        private final List<String> args = new ArrayList<>();
+        private final String platform;
 
         protected AbstractPlatformCustomizer(String platform) {
             this.platform = platform;
@@ -562,9 +528,10 @@ public final class NativeImageAssembler extends AbstractJavaAssembler<NativeImag
 
         @Override
         public void merge(S source) {
-            setArgs(merge(this.args, source.args));
+            setArgs(merge(this.args, source.getArgs()));
         }
 
+        @Override
         public List<String> getArgs() {
             return args;
         }
@@ -575,6 +542,7 @@ public final class NativeImageAssembler extends AbstractJavaAssembler<NativeImag
             this.args.addAll(args);
         }
 
+        @Override
         public String getPlatform() {
             return platform;
         }
@@ -591,15 +559,19 @@ public final class NativeImageAssembler extends AbstractJavaAssembler<NativeImag
     }
 
     public static final class Linux extends NativeImageAssembler.AbstractPlatformCustomizer<Linux> {
+        private static final long serialVersionUID = -7751015791770722168L;
+
         private final org.jreleaser.model.api.assemble.NativeImageAssembler.Linux immutable = new org.jreleaser.model.api.assemble.NativeImageAssembler.Linux() {
+            private static final long serialVersionUID = -4020602674846221641L;
+
             @Override
             public String getPlatform() {
-                return platform;
+                return Linux.this.getPlatform();
             }
 
             @Override
             public List<String> getArgs() {
-                return unmodifiableList(args);
+                return unmodifiableList(Linux.this.getArgs());
             }
 
             @Override
@@ -618,15 +590,19 @@ public final class NativeImageAssembler extends AbstractJavaAssembler<NativeImag
     }
 
     public static final class Windows extends NativeImageAssembler.AbstractPlatformCustomizer<Windows> {
+        private static final long serialVersionUID = -2310019463850744244L;
+
         private final org.jreleaser.model.api.assemble.NativeImageAssembler.Windows immutable = new org.jreleaser.model.api.assemble.NativeImageAssembler.Windows() {
+            private static final long serialVersionUID = 1216711581026682524L;
+
             @Override
             public String getPlatform() {
-                return platform;
+                return Windows.this.getPlatform();
             }
 
             @Override
             public List<String> getArgs() {
-                return unmodifiableList(args);
+                return unmodifiableList(Windows.this.getArgs());
             }
 
             @Override
@@ -645,15 +621,19 @@ public final class NativeImageAssembler extends AbstractJavaAssembler<NativeImag
     }
 
     public static final class Osx extends NativeImageAssembler.AbstractPlatformCustomizer<Osx> {
+        private static final long serialVersionUID = 1619426199448547975L;
+
         private final org.jreleaser.model.api.assemble.NativeImageAssembler.Osx immutable = new org.jreleaser.model.api.assemble.NativeImageAssembler.Osx() {
+            private static final long serialVersionUID = -4484609486153782109L;
+
             @Override
             public String getPlatform() {
-                return platform;
+                return Osx.this.getPlatform();
             }
 
             @Override
             public List<String> getArgs() {
-                return unmodifiableList(args);
+                return unmodifiableList(Osx.this.getArgs());
             }
 
             @Override

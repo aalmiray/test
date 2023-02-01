@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,9 +18,7 @@
 package org.jreleaser.model.internal.download;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import org.jreleaser.model.Active;
-import org.jreleaser.model.internal.common.AbstractModelObject;
-import org.jreleaser.model.internal.project.Project;
+import org.jreleaser.model.internal.common.AbstractActivatable;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -32,18 +30,17 @@ import java.util.Map;
  * @author Andres Almiray
  * @since 1.1.0
  */
-public abstract class AbstractDownloader<A extends org.jreleaser.model.api.download.Downloader, S extends AbstractDownloader<A, S>> extends AbstractModelObject<S> implements Downloader<A> {
+public abstract class AbstractDownloader<A extends org.jreleaser.model.api.download.Downloader, S extends AbstractDownloader<A, S>> extends AbstractActivatable<S> implements Downloader<A> {
+    private static final long serialVersionUID = -4493344175741414422L;
+
     @JsonIgnore
-    protected final String type;
-    protected final Map<String, Object> extraProperties = new LinkedHashMap<>();
-    protected final List<Asset> assets = new ArrayList<>();
+    private final String type;
+    private final Map<String, Object> extraProperties = new LinkedHashMap<>();
+    private final List<Asset> assets = new ArrayList<>();
     @JsonIgnore
-    protected String name;
-    @JsonIgnore
-    protected boolean enabled;
-    protected Active active;
-    protected Integer connectTimeout;
-    protected Integer readTimeout;
+    private String name;
+    private Integer connectTimeout;
+    private Integer readTimeout;
 
     protected AbstractDownloader(String type) {
         this.type = type;
@@ -51,36 +48,17 @@ public abstract class AbstractDownloader<A extends org.jreleaser.model.api.downl
 
     @Override
     public void merge(S source) {
-        this.name = merge(this.name, source.name);
-        this.active = merge(this.active, source.active);
-        this.enabled = merge(this.enabled, source.enabled);
-        this.connectTimeout = merge(this.connectTimeout, source.connectTimeout);
-        this.readTimeout = merge(this.readTimeout, source.readTimeout);
-        setExtraProperties(merge(this.extraProperties, source.extraProperties));
-        setAssets(merge(this.assets, source.assets));
+        super.merge(source);
+        this.name = merge(this.name, source.getName());
+        this.connectTimeout = merge(this.connectTimeout, source.getConnectTimeout());
+        this.readTimeout = merge(this.readTimeout, source.getReadTimeout());
+        setExtraProperties(merge(this.extraProperties, source.getExtraProperties()));
+        setAssets(merge(this.assets, source.getAssets()));
     }
 
     @Override
     public String getPrefix() {
-        return type;
-    }
-
-    @Override
-    public boolean isEnabled() {
-        return enabled;
-    }
-
-    public void disable() {
-        active = Active.NEVER;
-        enabled = false;
-    }
-
-    public boolean resolveEnabled(Project project) {
-        if (null == active) {
-            active = Active.ALWAYS;
-        }
-        enabled = active.check(project);
-        return enabled;
+        return getType();
     }
 
     @Override
@@ -88,28 +66,9 @@ public abstract class AbstractDownloader<A extends org.jreleaser.model.api.downl
         return name;
     }
 
+    @Override
     public void setName(String name) {
         this.name = name;
-    }
-
-    @Override
-    public Active getActive() {
-        return active;
-    }
-
-    @Override
-    public void setActive(Active active) {
-        this.active = active;
-    }
-
-    @Override
-    public void setActive(String str) {
-        setActive(Active.of(str));
-    }
-
-    @Override
-    public boolean isActiveSet() {
-        return active != null;
     }
 
     @Override
@@ -158,11 +117,13 @@ public abstract class AbstractDownloader<A extends org.jreleaser.model.api.downl
         return assets;
     }
 
+    @Override
     public void setAssets(List<Asset> assets) {
         this.assets.clear();
         this.assets.addAll(assets);
     }
 
+    @Override
     public void addAsset(Asset asset) {
         if (null != asset) {
             this.assets.add(asset);
@@ -175,7 +136,7 @@ public abstract class AbstractDownloader<A extends org.jreleaser.model.api.downl
 
         Map<String, Object> props = new LinkedHashMap<>();
         props.put("enabled", isEnabled());
-        props.put("active", active);
+        props.put("active", getActive());
         props.put("connectTimeout", connectTimeout);
         props.put("readTimeout", readTimeout);
         asMap(full, props);

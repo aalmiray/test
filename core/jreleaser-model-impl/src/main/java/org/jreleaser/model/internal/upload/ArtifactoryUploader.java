@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,11 +20,11 @@ package org.jreleaser.model.internal.upload;
 import org.jreleaser.model.Active;
 import org.jreleaser.model.Http;
 import org.jreleaser.model.internal.JReleaserContext;
-import org.jreleaser.model.internal.common.AbstractModelObject;
-import org.jreleaser.model.internal.common.Activatable;
+import org.jreleaser.model.internal.common.AbstractActivatable;
 import org.jreleaser.model.internal.common.Artifact;
 import org.jreleaser.model.internal.common.Domain;
-import org.jreleaser.model.internal.project.Project;
+import org.jreleaser.model.internal.common.HttpDelegate;
+import org.jreleaser.mustache.TemplateContext;
 import org.jreleaser.mustache.Templates;
 import org.jreleaser.util.FileType;
 
@@ -39,23 +39,23 @@ import java.util.Set;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.Collections.unmodifiableSet;
 import static java.util.stream.Collectors.toList;
-import static org.jreleaser.model.Constants.HIDE;
-import static org.jreleaser.model.Constants.UNSET;
 import static org.jreleaser.util.StringUtils.getFilename;
-import static org.jreleaser.util.StringUtils.isNotBlank;
 
 /**
  * @author Andres Almiray
  * @since 0.3.0
  */
-public final class ArtifactoryUploader extends AbstractUploader<org.jreleaser.model.api.upload.ArtifactoryUploader, ArtifactoryUploader> {
+public final class ArtifactoryUploader extends AbstractUploader<org.jreleaser.model.api.upload.ArtifactoryUploader, ArtifactoryUploader>
+    implements org.jreleaser.model.internal.common.Http {
+    private static final long serialVersionUID = 3514827122618864142L;
+
+    private final HttpDelegate delegate = new HttpDelegate();
     private final List<ArtifactoryRepository> repositories = new ArrayList<>();
     private String host;
-    private String username;
-    private String password;
-    private Http.Authorization authorization;
 
     private final org.jreleaser.model.api.upload.ArtifactoryUploader immutable = new org.jreleaser.model.api.upload.ArtifactoryUploader() {
+        private static final long serialVersionUID = -6040496931102283198L;
+
         private List<? extends org.jreleaser.model.api.upload.ArtifactoryUploader.ArtifactoryRepository> repositories;
 
         @Override
@@ -65,17 +65,17 @@ public final class ArtifactoryUploader extends AbstractUploader<org.jreleaser.mo
 
         @Override
         public String getUsername() {
-            return username;
+            return ArtifactoryUploader.this.getUsername();
         }
 
         @Override
         public String getPassword() {
-            return password;
+            return ArtifactoryUploader.this.getPassword();
         }
 
         @Override
         public Http.Authorization getAuthorization() {
-            return authorization;
+            return ArtifactoryUploader.this.getAuthorization();
         }
 
         @Override
@@ -90,12 +90,12 @@ public final class ArtifactoryUploader extends AbstractUploader<org.jreleaser.mo
 
         @Override
         public String getType() {
-            return type;
+            return ArtifactoryUploader.this.getType();
         }
 
         @Override
         public String getName() {
-            return name;
+            return ArtifactoryUploader.this.getName();
         }
 
         @Override
@@ -125,7 +125,7 @@ public final class ArtifactoryUploader extends AbstractUploader<org.jreleaser.mo
 
         @Override
         public Active getActive() {
-            return active;
+            return ArtifactoryUploader.this.getActive();
         }
 
         @Override
@@ -145,17 +145,17 @@ public final class ArtifactoryUploader extends AbstractUploader<org.jreleaser.mo
 
         @Override
         public Map<String, Object> getExtraProperties() {
-            return unmodifiableMap(extraProperties);
+            return unmodifiableMap(ArtifactoryUploader.this.getExtraProperties());
         }
 
         @Override
         public Integer getConnectTimeout() {
-            return connectTimeout;
+            return ArtifactoryUploader.this.getConnectTimeout();
         }
 
         @Override
         public Integer getReadTimeout() {
-            return readTimeout;
+            return ArtifactoryUploader.this.getReadTimeout();
         }
     };
 
@@ -172,10 +172,13 @@ public final class ArtifactoryUploader extends AbstractUploader<org.jreleaser.mo
     public void merge(ArtifactoryUploader source) {
         super.merge(source);
         this.host = merge(this.host, source.host);
-        this.username = merge(this.username, source.username);
-        this.password = merge(this.password, source.password);
-        this.authorization = merge(this.authorization, source.authorization);
+        this.delegate.merge(source.delegate);
         setRepositories(merge(this.repositories, source.repositories));
+    }
+
+    @Override
+    public Map<String, String> getHeaders() {
+        return delegate.getHeaders();
     }
 
     public String getHost() {
@@ -186,32 +189,48 @@ public final class ArtifactoryUploader extends AbstractUploader<org.jreleaser.mo
         this.host = host;
     }
 
+    @Override
     public String getUsername() {
-        return username;
+        return delegate.getUsername();
     }
 
+    @Override
     public void setUsername(String username) {
-        this.username = username;
+        delegate.setUsername(username);
     }
 
+    @Override
     public String getPassword() {
-        return password;
+        return delegate.getPassword();
     }
 
+    @Override
     public void setPassword(String password) {
-        this.password = password;
+        delegate.setPassword(password);
     }
 
+    @Override
     public Http.Authorization getAuthorization() {
-        return authorization;
+        return delegate.getAuthorization();
     }
 
+    @Override
     public void setAuthorization(Http.Authorization authorization) {
-        this.authorization = authorization;
+        delegate.setAuthorization(authorization);
     }
 
+    @Override
     public void setAuthorization(String authorization) {
-        this.authorization = Http.Authorization.of(authorization);
+        delegate.setAuthorization(authorization);
+    }
+
+    @Override
+    public Http.Authorization resolveAuthorization() {
+        if (null == delegate.getAuthorization()) {
+            delegate.setAuthorization(Http.Authorization.BEARER);
+        }
+
+        return delegate.getAuthorization();
     }
 
     public List<ArtifactoryRepository> getRepositories() {
@@ -231,23 +250,13 @@ public final class ArtifactoryUploader extends AbstractUploader<org.jreleaser.mo
 
     @Override
     protected void asMap(boolean full, Map<String, Object> props) {
-        props.put("authorization", authorization);
         props.put("host", host);
-        props.put("username", isNotBlank(username) ? HIDE : UNSET);
-        props.put("password", isNotBlank(password) ? HIDE : UNSET);
+        delegate.asMap(props);
         List<Map<String, Object>> repositories = this.repositories.stream()
             .filter(d -> full || d.isEnabled())
             .map(d -> d.asMap(full))
             .collect(toList());
         if (!repositories.isEmpty()) props.put("repositories", repositories);
-    }
-
-    public Http.Authorization resolveAuthorization() {
-        if (null == authorization) {
-            authorization = Http.Authorization.BEARER;
-        }
-
-        return authorization;
     }
 
     @Override
@@ -256,7 +265,7 @@ public final class ArtifactoryUploader extends AbstractUploader<org.jreleaser.mo
     }
 
     @Override
-    public String getResolvedDownloadUrl(Map<String, Object> props, Artifact artifact) {
+    public String getResolvedDownloadUrl(TemplateContext props, Artifact artifact) {
         return resolveUrl(props, artifact);
     }
 
@@ -264,16 +273,16 @@ public final class ArtifactoryUploader extends AbstractUploader<org.jreleaser.mo
         return resolveUrl(context.fullProps(), artifact);
     }
 
-    private String resolveUrl(Map<String, Object> props, Artifact artifact) {
-        Map<String, Object> p = new LinkedHashMap<>(artifactProps(props, artifact));
-        p.put("artifactoryHost", host);
+    private String resolveUrl(TemplateContext props, Artifact artifact) {
+        TemplateContext p = new TemplateContext(artifactProps(props, artifact));
+        p.set("artifactoryHost", host);
 
         Optional<ArtifactoryRepository> repository = repositories.stream()
             .filter(r -> r.handles(artifact))
             .findFirst();
 
         if (repository.isPresent()) {
-            p.put("repositoryPath", repository.get().getPath());
+            p.set("repositoryPath", repository.get().getPath());
             String url = "{{artifactoryHost}}/{{repositoryPath}}";
             return Templates.resolveTemplate(url, p);
         }
@@ -281,14 +290,16 @@ public final class ArtifactoryUploader extends AbstractUploader<org.jreleaser.mo
         return "";
     }
 
-    public static final class ArtifactoryRepository extends AbstractModelObject<ArtifactoryRepository> implements Domain, Activatable {
+    public static final class ArtifactoryRepository extends AbstractActivatable<ArtifactoryRepository> implements Domain {
+        private static final long serialVersionUID = -8740453953809523210L;
+
         private final Set<FileType> fileTypes = new LinkedHashSet<>();
 
-        private Active active;
-        private boolean enabled;
         private String path;
 
         private final org.jreleaser.model.api.upload.ArtifactoryUploader.ArtifactoryRepository immutable = new org.jreleaser.model.api.upload.ArtifactoryUploader.ArtifactoryRepository() {
+            private static final long serialVersionUID = -954690979964972109L;
+
             @Override
             public String getPath() {
                 return path;
@@ -301,7 +312,7 @@ public final class ArtifactoryUploader extends AbstractUploader<org.jreleaser.mo
 
             @Override
             public Active getActive() {
-                return active;
+                return ArtifactoryRepository.this.getActive();
             }
 
             @Override
@@ -321,49 +332,9 @@ public final class ArtifactoryUploader extends AbstractUploader<org.jreleaser.mo
 
         @Override
         public void merge(ArtifactoryRepository source) {
-            this.active = merge(this.active, source.active);
-            this.enabled = merge(this.enabled, source.enabled);
+            super.merge(source);
             this.path = merge(this.path, source.path);
             setFileTypes(source.fileTypes);
-        }
-
-        @Override
-        public boolean isEnabled() {
-            return enabled;
-        }
-
-        @Override
-        public void disable() {
-            active = Active.NEVER;
-            enabled = false;
-        }
-
-        public boolean resolveEnabled(Project project) {
-            if (null == active) {
-                active = Active.RELEASE;
-            }
-            enabled = active.check(project);
-            return enabled;
-        }
-
-        @Override
-        public Active getActive() {
-            return active;
-        }
-
-        @Override
-        public void setActive(Active active) {
-            this.active = active;
-        }
-
-        @Override
-        public void setActive(String str) {
-            setActive(Active.of(str));
-        }
-
-        @Override
-        public boolean isActiveSet() {
-            return active != null;
         }
 
         public String getPath() {
@@ -391,14 +362,14 @@ public final class ArtifactoryUploader extends AbstractUploader<org.jreleaser.mo
         public Map<String, Object> asMap(boolean full) {
             Map<String, Object> map = new LinkedHashMap<>();
             map.put("enabled", isEnabled());
-            map.put("active", active);
+            map.put("active", getActive());
             map.put("path", path);
             map.put("fileTypes", fileTypes);
             return map;
         }
 
         public boolean handles(Artifact artifact) {
-            if (!enabled) return false;
+            if (!isEnabled()) return false;
             if (fileTypes.isEmpty()) return true;
 
             String artifactFileName = artifact.getResolvedPath().getFileName().toString();

@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,7 +20,6 @@ package org.jreleaser.model.internal.validation.announce;
 import org.jreleaser.bundle.RB;
 import org.jreleaser.model.internal.JReleaserContext;
 import org.jreleaser.model.internal.announce.DiscourseAnnouncer;
-import org.jreleaser.model.internal.validation.common.Validator;
 import org.jreleaser.util.Errors;
 
 import java.nio.file.Files;
@@ -28,6 +27,10 @@ import java.nio.file.Files;
 import static org.jreleaser.model.api.announce.DiscourseAnnouncer.DISCOURSE_API_KEY;
 import static org.jreleaser.model.api.announce.DiscourseAnnouncer.DISCOURSE_CATEGORY_NAME;
 import static org.jreleaser.model.api.announce.DiscourseAnnouncer.DISCOURSE_USERNAME;
+import static org.jreleaser.model.internal.validation.common.Validator.checkProperty;
+import static org.jreleaser.model.internal.validation.common.Validator.resolveActivatable;
+import static org.jreleaser.model.internal.validation.common.Validator.validateTimeout;
+import static org.jreleaser.util.CollectionUtils.listOf;
 import static org.jreleaser.util.StringUtils.isBlank;
 import static org.jreleaser.util.StringUtils.isNotBlank;
 
@@ -35,12 +38,17 @@ import static org.jreleaser.util.StringUtils.isNotBlank;
  * @author shblue21
  * @since 1.3.0
  */
-public abstract class DiscourseAnnouncerValidator extends Validator {
+public final class DiscourseAnnouncerValidator {
     private static final String DEFAULT_DISCOURSE_TPL = "src/jreleaser/templates/discourse.tpl";
+
+    private DiscourseAnnouncerValidator() {
+        // noop
+    }
 
     public static void validateDiscourse(JReleaserContext context, DiscourseAnnouncer discourse, Errors errors) {
         context.getLogger().debug("announce.discourse");
-        if (!discourse.resolveEnabled(context.getModel().getProject())) {
+        resolveActivatable(context, discourse, "announce.discourse", "NEVER");
+        if (!discourse.resolveEnabledWithSnapshot(context.getModel().getProject())) {
             context.getLogger().debug(RB.$("validation.disabled"));
             return;
         }
@@ -51,34 +59,36 @@ public abstract class DiscourseAnnouncerValidator extends Validator {
 
         discourse.setUsername(
             checkProperty(context,
-                DISCOURSE_USERNAME,
-                "discourse.username",
+                listOf(
+                    "announce.discourse.username",
+                    DISCOURSE_USERNAME),
+                "announce.discourse.username",
                 discourse.getUsername(),
                 errors,
                 context.isDryrun()));
 
         discourse.setApiKey(
             checkProperty(context,
-                DISCOURSE_API_KEY,
-                "discourse.apiKey",
+                listOf(
+                    "announce.discourse.api.key",
+                    DISCOURSE_API_KEY),
+                "announce.discourse.apiKey",
                 discourse.getApiKey(),
                 errors,
                 context.isDryrun()));
 
         discourse.setCategoryName(
             checkProperty(context,
-                DISCOURSE_CATEGORY_NAME,
-                "discourse.category",
+                listOf(
+                    "announce.discourse.category",
+                    DISCOURSE_CATEGORY_NAME),
+                "announce.discourse.category",
                 discourse.getCategoryName(),
                 errors,
                 context.isDryrun()));
 
         if (isBlank(discourse.getTitle())) {
             discourse.setTitle(RB.$("default.discussion.title"));
-        }
-
-        if (isBlank(discourse.getMessage()) && isBlank(discourse.getMessageTemplate())) {
-            discourse.setMessageTemplate(DEFAULT_DISCOURSE_TPL);
         }
 
         if (isBlank(discourse.getMessage()) && isBlank(discourse.getMessageTemplate())) {

@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,13 +28,13 @@ import org.jreleaser.model.internal.packagers.RepositoryTap;
 import org.jreleaser.model.internal.release.BaseReleaser;
 import org.jreleaser.model.spi.packagers.PackagerProcessingException;
 import org.jreleaser.model.spi.release.Repository;
+import org.jreleaser.mustache.TemplateContext;
 import org.jreleaser.sdk.git.JReleaserGpgSigner;
 import org.jreleaser.util.FileUtils;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Map;
 import java.util.function.Predicate;
 
 import static org.jreleaser.model.Constants.KEY_DISTRIBUTION_PACKAGE_DIRECTORY;
@@ -44,12 +44,13 @@ import static org.jreleaser.util.StringUtils.isNotBlank;
  * @author Andres Almiray
  * @since 0.1.0
  */
-abstract class AbstractRepositoryPackagerProcessor<T extends RepositoryPackager<?>> extends AbstractTemplatePackagerProcessor<T> {
+public abstract class AbstractRepositoryPackagerProcessor<T extends RepositoryPackager<?>> extends AbstractTemplatePackagerProcessor<T> {
     protected AbstractRepositoryPackagerProcessor(JReleaserContext context) {
         super(context);
     }
 
-    protected void doPublishDistribution(Distribution distribution, Map<String, Object> props) throws PackagerProcessingException {
+    @Override
+    protected void doPublishDistribution(Distribution distribution, TemplateContext props) throws PackagerProcessingException {
         RepositoryTap tap = packager.getRepositoryTap();
         if (!tap.isEnabled()) {
             context.getLogger().info(RB.$("repository.disabled"), tap.getCanonicalRepoName());
@@ -93,7 +94,7 @@ abstract class AbstractRepositoryPackagerProcessor<T extends RepositoryPackager<
                 .addFilepattern(".")
                 .call();
 
-            props.putAll(distribution.props());
+            props.setAll(distribution.props());
             context.getModel().getRelease().getReleaser().fillProps(props, context.getModel());
 
             // setup commit
@@ -139,8 +140,8 @@ abstract class AbstractRepositoryPackagerProcessor<T extends RepositoryPackager<
         }
     }
 
-    protected void prepareWorkingCopy(Map<String, Object> props, Path directory, Distribution distribution) throws PackagerProcessingException, IOException {
-        Path packageDirectory = (Path) props.get(KEY_DISTRIBUTION_PACKAGE_DIRECTORY);
+    protected void prepareWorkingCopy(TemplateContext props, Path directory, Distribution distribution) throws IOException {
+        Path packageDirectory = props.get(KEY_DISTRIBUTION_PACKAGE_DIRECTORY);
         prepareWorkingCopy(packageDirectory, directory);
     }
 

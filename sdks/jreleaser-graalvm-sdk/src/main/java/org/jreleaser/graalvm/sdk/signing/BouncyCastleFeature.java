@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,6 @@
  */
 package org.jreleaser.graalvm.sdk.signing;
 
-import com.oracle.svm.core.annotate.AutomaticFeature;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.graalvm.nativeimage.hosted.Feature;
 import org.graalvm.nativeimage.hosted.RuntimeClassInitialization;
@@ -28,7 +27,6 @@ import java.security.Security;
  * @author Andres Almiray
  * @since 1.0.0
  */
-@AutomaticFeature
 public class BouncyCastleFeature implements Feature {
     @Override
     public void afterRegistration(AfterRegistrationAccess access) {

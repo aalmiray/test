@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,11 +22,11 @@ import org.apache.maven.plugin.MojoFailureException;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
 import org.jreleaser.engine.context.ModelValidator;
-import org.jreleaser.maven.plugin.internal.JReleaserModelPrinter;
+import org.jreleaser.maven.plugin.internal.MavenJReleaserModelPrinter;
 import org.jreleaser.model.api.JReleaserContext.Mode;
 import org.jreleaser.model.internal.JReleaserContext;
 
-import java.io.PrintWriter;
+import static org.jreleaser.util.IoUtils.newPrintWriter;
 
 /**
  * Display current configuration.
@@ -35,7 +35,7 @@ import java.io.PrintWriter;
  * @since 0.1.0
  */
 @Mojo(name = "config")
-public class JReleaserConfigMojo extends AbstractPlatformAwareJReleaserMojo {
+public class JReleaserConfigMojo extends AbstractPlatformAwareMojo {
     /**
      * Skip execution.
      */
@@ -77,11 +77,12 @@ public class JReleaserConfigMojo extends AbstractPlatformAwareJReleaserMojo {
 
         JReleaserContext context = createContext();
         ModelValidator.validate(context);
-        new JReleaserModelPrinter(new PrintWriter(System.out, true))
+        new MavenJReleaserModelPrinter(newPrintWriter(System.out))
             .print(context.getModel().asMap(full));
         context.report();
     }
 
+    @Override
     protected Mode getMode() {
         if (download) return Mode.DOWNLOAD;
         if (assembly) return Mode.ASSEMBLE;

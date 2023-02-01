@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,12 +20,15 @@ package org.jreleaser.model.internal.validation.announce;
 import org.jreleaser.bundle.RB;
 import org.jreleaser.model.internal.JReleaserContext;
 import org.jreleaser.model.internal.announce.ZulipAnnouncer;
-import org.jreleaser.model.internal.validation.common.Validator;
 import org.jreleaser.util.Errors;
 
 import java.nio.file.Files;
 
 import static org.jreleaser.model.api.announce.ZulipAnnouncer.ZULIP_API_KEY;
+import static org.jreleaser.model.internal.validation.common.Validator.checkProperty;
+import static org.jreleaser.model.internal.validation.common.Validator.resolveActivatable;
+import static org.jreleaser.model.internal.validation.common.Validator.validateTimeout;
+import static org.jreleaser.util.CollectionUtils.listOf;
 import static org.jreleaser.util.StringUtils.isBlank;
 import static org.jreleaser.util.StringUtils.isNotBlank;
 
@@ -33,31 +36,49 @@ import static org.jreleaser.util.StringUtils.isNotBlank;
  * @author Andres Almiray
  * @since 0.1.0
  */
-public abstract class ZulipAnnouncerValidator extends Validator {
+public final class ZulipAnnouncerValidator {
     private static final String DEFAULT_ZULIP_TPL = "src/jreleaser/templates/zulip.tpl";
+
+    private ZulipAnnouncerValidator() {
+        // noop
+    }
 
     public static void validateZulip(JReleaserContext context, ZulipAnnouncer zulip, Errors errors) {
         context.getLogger().debug("announce.zulip");
-        if (!zulip.resolveEnabled(context.getModel().getProject())) {
+        resolveActivatable(context, zulip, "announce.zulip", "NEVER");
+        if (!zulip.resolveEnabledWithSnapshot(context.getModel().getProject())) {
             context.getLogger().debug(RB.$("validation.disabled"));
             return;
         }
 
-        if (isBlank(zulip.getAccount())) {
-            errors.configuration(RB.$("validation_must_not_be_blank", "zulip.account"));
-        }
+        zulip.setAccount(
+            checkProperty(context,
+                listOf(
+                    "announce.zulip.account",
+                    "zulip.account"),
+                "announce.zulip.account",
+                zulip.getAccount(),
+                errors));
 
         zulip.setApiKey(
             checkProperty(context,
-                ZULIP_API_KEY,
-                "zulip.internal.mutableKey",
+                listOf(
+                    "announce.zulip.api.key",
+                    ZULIP_API_KEY),
+                "announce.zulip.apiKey",
                 zulip.getApiKey(),
                 errors,
                 context.isDryrun()));
 
-        if (isBlank(zulip.getApiHost())) {
-            errors.configuration(RB.$("validation_must_not_be_blank", "zulip.internal.mutableHost"));
-        }
+        zulip.setApiHost(
+            checkProperty(context,
+                listOf(
+                    "announce.zulip.api.host",
+                    "zulip.api.host"),
+                "announce.zulip.apiHost",
+                zulip.getApiHost(),
+                errors));
+
         if (isBlank(zulip.getSubject())) {
             zulip.setSubject(RB.$("default.discussion.title"));
         }

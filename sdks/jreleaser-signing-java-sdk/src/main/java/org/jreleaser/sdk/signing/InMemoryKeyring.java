@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -38,12 +38,15 @@ public final class InMemoryKeyring extends Keyring {
     }
 
     @Override
-    protected InputStream getPublicKeyRingStream() throws IOException {
-        return new ByteArrayInputStream(encodedPublicKey);
+    protected InputStream getPublicKeyRingStream() {
+        if (null != encodedPublicKey) {
+            return new ByteArrayInputStream(encodedPublicKey);
+        }
+        return new EmptyInputStream();
     }
 
     @Override
-    protected InputStream getSecretKeyRingStream() throws IOException {
+    protected InputStream getSecretKeyRingStream() {
         return new ByteArrayInputStream(encodedPrivateKey);
     }
 }

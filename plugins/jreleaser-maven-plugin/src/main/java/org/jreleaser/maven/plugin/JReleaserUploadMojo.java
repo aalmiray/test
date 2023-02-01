@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,7 +31,7 @@ import org.jreleaser.workflow.Workflows;
  * @since 0.3.0
  */
 @Mojo(name = "upload")
-public class JReleaserUploadMojo extends AbstractPlatformAwareJReleaserMojo {
+public class JReleaserUploadMojo extends AbstractPlatformAwareMojo {
     /**
      * Include an uploader by type.
      */

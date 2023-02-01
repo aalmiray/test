@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -72,7 +72,7 @@ abstract class AbstractHook implements Hook {
         if (active.present) hook.active = active.get()
     }
 
-    class FilterImpl implements Filter {
+    static class FilterImpl implements Filter {
         final SetProperty<String> includes
         final SetProperty<String> excludes
 

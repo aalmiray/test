@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,6 +26,8 @@ import java.util.Map;
  * @since 1.3.0
  */
 public class NexusAPIException extends RuntimeException {
+    private static final long serialVersionUID = -6684289853549902181L;
+
     private final int status;
     private final String reason;
     private final Map<String, Collection<String>> headers;
@@ -35,6 +37,7 @@ public class NexusAPIException extends RuntimeException {
     }
 
     public NexusAPIException(int status, String reason, Map<String, Collection<String>> headers) {
+        super(status + ": " + reason);
         this.status = status;
         this.reason = reason;
         this.headers = headers;
@@ -58,5 +61,9 @@ public class NexusAPIException extends RuntimeException {
 
     public boolean isForbidden() {
         return 403 == status;
+    }
+
+    public boolean isUnauthorized() {
+        return 401 == status;
     }
 }

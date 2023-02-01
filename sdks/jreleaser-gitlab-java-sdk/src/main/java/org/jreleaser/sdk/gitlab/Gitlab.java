@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,6 +34,7 @@ import org.jreleaser.model.spi.release.Asset;
 import org.jreleaser.model.spi.release.Release;
 import org.jreleaser.model.spi.release.User;
 import org.jreleaser.model.spi.upload.UploadException;
+import org.jreleaser.mustache.TemplateContext;
 import org.jreleaser.sdk.commons.ClientUtils;
 import org.jreleaser.sdk.commons.RestAPIException;
 import org.jreleaser.sdk.gitlab.api.GitlabAPI;
@@ -103,7 +104,7 @@ class Gitlab {
            String endpoint,
            String token,
            int connectTimeout,
-           int readTimeout) throws IOException {
+           int readTimeout) {
         requireNonNull(logger, "'logger' must not be null");
         requireNonBlank(token, "'token' must not be blank");
 
@@ -231,41 +232,29 @@ class Gitlab {
         }
     }
 
-    Optional<GlMilestone> findMilestoneByName(String owner, String repo, Integer projectIdentifier, String milestoneName) throws IOException {
+    Optional<GlMilestone> findMilestoneByName(String owner, String repo, Integer projectIdentifier, String milestoneName) {
         logger.debug(RB.$("git.milestone.lookup"), milestoneName, owner, repo);
 
-        try {
-            List<GlMilestone> milestones = api.findMilestoneByTitle(projectIdentifier, CollectionUtils.<String, Object>map()
-                .e("title", milestoneName));
-
-            if (milestones == null || milestones.isEmpty()) {
-                return Optional.empty();
-            }
-
-            GlMilestone milestone = milestones.get(0);
-            return "active".equals(milestone.getState()) ? Optional.of(milestone) : Optional.empty();
-        } catch (RestAPIException e) {
-            if (e.isNotFound() || e.isForbidden()) {
-                // ok
-                return Optional.empty();
-            }
-            throw e;
-        }
+        return findMilestone(projectIdentifier, milestoneName, "active");
     }
 
-    Optional<GlMilestone> findClosedMilestoneByName(String owner, String repo, Integer projectIdentifier, String milestoneName) throws IOException {
+    Optional<GlMilestone> findClosedMilestoneByName(String owner, String repo, Integer projectIdentifier, String milestoneName) {
         logger.debug(RB.$("git.milestone.lookup.closed"), milestoneName, owner, repo);
 
+        return findMilestone(projectIdentifier, milestoneName, "closed");
+    }
+
+    private Optional<GlMilestone> findMilestone(Integer projectIdentifier, String milestoneName, String state) {
         try {
             List<GlMilestone> milestones = api.findMilestoneByTitle(projectIdentifier, CollectionUtils.<String, Object>map()
                 .e("title", milestoneName));
 
-            if (milestones == null || milestones.isEmpty()) {
+            if (null == milestones || milestones.isEmpty()) {
                 return Optional.empty();
             }
 
             GlMilestone milestone = milestones.get(0);
-            return "closed".equals(milestone.getState()) ? Optional.of(milestone) : Optional.empty();
+            return state.equals(milestone.getState()) ? Optional.of(milestone) : Optional.empty();
         } catch (RestAPIException e) {
             if (e.isNotFound() || e.isForbidden()) {
                 // ok
@@ -275,7 +264,7 @@ class Gitlab {
         }
     }
 
-    void closeMilestone(String owner, String repo, Integer projectIdentifier, GlMilestone milestone) throws IOException {
+    void closeMilestone(String owner, String repo, Integer projectIdentifier, GlMilestone milestone) {
         logger.debug(RB.$("git.milestone.close"), milestone.getTitle(), owner, repo);
 
         api.updateMilestone(CollectionUtils.<String, Object>map()
@@ -283,7 +272,7 @@ class Gitlab {
             projectIdentifier, milestone.getId());
     }
 
-    GlProject createProject(String owner, String repo) throws IOException {
+    GlProject createProject(String owner, String repo) {
         logger.debug(RB.$("git.project.create"), owner, repo);
 
         return api.createProject(repo, "public");
@@ -310,7 +299,7 @@ class Gitlab {
                 List<GlProject> projects = api.getProject(u.getId(), CollectionUtils.<String, Object>map()
                     .e("search", projectName));
 
-                if (projects == null || projects.isEmpty()) {
+                if (null == projects || projects.isEmpty()) {
                     throw new RestAPIException(404, RB.$("ERROR_project_not_exist", projectName));
                 }
 
@@ -398,7 +387,7 @@ class Gitlab {
         return uploads;
     }
 
-    void linkReleaseAssets(String owner, String repoName, GlRelease release, Integer projectIdentifier, Collection<GlFileUpload> uploads) throws IOException, RestAPIException {
+    void linkReleaseAssets(String owner, String repoName, GlRelease release, Integer projectIdentifier, Collection<GlFileUpload> uploads) throws RestAPIException {
         logger.info(RB.$("git.upload.asset.links"), owner, repoName, release.getTagName());
 
         for (GlFileUpload upload : uploads) {
@@ -412,7 +401,7 @@ class Gitlab {
         }
     }
 
-    void linkAssets(String owner, String repoName, GlRelease release, Integer projectIdentifier, Collection<GlLinkRequest> links) throws IOException, RestAPIException {
+    void linkAssets(String owner, String repoName, GlRelease release, Integer projectIdentifier, Collection<GlLinkRequest> links) throws RestAPIException {
         logger.info(RB.$("git.upload.asset.links"), owner, repoName, release.getTagName());
 
         for (GlLinkRequest link : links) {
@@ -430,13 +419,13 @@ class Gitlab {
         logger.debug(RB.$("git.user.lookup"), name, email);
 
         List<GlUser> users = api.searchUser(CollectionUtils.<String, String>mapOf("scope", "users", "search", email));
-        if (users != null && !users.isEmpty()) {
+        if (null != users && !users.isEmpty()) {
             GlUser user = users.get(0);
             return Optional.of(new User(user.getUsername(), email, user.getWebUrl()));
         }
 
         users = api.searchUser(CollectionUtils.<String, String>mapOf("scope", "users", "search", name));
-        if (users != null && !users.isEmpty()) {
+        if (null != users && !users.isEmpty()) {
             GlUser user = users.get(0);
             if (name.equals(user.getName())) {
                 return Optional.of(new User(user.getUsername(), email, user.getWebUrl()));
@@ -621,15 +610,15 @@ class Gitlab {
 
         logger.debug(RB.$("gitlab.delete.file", link.getName()));
         try {
-            Map<String, Object> props = new LinkedHashMap<>();
-            props.put("filename", link.getName());
+            TemplateContext props = new TemplateContext();
+            props.set("filename", link.getName());
 
             String url = link.getUrl().substring(apiHost.length() + 1);
             url = url.substring(0, url.length() - link.getName().length() - 1);
             Matcher matcher = UPLOADS_PATTERN.matcher(url);
             if (matcher.matches()) {
-                props.put("projectPath", matcher.group(1));
-                props.put("secret", matcher.group(2));
+                props.set("projectPath", matcher.group(1));
+                props.set("secret", matcher.group(2));
             } else {
                 throw new IOException(RB.$("ERROR_gitlab_invalid_upload_link", link.getUrl()));
             }

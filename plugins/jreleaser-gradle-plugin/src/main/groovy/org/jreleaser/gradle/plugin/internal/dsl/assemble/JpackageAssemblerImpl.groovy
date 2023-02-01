@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -261,7 +261,7 @@ class JpackageAssemblerImpl extends AbstractJavaAssembler implements JpackageAss
     }
 
     @CompileStatic
-    private static abstract class AbstractPlatformPackager implements PlatformPackager {
+    private abstract static class AbstractPlatformPackager implements PlatformPackager {
         final Property<String> appName
         final RegularFileProperty icon
         final ListProperty<String> types

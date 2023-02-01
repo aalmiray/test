@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,6 @@
 package org.jreleaser.sdk.git;
 
 import org.eclipse.jgit.api.Git;
-import org.eclipse.jgit.api.errors.EmptyCommitException;
 import org.eclipse.jgit.api.errors.GitAPIException;
 import org.eclipse.jgit.lib.Constants;
 import org.eclipse.jgit.lib.ObjectId;
@@ -31,27 +30,33 @@ import org.jreleaser.model.internal.release.BaseReleaser;
 import org.jreleaser.model.internal.release.Changelog;
 import org.jreleaser.model.internal.util.VersionUtils;
 import org.jreleaser.model.spi.release.User;
+import org.jreleaser.mustache.TemplateContext;
 import org.jreleaser.util.CollectionUtils;
 import org.jreleaser.util.StringUtils;
 import org.jreleaser.version.Version;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
-import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.IntStream;
 import java.util.stream.StreamSupport;
 
 import static java.lang.System.lineSeparator;
+import static java.util.Collections.singletonMap;
+import static java.util.Collections.unmodifiableList;
+import static java.util.Collections.unmodifiableSet;
 import static java.util.stream.Collectors.groupingBy;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
@@ -77,12 +82,8 @@ public class ChangelogGenerator {
     private static final String UNCATEGORIZED = "<<UNCATEGORIZED>>";
     private static final String REGEX_PREFIX = "regex:";
 
-    public ChangelogGenerator() {
-
-    }
-
     protected String createChangelog(JReleaserContext context) throws IOException {
-        BaseReleaser releaser = context.getModel().getRelease().getReleaser();
+        BaseReleaser<?, ?> releaser = context.getModel().getRelease().getReleaser();
         Changelog changelog = releaser.getChangelog();
 
         String separator = lineSeparator();
@@ -112,6 +113,8 @@ public class ChangelogGenerator {
                 String rawContent = commitList.stream()
                     .map(RevCommit::getFullMessage)
                     .collect(joining(lineSeparator()));
+
+                context.getLogger().info(RB.$("issues.generator.extract"));
                 Set<Integer> issues = extractIssues(context, rawContent);
                 storeIssues(context, issues);
             }
@@ -163,16 +166,16 @@ public class ChangelogGenerator {
     }
 
     public Tags resolveTags(Git git, JReleaserContext context) throws GitAPIException {
-        GitSdk shallowTest = GitSdk.of(context);
-        if (shallowTest.isShallow()) {
+        GitSdk gitSdk = GitSdk.of(context);
+        if (gitSdk.isShallow()) {
             context.getLogger().warn(RB.$("changelog.shallow.warning"));
         }
 
         List<Ref> tags = git.tagList().call();
 
-        BaseReleaser releaser = context.getModel().getRelease().getReleaser();
+        BaseReleaser<?, ?> releaser = context.getModel().getRelease().getReleaser();
         String effectiveTagName = releaser.getEffectiveTagName(context.getModel());
-        String tagName = releaser.getConfiguredTagName();
+        String tagName = releaser.getTagName();
         String tagPattern = tagName.replaceAll("\\{\\{.*}}", "\\.\\*");
 
         Pattern versionPattern = VersionUtils.resolveVersionPattern(context);
@@ -190,7 +193,7 @@ public class ChangelogGenerator {
             .findFirst();
 
         Optional<Ref> previousTag = Optional.empty();
-        String previousTagName = releaser.getConfiguredPreviousTagName();
+        String previousTagName = releaser.getPreviousTagName();
         if (isNotBlank(previousTagName)) {
             context.getLogger().debug(RB.$("changelog.generator.lookup.previous.tag"), previousTagName);
             previousTag = tags.stream()
@@ -234,8 +237,8 @@ public class ChangelogGenerator {
 
 
                     if (previousTag.isPresent()) {
-                        RevCommit earlyAccessCommit = resolveSingleCommit(git, tag.get());
-                        RevCommit previousTagCommit = resolveSingleCommit(git, previousTag.get());
+                        RevCommit earlyAccessCommit = gitSdk.resolveSingleCommit(git, tag.get());
+                        RevCommit previousTagCommit = gitSdk.resolveSingleCommit(git, previousTag.get());
 
                         if (previousTagCommit.getCommitTime() > earlyAccessCommit.getCommitTime()) {
                             tag = previousTag;
@@ -245,6 +248,7 @@ public class ChangelogGenerator {
 
                 if (tag.isPresent()) {
                     context.getLogger().debug(RB.$("changelog.generator.tag.found"), extractTagName(tag.get()));
+                    context.getModel().getRelease().getReleaser().setPreviousTagName(extractTagName(tag.get()));
                     return Tags.previous(tag.get());
                 }
 
@@ -270,6 +274,7 @@ public class ChangelogGenerator {
 
             if (tag.isPresent()) {
                 context.getLogger().debug(RB.$("changelog.generator.tag.found"), extractTagName(tag.get()));
+                context.getModel().getRelease().getReleaser().setPreviousTagName(extractTagName(tag.get()));
                 return Tags.previous(tag.get());
             }
 
@@ -288,33 +293,16 @@ public class ChangelogGenerator {
 
         if (previousTag.isPresent()) {
             context.getLogger().debug(RB.$("changelog.generator.tag.found"), extractTagName(previousTag.get()));
+            context.getModel().getRelease().getReleaser().setPreviousTagName(extractTagName(previousTag.get()));
             return Tags.of(tag.get(), previousTag.get());
         }
 
         return Tags.current(tag.get());
     }
 
-    private RevCommit resolveSingleCommit(Git git, Ref tag) throws GitAPIException {
-        try {
-            Iterable<RevCommit> commits = git.log().add(getObjectId(git, tag))
-                .setMaxCount(1)
-                .call();
-            if (commits == null) {
-                throw new EmptyCommitException(RB.$("ERROR_git_commit_not_found", tag.getName()));
-            }
-            Iterator<RevCommit> iterator = commits.iterator();
-            if (iterator.hasNext()) {
-                return iterator.next();
-            }
-            throw new EmptyCommitException(RB.$("ERROR_git_commit_not_found", tag.getName()));
-        } catch (IOException e) {
-            throw new EmptyCommitException(RB.$("ERROR_git_commit_not_found", tag.getName()), e);
-        }
-    }
-
     protected Iterable<RevCommit> resolveCommits(Git git, JReleaserContext context) throws GitAPIException, IOException {
         Tags tags = resolveTags(git, context);
-        BaseReleaser releaser = context.getModel().getRelease().getReleaser();
+        BaseReleaser<?, ?> releaser = context.getModel().getRelease().getReleaser();
 
         ObjectId head = git.getRepository().resolve(Constants.HEAD);
 
@@ -355,7 +343,7 @@ public class ChangelogGenerator {
 
     private ObjectId getObjectId(Git git, Ref ref) throws IOException {
         Ref peeled = git.getRepository().getRefDatabase().peel(ref);
-        return peeled.getPeeledObjectId() != null ? peeled.getPeeledObjectId() : peeled.getObjectId();
+        return null != peeled.getPeeledObjectId() ? peeled.getPeeledObjectId() : peeled.getObjectId();
     }
 
     protected String formatChangelog(JReleaserContext context,
@@ -368,8 +356,11 @@ public class ChangelogGenerator {
 
         commits.stream()
             .sorted(revCommitComparator)
-            .map(Commit::of)
+            .map(rc -> "conventional-commits".equals(changelog.getPreset()) ? ConventionalCommit.of(rc) : Commit.of(rc))
+            .map(c -> c.extractIssues(context))
             .peek(c -> {
+                applyLabels(c, changelog.getLabelers());
+
                 if (!changelog.getContributors().isEnabled()) return;
 
                 if (!changelog.getHide().containsContributor(c.author.name)) {
@@ -379,28 +370,29 @@ public class ChangelogGenerator {
                     .filter(author -> !changelog.getHide().containsContributor(author.name))
                     .forEach(author -> contributors.add(new Contributor(author)));
             })
-            .peek(c -> applyLabels(c, changelog.getLabelers()))
             .filter(c -> checkLabels(c, changelog))
             .forEach(commit -> categories
                 .computeIfAbsent(categorize(commit, changelog), k -> new ArrayList<>())
                 .add(commit));
 
-        BaseReleaser releaser = context.getModel().getRelease().getReleaser();
+        BaseReleaser<?, ?> releaser = context.getModel().getRelease().getReleaser();
         String commitsUrl = releaser.getResolvedCommitUrl(context.getModel());
+        String issueTracker = releaser.getResolvedIssueTrackerUrl(context.getModel(), true);
 
+        TemplateContext props = context.fullProps();
         StringBuilder changes = new StringBuilder();
         for (Changelog.Category category : changelog.getCategories()) {
             String categoryKey = category.getKey();
             if (!categories.containsKey(categoryKey) || changelog.getHide().containsCategory(categoryKey)) continue;
 
-            changes.append("## ")
-                .append(category.getTitle())
+            props.set("categoryTitle", category.getTitle());
+            changes.append(applyTemplate(changelog.getCategoryTitleFormat(), props))
                 .append(lineSeparator);
 
             final String categoryFormat = resolveCommitFormat(changelog, category);
 
             changes.append(categories.get(categoryKey).stream()
-                    .map(c -> resolveTemplate(categoryFormat, c.asContext(changelog.isLinks(), commitsUrl)))
+                    .map(c -> resolveTemplate(categoryFormat, c.asContext(changelog.isLinks(), commitsUrl, issueTracker)))
                     .collect(joining(lineSeparator)))
                 .append(lineSeparator)
                 .append(lineSeparator());
@@ -413,7 +405,7 @@ public class ChangelogGenerator {
             }
 
             changes.append(categories.get(UNCATEGORIZED).stream()
-                    .map(c -> resolveTemplate(changelog.getFormat(), c.asContext(changelog.isLinks(), commitsUrl)))
+                    .map(c -> resolveTemplate(changelog.getFormat(), c.asContext(changelog.isLinks(), commitsUrl, issueTracker)))
                     .collect(joining(lineSeparator)))
                 .append(lineSeparator)
                 .append(lineSeparator());
@@ -421,7 +413,7 @@ public class ChangelogGenerator {
 
         StringBuilder formattedContributors = new StringBuilder();
         if (changelog.getContributors().isEnabled() && !contributors.isEmpty()) {
-            formattedContributors.append("## Contributors")
+            formattedContributors.append(applyTemplate(changelog.getContributorsTitleFormat(), props))
                 .append(lineSeparator)
                 .append("We'd like to thank the following people for their contributions:")
                 .append(lineSeparator)
@@ -429,9 +421,10 @@ public class ChangelogGenerator {
                 .append(lineSeparator);
         }
 
-        Map<String, Object> props = context.fullProps();
-        props.put(KEY_CHANGELOG_CHANGES, passThrough(changes.toString()));
-        props.put(KEY_CHANGELOG_CONTRIBUTORS, passThrough(formattedContributors.toString()));
+        props.set(KEY_CHANGELOG_CHANGES, passThrough(changes.toString()));
+        props.set(KEY_CHANGELOG_CONTRIBUTORS, passThrough(formattedContributors.toString()));
+        context.getChangelog().setFormattedChanges(changes.toString());
+        context.getChangelog().setFormattedContributors(formattedContributors.toString());
 
         return applyReplacers(context, changelog, stripMargin(applyTemplate(changelog.getResolvedContentTemplate(context), props)));
     }
@@ -452,7 +445,7 @@ public class ChangelogGenerator {
 
         Map<String, List<Contributor>> grouped = contributors.stream()
             .peek(contributor -> {
-                if (isNotBlank(format) && (format.contains("AsLink") || format.contains("Username"))) {
+                if (!context.isDryrun() && isNotBlank(format) && (format.contains("AsLink") || format.contains("Username"))) {
                     context.getReleaser().findUser(contributor.email, contributor.name)
                         .ifPresent(contributor::setUser);
                 }
@@ -464,7 +457,7 @@ public class ChangelogGenerator {
         grouped.keySet().stream().sorted().forEach(name -> {
             List<Contributor> cs = grouped.get(name);
             Optional<Contributor> contributor = cs.stream()
-                .filter(c -> c.getUser() != null)
+                .filter(c -> null != c.getUser())
                 .findFirst();
             if (contributor.isPresent()) {
                 list.add(resolveTemplate(contributorFormat, contributor.get().asContext()));
@@ -478,7 +471,7 @@ public class ChangelogGenerator {
     }
 
     private String applyReplacers(JReleaserContext context, Changelog changelog, String text) {
-        Map<String, Object> props = context.getModel().props();
+        TemplateContext props = context.getModel().props();
         context.getModel().getRelease().getReleaser().fillProps(props, context.getModel());
         for (Changelog.Replacer replacer : changelog.getReplacers()) {
             String search = resolveTemplate(replacer.getSearch(), props);
@@ -551,20 +544,20 @@ public class ChangelogGenerator {
     }
 
     public static class Tags {
-        private final Optional<Ref> current;
-        private final Optional<Ref> previous;
+        private final Ref current;
+        private final Ref previous;
 
         private Tags(Ref current, Ref previous) {
-            this.current = Optional.ofNullable(current);
-            this.previous = Optional.ofNullable(previous);
+            this.current = current;
+            this.previous = previous;
         }
 
         public Optional<Ref> getCurrent() {
-            return current;
+            return Optional.ofNullable(current);
         }
 
         public Optional<Ref> getPrevious() {
-            return previous;
+            return Optional.ofNullable(previous);
         }
 
         private static Tags empty() {
@@ -588,26 +581,51 @@ public class ChangelogGenerator {
         private static final Pattern CO_AUTHORED_BY_PATTERN = Pattern.compile("^[Cc]o-authored-by:\\s+(.*)\\s+<(.*)>.*$");
         private final Set<String> labels = new LinkedHashSet<>();
         private final Set<Author> committers = new LinkedHashSet<>();
-        private String fullHash;
-        private String shortHash;
-        private String title;
-        private String body;
-        private Author author;
-        private int time;
+        private final Set<Integer> issues = new TreeSet<>();
+        private final String fullHash;
+        private final String shortHash;
+        private final String title;
+        private final Author author;
+        protected String body;
 
-        Map<String, Object> asContext(boolean links, String commitsUrl) {
-            Map<String, Object> context = new LinkedHashMap<>();
-            if (links) {
-                context.put("commitShortHash", passThrough("[" + shortHash + "](" + commitsUrl + "/" + shortHash + ")"));
-            } else {
-                context.put("commitShortHash", shortHash);
+        protected Commit(RevCommit rc) {
+            fullHash = rc.getId().name();
+            shortHash = rc.getId().abbreviate(7).name();
+            body = rc.getFullMessage();
+            String[] lines = split(body);
+            title = lines[0];
+            author = new Author(rc.getAuthorIdent().getName(), rc.getAuthorIdent().getEmailAddress());
+            addContributor(rc.getCommitterIdent().getName(), rc.getCommitterIdent().getEmailAddress());
+            for (String line : lines) {
+                Matcher m = CO_AUTHORED_BY_PATTERN.matcher(line);
+                if (m.matches()) {
+                    addContributor(m.group(1), m.group(2));
+                }
             }
-            context.put("commitsUrl", commitsUrl);
-            context.put("commitFullHash", fullHash);
-            context.put("commitTitle", passThrough(title));
-            context.put("commitAuthor", passThrough(author.name));
-            context.put("commitBody", passThrough(body));
+        }
+
+        TemplateContext asContext(boolean links, String commitsUrl, String issueTrackerUrl) {
+            TemplateContext context = new TemplateContext();
+            if (links) {
+                context.set("commitShortHash", passThrough("[" + shortHash + "](" + commitsUrl + "/" + shortHash + ")"));
+            } else {
+                context.set("commitShortHash", shortHash);
+            }
+            context.set("commitsUrl", commitsUrl);
+            context.set("commitFullHash", fullHash);
+            context.set("commitTitle", passThrough(title));
+            context.set("commitAuthor", passThrough(author.name));
+            context.set("commitBody", passThrough(body));
+            context.set("commitHasIssues", !issues.isEmpty());
+            context.set("commitIssues", issues.stream().map(i -> {
+                String issue = links ? passThrough("[#" + i + "](" + issueTrackerUrl + i + ")") : "#" + i;
+                return singletonMap("issue", issue);
+            }).collect(toList()));
             return context;
+        }
+
+        public Set<Integer> getIssues() {
+            return unmodifiableSet(issues);
         }
 
         private void addContributor(String name, String email) {
@@ -616,28 +634,155 @@ public class ChangelogGenerator {
             }
         }
 
-        static Commit of(RevCommit rc) {
-            Commit c = new Commit();
-            c.fullHash = rc.getId().name();
-            c.shortHash = rc.getId().abbreviate(7).name();
-            c.body = rc.getFullMessage();
-            String[] lines = split(c.body);
-            c.title = lines[0];
-            c.author = new Author(rc.getAuthorIdent().getName(), rc.getAuthorIdent().getEmailAddress());
-            c.addContributor(rc.getCommitterIdent().getName(), rc.getCommitterIdent().getEmailAddress());
-            c.time = rc.getCommitTime();
-            for (String line : lines) {
-                Matcher m = CO_AUTHORED_BY_PATTERN.matcher(line);
-                if (m.matches()) {
-                    c.addContributor(m.group(1), m.group(2));
-                }
-            }
-            return c;
+        public Commit extractIssues(JReleaserContext context) {
+            issues.addAll(ChangelogProvider.extractIssues(context, body));
+            return this;
         }
 
-        private static String[] split(String str) {
+        static Commit of(RevCommit rc) {
+            return new Commit(rc);
+        }
+
+        protected static String[] split(String str) {
             // Any Unicode linebreak sequence
             return str.split("\\R");
+        }
+    }
+
+    static class ConventionalCommit extends Commit {
+        private static final Pattern FIRST_LINE_PATTERN =
+            Pattern.compile("^(?<type>[a-z]+)(?:\\((?<scope>\\w+)\\))?(?<bang>!)?: (?<description>.*$)");
+        private static final Pattern BREAKING_CHANGE_PATTERN = Pattern.compile("^BREAKING[ \\-]CHANGE:\\s+(?<content>[\\w\\W]+)", Pattern.MULTILINE);
+        private static final Pattern TRAILER_PATTERN = Pattern.compile("(?<token>^\\w+(?:-\\w+)*)(?:: | #)(?<value>.*$)");
+
+        private final List<Trailer> trailers = new ArrayList<>();
+        private boolean isConventional = true;
+        private boolean ccIsBreakingChange;
+        private String ccType = "";
+        private String ccScope = "";
+        private String ccDescription = "";
+        private String ccBody = "";
+        private String ccBreakingChangeContent = "";
+
+        private ConventionalCommit(RevCommit rc) {
+            super(rc);
+            List<String> lines = new ArrayList<>(Arrays.asList(split(body)));
+            Matcher matcherFirstLine = FIRST_LINE_PATTERN.matcher(lines.get(0));
+            if (matcherFirstLine.matches()) {
+                lines.remove(0); // consumed first line
+                if (null != matcherFirstLine.group("bang") && !matcherFirstLine.group("bang").isEmpty()) {
+                    ccIsBreakingChange = true;
+                }
+                ccType = matcherFirstLine.group("type");
+                ccScope = null == matcherFirstLine.group("scope") ? "" : matcherFirstLine.group("scope");
+                ccDescription = matcherFirstLine.group("description");
+            } else {
+                isConventional = false;
+                return;
+            }
+
+            // drop any empty lines at the beginning
+            while (!lines.isEmpty() && "".equals(lines.get(0))) {
+                lines.remove(0);
+            }
+
+            // try to match trailers from the end
+            while (!lines.isEmpty()) {
+                Matcher matcherTrailer = TRAILER_PATTERN.matcher(lines.get(lines.size() - 1));
+                if (matcherTrailer.matches()) {
+                    String token = matcherTrailer.group("token");
+                    if ("BREAKING-CHANGE".equals(token)) break;
+                    trailers.add(new Trailer(token, matcherTrailer.group("value")));
+                    lines.remove(lines.size() - 1); // consume last line
+                } else {
+                    break;
+                }
+            }
+
+            // drop any empty lines at the end
+            while (!lines.isEmpty() && "".equals(lines.get(lines.size() - 1))) {
+                lines.remove(lines.size() - 1);
+            }
+
+            Matcher matcherBC = BREAKING_CHANGE_PATTERN.matcher(String.join("\n", lines));
+            if (matcherBC.find()) {
+                ccIsBreakingChange = true;
+                ccBreakingChangeContent = matcherBC.group("content");
+                // consume the breaking change
+                OptionalInt match = IntStream.range(0, lines.size())
+                    .filter(i -> BREAKING_CHANGE_PATTERN.matcher(lines.get(i)).find())
+                    .findFirst();
+                if (match.isPresent() && lines.size() > match.getAsInt()) {
+                    lines.subList(match.getAsInt(), lines.size()).clear();
+                }
+            }
+
+            // the rest is the body
+            ccBody = String.join("\n", lines);
+        }
+
+        @Override
+        TemplateContext asContext(boolean links, String commitsUrl, String issueTrackerUrl) {
+            TemplateContext context = super.asContext(links, commitsUrl, issueTrackerUrl);
+            context.set("commitIsConventional", isConventional);
+            context.set("conventionalCommitBreakingChangeContent", passThrough(ccBreakingChangeContent));
+            context.set("conventionalCommitIsBreakingChange", ccIsBreakingChange);
+            context.set("conventionalCommitType", ccType);
+            context.set("conventionalCommitScope", ccScope);
+            context.set("conventionalCommitDescription", passThrough(ccDescription));
+            context.set("conventionalCommitBody", passThrough(ccBody));
+            context.set("conventionalCommitTrailers", unmodifiableList(trailers));
+            return context;
+        }
+
+        public List<Trailer> getTrailers() {
+            return trailers;
+        }
+
+        public static Commit of(RevCommit rc) {
+            ConventionalCommit c = new ConventionalCommit(rc);
+            if (c.isConventional) {
+                return c;
+            } else {
+                // not ideal to reparse the commit, but that way we return a Commit instead of a ConventionalCommit
+                return Commit.of(rc);
+            }
+        }
+
+        static class Trailer {
+            private final String token;
+            private final String value;
+
+            public Trailer(String token, String value) {
+                this.token = token;
+                this.value = value;
+            }
+
+            public String getToken() {
+                return token;
+            }
+
+            public String getValue() {
+                return value;
+            }
+
+            @Override
+            public String toString() {
+                return passThrough(token + ": " + value);
+            }
+
+            @Override
+            public boolean equals(Object o) {
+                if (this == o) return true;
+                if (!(o instanceof Trailer)) return false;
+                Trailer trailer = (Trailer) o;
+                return token.equals(trailer.token) && value.equals(trailer.value);
+            }
+
+            @Override
+            public int hashCode() {
+                return Objects.hash(token, value);
+            }
         }
     }
 
@@ -666,7 +811,7 @@ public class ChangelogGenerator {
         @Override
         public boolean equals(Object o) {
             if (this == o) return true;
-            if (o == null || getClass() != o.getClass()) return false;
+            if (null == o || getClass() != o.getClass()) return false;
             Author that = (Author) o;
             return name.equals(that.name);
         }
@@ -692,11 +837,6 @@ public class ChangelogGenerator {
             this.email = author.email;
         }
 
-        private Contributor(String name, String email) {
-            this.name = name;
-            this.email = email;
-        }
-
         public String getName() {
             return name;
         }
@@ -713,16 +853,16 @@ public class ChangelogGenerator {
             this.user = user;
         }
 
-        Map<String, Object> asContext() {
-            Map<String, Object> context = new LinkedHashMap<>();
-            context.put("contributorName", passThrough(name));
-            context.put("contributorNameAsLink", passThrough(name));
-            context.put("contributorUsername", "");
-            context.put("contributorUsernameAsLink", "");
-            if (user != null) {
-                context.put("contributorNameAsLink", passThrough(user.asLink(name)));
-                context.put("contributorUsername", passThrough(user.getUsername()));
-                context.put("contributorUsernameAsLink", passThrough(user.asLink("@" + user.getUsername())));
+        TemplateContext asContext() {
+            TemplateContext context = new TemplateContext();
+            context.set("contributorName", passThrough(name));
+            context.set("contributorNameAsLink", passThrough(name));
+            context.set("contributorUsername", "");
+            context.set("contributorUsernameAsLink", "");
+            if (null != user) {
+                context.set("contributorNameAsLink", passThrough(user.asLink(name)));
+                context.set("contributorUsername", passThrough(user.getUsername()));
+                context.set("contributorUsernameAsLink", passThrough(user.asLink("@" + user.getUsername())));
             }
             return context;
         }
@@ -735,7 +875,7 @@ public class ChangelogGenerator {
         @Override
         public boolean equals(Object o) {
             if (this == o) return true;
-            if (o == null || getClass() != o.getClass()) return false;
+            if (null == o || getClass() != o.getClass()) return false;
             Contributor that = (Contributor) o;
             return name.equals(that.name);
         }

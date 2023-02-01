@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,8 +22,8 @@ import org.jreleaser.model.Constants;
 import org.jreleaser.model.internal.JReleaserContext;
 import org.jreleaser.model.internal.assemble.NativeImageAssembler;
 import org.jreleaser.model.internal.common.Artifact;
-import org.jreleaser.model.internal.project.Project;
 import org.jreleaser.model.spi.assemble.AssemblerProcessingException;
+import org.jreleaser.mustache.TemplateContext;
 import org.jreleaser.sdk.command.Command;
 import org.jreleaser.sdk.command.CommandException;
 import org.jreleaser.sdk.tool.ToolException;
@@ -34,11 +34,11 @@ import org.jreleaser.version.SemanticVersion;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -59,7 +59,7 @@ public class NativeImageAssemblerProcessor extends AbstractJavaAssemblerProcesso
     }
 
     @Override
-    protected void doAssemble(Map<String, Object> props) throws AssemblerProcessingException {
+    protected void doAssemble(TemplateContext props) throws AssemblerProcessingException {
         // verify graal
         Path graalPath = assembler.getGraal().getEffectivePath(context, assembler);
         SemanticVersion javaVersion = SemanticVersion.of(readJavaVersion(graalPath));
@@ -69,7 +69,7 @@ public class NativeImageAssemblerProcessor extends AbstractJavaAssemblerProcesso
 
         String platform = assembler.getGraal().getPlatform();
         // copy jars to assembly
-        Path assembleDirectory = (Path) props.get(Constants.KEY_DISTRIBUTION_ASSEMBLE_DIRECTORY);
+        Path assembleDirectory = props.get(Constants.KEY_DISTRIBUTION_ASSEMBLE_DIRECTORY);
         Path jarsDirectory = assembleDirectory.resolve("jars");
         Path universalJarsDirectory = jarsDirectory.resolve("universal");
         context.getLogger().debug(RB.$("assembler.copy.jars"), context.relativizeToBasedir(universalJarsDirectory));
@@ -199,25 +199,7 @@ public class NativeImageAssemblerProcessor extends AbstractJavaAssemblerProcesso
             copyFileSets(context, distDirectory);
 
             Path imageArchive = assembleDirectory.resolve(finalImageName + "." + assembler.getArchiveFormat().extension());
-            switch (assembler.getArchiveFormat()) {
-                case ZIP:
-                    FileUtils.zip(tempDirectory, imageArchive);
-                    break;
-                case TAR:
-                    FileUtils.tar(tempDirectory, imageArchive);
-                    break;
-                case TGZ:
-                case TAR_GZ:
-                    FileUtils.tgz(tempDirectory, imageArchive);
-                    break;
-                case TXZ:
-                case TAR_XZ:
-                    FileUtils.xz(tempDirectory, imageArchive);
-                    break;
-                case TBZ2:
-                case TAR_BZ2:
-                    FileUtils.bz2(tempDirectory, imageArchive);
-            }
+            FileUtils.packArchive(tempDirectory, imageArchive, context.getModel().resolveArchiveTimestamp());
 
             context.getLogger().debug("- {}", imageArchive.getFileName());
 
@@ -255,9 +237,9 @@ public class NativeImageAssemblerProcessor extends AbstractJavaAssemblerProcesso
             throw new AssemblerProcessingException(RB.$("ERROR_assembler_invalid_graal_release", path.toAbsolutePath()));
         }
 
-        try {
+        try (InputStream in = Files.newInputStream(release)) {
             Properties props = new Properties();
-            props.load(Files.newInputStream(release));
+            props.load(in);
             if (props.containsKey(KEY_GRAALVM_VERSION)) {
                 String version = props.getProperty(KEY_GRAALVM_VERSION);
                 if (version.startsWith("\"") && version.endsWith("\"")) {
@@ -273,7 +255,7 @@ public class NativeImageAssemblerProcessor extends AbstractJavaAssemblerProcesso
     }
 
     @Override
-    protected void writeFile(Project project, String content, Map<String, Object> props, String fileName)
+    protected void writeFile(String content, TemplateContext props, String fileName)
         throws AssemblerProcessingException {
         // noop
     }

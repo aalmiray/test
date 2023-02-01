@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -82,7 +82,7 @@ public abstract class AbstractReleaserBuilder<R extends Releaser> implements Rel
     @Override
     public ReleaserBuilder<R> configureWith(JReleaserContext context) {
         this.context = context;
-        BaseReleaser service = context.getModel().getRelease().getReleaser();
+        BaseReleaser<?, ?> service = context.getModel().getRelease().getReleaser();
         if (!service.resolveUploadAssetsEnabled(context.getModel().getProject())) {
             return this;
         }
@@ -92,7 +92,8 @@ public abstract class AbstractReleaserBuilder<R extends Releaser> implements Rel
 
         if (service.isFiles()) {
             for (Artifact artifact : Artifacts.resolveFiles(context)) {
-                if (!artifact.isActive() || artifact.extraPropertyIsTrue(KEY_SKIP_RELEASE)) continue;
+                if (!artifact.isActive() || artifact.extraPropertyIsTrue(KEY_SKIP_RELEASE) ||
+                    artifact.isOptional(context) && !artifact.resolvedPathExists()) continue;
                 Path path = artifact.getEffectivePath(context);
                 assets.add(Asset.file(Artifact.of(path, artifact.getExtraProperties())));
                 if (service.isChecksums() && isIndividual(context, artifact) &&
@@ -111,7 +112,8 @@ public abstract class AbstractReleaserBuilder<R extends Releaser> implements Rel
                     continue;
                 }
                 for (Artifact artifact : distribution.getArtifacts()) {
-                    if (!artifact.isActive() || artifact.extraPropertyIsTrue(KEY_SKIP_RELEASE)) continue;
+                    if (!artifact.isActive() || artifact.extraPropertyIsTrue(KEY_SKIP_RELEASE) ||
+                        artifact.isOptional(context) && !artifact.resolvedPathExists()) continue;
                     Path path = artifact.getEffectivePath(context, distribution);
                     assets.add(Asset.file(Artifact.of(path, artifact.getExtraProperties()), distribution));
                     if (service.isChecksums() && isIndividual(context, distribution, artifact)) {

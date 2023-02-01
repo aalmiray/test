@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,7 +32,11 @@ import java.util.stream.StreamSupport;
  * @author Andres Almiray
  * @since 1.3.0
  */
-public class ArtifactDeployers {
+public final class ArtifactDeployers {
+    private ArtifactDeployers() {
+        // noop
+    }
+
     public static <A extends org.jreleaser.model.api.deploy.maven.MavenDeployer, D extends org.jreleaser.model.internal.deploy.maven.MavenDeployer<A>> MavenDeployer<A, D> findMavenDeployer(JReleaserContext context, D deployer) {
         Map<String, MavenDeployer<?, ?>> deployers = StreamSupport.stream(ServiceLoader.load(MavenDeployerFactory.class,
                 ArtifactDeployers.class.getClassLoader()).spliterator(), false)

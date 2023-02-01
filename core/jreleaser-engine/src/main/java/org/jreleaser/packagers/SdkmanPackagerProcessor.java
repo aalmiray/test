@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,11 +18,13 @@
 package org.jreleaser.packagers;
 
 import org.jreleaser.bundle.RB;
+import org.jreleaser.model.Sdkman;
 import org.jreleaser.model.internal.JReleaserContext;
 import org.jreleaser.model.internal.distributions.Distribution;
 import org.jreleaser.model.internal.packagers.SdkmanPackager;
 import org.jreleaser.model.internal.util.SdkmanHelper;
 import org.jreleaser.model.spi.packagers.PackagerProcessingException;
+import org.jreleaser.mustache.TemplateContext;
 import org.jreleaser.sdk.sdkman.MajorReleaseSdkmanCommand;
 import org.jreleaser.sdk.sdkman.MinorReleaseSdkmanCommand;
 import org.jreleaser.sdk.sdkman.SdkmanException;
@@ -45,17 +47,17 @@ public class SdkmanPackagerProcessor extends AbstractPackagerProcessor<SdkmanPac
     }
 
     @Override
-    protected void doPrepareDistribution(Distribution distribution, Map<String, Object> props) throws PackagerProcessingException {
+    protected void doPrepareDistribution(Distribution distribution, TemplateContext props) throws PackagerProcessingException {
         // noop
     }
 
     @Override
-    protected void doPackageDistribution(Distribution distribution, Map<String, Object> props) throws PackagerProcessingException {
+    protected void doPackageDistribution(Distribution distribution, TemplateContext props) throws PackagerProcessingException {
         // noop
     }
 
     @Override
-    protected void doPublishDistribution(Distribution distribution, Map<String, Object> props) throws PackagerProcessingException {
+    protected void doPublishDistribution(Distribution distribution, TemplateContext props) throws PackagerProcessingException {
         SdkmanPackager sdkman = distribution.getSdkman();
 
         Map<String, String> platforms = new LinkedHashMap<>();
@@ -66,39 +68,36 @@ public class SdkmanPackagerProcessor extends AbstractPackagerProcessor<SdkmanPac
             String candidate = isNotBlank(sdkman.getCandidate()) ? sdkman.getCandidate().trim() : context.getModel().getProject().getName();
             String releaseNotesUrl = resolveTemplate(sdkman.getReleaseNotesUrl(), props);
 
-            switch (sdkman.getCommand()) {
-                case MAJOR:
-                    context.getLogger().info(RB.$("sdkman.publish.major"), candidate);
-                    MajorReleaseSdkmanCommand.builder(context.getLogger())
-                        .connectTimeout(sdkman.getConnectTimeout())
-                        .readTimeout(sdkman.getReadTimeout())
-                        .consumerKey(context.isDryrun() ? "**UNDEFINED**" : sdkman.getConsumerKey())
-                        .consumerToken(context.isDryrun() ? "**UNDEFINED**" : sdkman.getConsumerToken())
-                        .candidate(candidate)
-                        .version(context.getModel().getProject().getVersion())
-                        .platforms(platforms)
-                        .releaseNotesUrl(releaseNotesUrl)
-                        .dryrun(context.isDryrun())
-                        .skipAnnounce(true)
-                        .build()
-                        .execute();
-                    break;
-                case MINOR:
-                    context.getLogger().info(RB.$("sdkman.publish.minor"), candidate);
-                    MinorReleaseSdkmanCommand.builder(context.getLogger())
-                        .connectTimeout(sdkman.getConnectTimeout())
-                        .readTimeout(sdkman.getReadTimeout())
-                        .consumerKey(context.isDryrun() ? "**UNDEFINED**" : sdkman.getConsumerKey())
-                        .consumerToken(context.isDryrun() ? "**UNDEFINED**" : sdkman.getConsumerToken())
-                        .candidate(candidate)
-                        .version(context.getModel().getProject().getVersion())
-                        .platforms(platforms)
-                        .releaseNotesUrl(releaseNotesUrl)
-                        .dryrun(context.isDryrun())
-                        .skipAnnounce(true)
-                        .build()
-                        .execute();
-                    break;
+            if (sdkman.getCommand() == Sdkman.Command.MAJOR) {
+                context.getLogger().info(RB.$("sdkman.publish.major"), candidate);
+                MajorReleaseSdkmanCommand.builder(context.getLogger())
+                    .connectTimeout(sdkman.getConnectTimeout())
+                    .readTimeout(sdkman.getReadTimeout())
+                    .consumerKey(context.isDryrun() ? "**UNDEFINED**" : sdkman.getConsumerKey())
+                    .consumerToken(context.isDryrun() ? "**UNDEFINED**" : sdkman.getConsumerToken())
+                    .candidate(candidate)
+                    .version(context.getModel().getProject().getVersion())
+                    .platforms(platforms)
+                    .releaseNotesUrl(releaseNotesUrl)
+                    .dryrun(context.isDryrun())
+                    .skipAnnounce(false)
+                    .build()
+                    .execute();
+            } else if (sdkman.getCommand() == Sdkman.Command.MINOR) {
+                context.getLogger().info(RB.$("sdkman.publish.minor"), candidate);
+                MinorReleaseSdkmanCommand.builder(context.getLogger())
+                    .connectTimeout(sdkman.getConnectTimeout())
+                    .readTimeout(sdkman.getReadTimeout())
+                    .consumerKey(context.isDryrun() ? "**UNDEFINED**" : sdkman.getConsumerKey())
+                    .consumerToken(context.isDryrun() ? "**UNDEFINED**" : sdkman.getConsumerToken())
+                    .candidate(candidate)
+                    .version(context.getModel().getProject().getVersion())
+                    .platforms(platforms)
+                    .releaseNotesUrl(releaseNotesUrl)
+                    .dryrun(context.isDryrun())
+                    .skipAnnounce(false)
+                    .build()
+                    .execute();
             }
 
             sdkman.setPublished(true);
@@ -108,8 +107,8 @@ public class SdkmanPackagerProcessor extends AbstractPackagerProcessor<SdkmanPac
     }
 
     @Override
-    protected void fillPackagerProperties(Map<String, Object> props, Distribution distribution) throws PackagerProcessingException {
-        props.put(KEY_SDKMAN_CANDIDATE, packager.getCandidate());
-        props.put(KEY_SDKMAN_RELEASE_NOTES_URL, resolveTemplate(packager.getReleaseNotesUrl(), props));
+    protected void fillPackagerProperties(TemplateContext props, Distribution distribution) {
+        props.set(KEY_SDKMAN_CANDIDATE, packager.getCandidate());
+        props.set(KEY_SDKMAN_RELEASE_NOTES_URL, resolveTemplate(packager.getReleaseNotesUrl(), props));
     }
 }

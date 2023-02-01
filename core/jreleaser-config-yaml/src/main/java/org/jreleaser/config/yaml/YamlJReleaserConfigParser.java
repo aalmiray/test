@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@ import com.github.sbaudoin.yamllint.LintProblem;
 import com.github.sbaudoin.yamllint.Linter;
 import com.github.sbaudoin.yamllint.YamlLintConfig;
 import com.github.sbaudoin.yamllint.YamlLintConfigException;
+import org.jreleaser.config.AbstractJReleaserConfigParser;
 import org.jreleaser.config.JReleaserConfigParser;
 import org.jreleaser.model.internal.JReleaserModel;
 import org.kordamp.jipsy.annotations.ServiceProviderFor;
@@ -43,7 +44,7 @@ import static org.jreleaser.util.StringUtils.isNotBlank;
  */
 @org.jreleaser.infra.nativeimage.annotations.NativeImage
 @ServiceProviderFor(JReleaserConfigParser.class)
-public class YamlJReleaserConfigParser implements JReleaserConfigParser {
+public class YamlJReleaserConfigParser extends AbstractJReleaserConfigParser {
     private static final String YAML_LINT_CONFIG = String.join(lineSeparator(), asList(
         "---",
         "rules:",
@@ -52,14 +53,8 @@ public class YamlJReleaserConfigParser implements JReleaserConfigParser {
         "    check-multi-line-strings: false",
         "    indent-sequences: true")) + lineSeparator();
 
-    @Override
-    public String getPreferredFileExtension() {
-        return "yml";
-    }
-
-    @Override
-    public boolean supports(Path configFile) {
-        return supports(configFile.getFileName().toString());
+    public YamlJReleaserConfigParser() {
+        super("yml");
     }
 
     @Override

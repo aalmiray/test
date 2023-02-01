@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,6 +37,8 @@ import static org.jreleaser.model.api.announce.ArticleAnnouncer.TYPE;
  * @since 0.6.0
  */
 public final class ArticleAnnouncer extends AbstractAnnouncer<ArticleAnnouncer, org.jreleaser.model.api.announce.ArticleAnnouncer> implements CommitAuthorAware {
+    private static final long serialVersionUID = 8118441310808540594L;
+
     private final Set<Artifact> files = new LinkedHashSet<>();
     private final CommitAuthor commitAuthor = new CommitAuthor();
     private final Repository repository = new Repository();
@@ -44,6 +46,8 @@ public final class ArticleAnnouncer extends AbstractAnnouncer<ArticleAnnouncer, 
     private String templateDirectory;
 
     private final org.jreleaser.model.api.announce.ArticleAnnouncer immutable = new org.jreleaser.model.api.announce.ArticleAnnouncer() {
+        private static final long serialVersionUID = 6971332126023008307L;
+
         private Set<? extends org.jreleaser.model.api.common.Artifact> files;
 
         @Override
@@ -73,7 +77,7 @@ public final class ArticleAnnouncer extends AbstractAnnouncer<ArticleAnnouncer, 
 
         @Override
         public String getName() {
-            return name;
+            return ArticleAnnouncer.this.getName();
         }
 
         @Override
@@ -83,7 +87,7 @@ public final class ArticleAnnouncer extends AbstractAnnouncer<ArticleAnnouncer, 
 
         @Override
         public Active getActive() {
-            return active;
+            return ArticleAnnouncer.this.getActive();
         }
 
         @Override
@@ -108,17 +112,17 @@ public final class ArticleAnnouncer extends AbstractAnnouncer<ArticleAnnouncer, 
 
         @Override
         public Map<String, Object> getExtraProperties() {
-            return unmodifiableMap(extraProperties);
+            return unmodifiableMap(ArticleAnnouncer.this.getExtraProperties());
         }
 
         @Override
         public Integer getConnectTimeout() {
-            return connectTimeout;
+            return ArticleAnnouncer.this.getConnectTimeout();
         }
 
         @Override
         public Integer getReadTimeout() {
-            return readTimeout;
+            return ArticleAnnouncer.this.getReadTimeout();
         }
     };
 
@@ -200,10 +204,14 @@ public final class ArticleAnnouncer extends AbstractAnnouncer<ArticleAnnouncer, 
     }
 
     public static final class Repository extends AbstractRepositoryTap<Repository> {
+        private static final long serialVersionUID = -1923514428336002946L;
+
         private final org.jreleaser.model.api.announce.ArticleAnnouncer.Repository immutable = new org.jreleaser.model.api.announce.ArticleAnnouncer.Repository() {
+            private static final long serialVersionUID = 4466712256400781859L;
+
             @Override
             public String getBasename() {
-                return basename;
+                return Repository.this.getBasename();
             }
 
             @Override
@@ -213,37 +221,37 @@ public final class ArticleAnnouncer extends AbstractAnnouncer<ArticleAnnouncer, 
 
             @Override
             public String getName() {
-                return name;
+                return Repository.this.getName();
             }
 
             @Override
             public String getTagName() {
-                return tagName;
+                return Repository.this.getTagName();
             }
 
             @Override
             public String getBranch() {
-                return branch;
+                return Repository.this.getBranch();
             }
 
             @Override
             public String getUsername() {
-                return username;
+                return Repository.this.getUsername();
             }
 
             @Override
             public String getToken() {
-                return token;
+                return Repository.this.getToken();
             }
 
             @Override
             public String getCommitMessage() {
-                return commitMessage;
+                return Repository.this.getCommitMessage();
             }
 
             @Override
             public Active getActive() {
-                return active;
+                return Repository.this.getActive();
             }
 
             @Override
@@ -258,7 +266,7 @@ public final class ArticleAnnouncer extends AbstractAnnouncer<ArticleAnnouncer, 
 
             @Override
             public String getOwner() {
-                return owner;
+                return Repository.this.getOwner();
             }
         };
 

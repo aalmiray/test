@@ -41,6 +41,62 @@
       InstallScope="$(var.JpInstallScope)" Platform="x64"
     />
 
+    <Property Id="ApplicationFolderName" Value="JReleaser" />
+    <Property Id="WixAppFolder" Value="WixPerMachineFolder" />
+    <Property Id="ALLUSERS" Value="2" Secure="yes" />
+    <Property Id="MSIINSTALLPERUSER" Secure="yes" />
+    <!-- The actual install location (initialized below) -->
+    <Property Id="INSTALLDIR" Secure="yes" />
+
+    <!-- Detect path(s) of a previous installation. -->
+    <Property Id="INSTALLDIR_USER">
+        <RegistrySearch Id="InstallDir_User" Type="raw" Root="HKCU" Key="$(var.BaseRegKey)" Name="InstallDir" />
+    </Property>
+    <Property Id="INSTALLDIR_MACHINE">
+        <RegistrySearch Id="InstallDir_Mach" Type="raw" Root="HKLM" Key="$(var.BaseRegKey)" Name="InstallDir" />
+    </Property>
+
+    <!-- Set ALLUSERS to match the previous installation mode, otherwise FindRelatedProducts will ignore
+         the previous installation. If both INSTALLDIR_USER and INSTALLDIR_MACHINE are set, prefer the former. -->
+    <SetProperty Sequence="first" Before="FindRelatedProducts"
+        Id="ALLUSERS" Value="{}">INSTALLDIR_USER</SetProperty>
+
+    <!-- Set default values if RegSearch found nothing, or if we not upgrading -->
+    <SetProperty Sequence="both" Before="SetINSTALLDIR1"
+        Id="INSTALLDIR_USER" Value="[LocalAppDataFolder]Programs\[ApplicationFolderName]">NOT INSTALLDIR_USER</SetProperty>
+    <SetProperty Sequence="both" Before="SetINSTALLDIR1"
+        Id="INSTALLDIR_MACHINE" Value="[$(var.PlatformProgramFilesFolder)][ApplicationFolderName]">NOT INSTALLDIR_MACHINE</SetProperty>
+
+    <!-- Choose the default install location according to ALLUSERS (unless set from the command line) -->
+    <SetProperty Sequence="both" Action="SetINSTALLDIR1" Before="SetINSTALLDIR2"
+        Id="INSTALLDIR" Value="[INSTALLDIR_USER]">NOT INSTALLDIR AND NOT ALLUSERS</SetProperty>
+    <SetProperty Sequence="both" Action="SetINSTALLDIR2" Before="CostFinalize"
+        Id="INSTALLDIR" Value="[INSTALLDIR_MACHINE]">NOT INSTALLDIR AND ALLUSERS</SetProperty>
+
+    <SetProperty Sequence="ui" Before="CostFinalize"
+        Id="WixAppFolder" Value="WixPerUserFolder">NOT ALLUSERS</SetProperty>
+
+    <!-- UI sets ALLUSERS per user selection; progagate this choice to MSIINSTALLPERUSER before executing installation actions -->
+    <SetProperty Sequence="ui" Before="ExecuteAction"
+        Id="MSIINSTALLPERUSER" Value="1">NOT ALLUSERS</SetProperty>
+
+    <!-- Update ARPINSTALLLOCATION to match INSTALLDIR -->
+    <SetProperty Sequence="execute" Before="CostFinalize"
+        Id="ARPINSTALLLOCATION" Value="[INSTALLDIR]" />
+
+    <!-- Path of cmd.exe for the shortcut -->
+    <Property Id="SHORTCUTTARGET" Value="%windir%\System32\cmd.exe" />
+    <!-- Microsoft Installer will resolve any Environment Variables in the working directory at install time -->
+    <Property Id="SHORTCUTWKDIR" Value="%SystemDrive%\" />
+
+    <InstallUISequence>
+        <FindRelatedProducts After="AppSearch" />
+    </InstallUISequence>
+    <InstallExecuteSequence>
+        <FindRelatedProducts After="AppSearch" />
+        <RemoveExistingProducts Before="InstallInitialize" />
+    </InstallExecuteSequence>
+
     <Media Id="1" Cabinet="Data.cab" EmbedCab="yes" />
 
     <Upgrade Id="$(var.JpProductUpgradeCode)">
@@ -65,16 +121,69 @@
     <CustomAction Id="JpDisallowDowngrade" Error="!(loc.DowngradeErrorMessage)" />
     <?endif?>
 
-    <!-- Standard required root -->
-    <Directory Id="TARGETDIR" Name="SourceDir"/>
+    <!-- Installation directory and files are defined in Files.wxs -->
+    <Directory Id="TARGETDIR" Name="SourceDir">
+        <Directory Id="$(var.PlatformProgramFilesFolder)">
+            <Directory Id="INSTALLDIR" Name="$(var.ProductName)">
+                <Directory Id="$(var.ProductName)" Name="." />
+            </Directory>
+        </Directory>
 
-    <Feature Id="DefaultFeature" Title="!(loc.MainFeatureTitle)" Level="1">
+        <!-- Record our install location -->
+        <Component Id="InstallDir" Guid="*">
+            <RegistryValue Root="HKMU" Key="$(var.BaseRegKey)"
+                           Type="string"
+                           Name="InstallDir"
+                           Value="[INSTALLDIR]" />
+        </Component>
+
+        <!-- Add $/bin to PATH -->
+        <Component Id="PathEnvPerMachine" Guid="*">
+            <Condition>ALLUSERS=1 OR (ALLUSERS=2 AND Privileged)</Condition>
+            <RegistryValue Root="HKMU" Key="$(var.BaseRegKey)" Name="PathEnvPerMachine" Type="string" Value="1" KeyPath="yes" />
+            <!-- [INSTALLDIR] contains trailing backslash -->
+            <Environment Id="PathPerMachine" Name="PATH" Value="[INSTALLDIR]bin" Permanent="no" Part="last" Action="set" System="yes" />
+        </Component>
+        <Component Id="PathEnvPerUser" Guid="*">
+            <Condition>ALLUSERS="" OR (ALLUSERS=2 AND (NOT Privileged))</Condition>
+            <RegistryValue Root="HKMU" Key="$(var.BaseRegKey)" Name="PathEnvPerUser" Type="string" Value="1" KeyPath="yes" />
+            <Environment Id="PathPerUser" Name="PATH" Value="[INSTALLDIR]bin" Permanent="no" Part="last" Action="set" System="no" />
+        </Component>
+
+        <!-- Start Menu shortcuts -->
+        <Directory Id="ProgramMenuFolder">
+            <Directory Id="ApplicationProgramsFolder" Name="Rust">
+                <Component Id="JReleaserShellShortcut" Guid="*">
+                    <Shortcut Id="JReleaserShell"
+                              Name="$(var.ProductName) Shell"
+                              Description="Opens Command Prompt with $(var.ProductName) added to the PATH"
+                              Target="[SHORTCUTTARGET]"
+                              Arguments="/K path [INSTALLDIR]bin;%PATH%"
+                              WorkingDirectory="SHORTCUTWKDIR">
+                        <Icon Id="jreleaser2.ico" SourceFile="$(var.JpIcon)" />
+                    </Shortcut>
+                    <RegistryValue Root="HKMU" Key="$(var.BaseRegKey)" Name="JReleaserShell" Type="integer" Value="1" KeyPath="yes" />
+                    <RemoveFolder Id="ApplicationProgramsFolder1" On="uninstall" />
+                </Component>
+            </Directory>
+        </Directory>
+    </Directory>
+
+    <Feature Id="$(var.ProductName)" Title="!(loc.MainFeatureTitle)" Level="1">
       <ComponentGroupRef Id="Shortcuts"/>
       <ComponentGroupRef Id="Files"/>
       <ComponentGroupRef Id="FileAssociations"/>
-      <Component Id="pathEnvironmentVariable" Guid="$(var.JpProductUpgradeCode)" KeyPath="yes" Directory="TARGETDIR">
-        <Environment Id="JRELEASER_HOME" Name="Path" Value="[INSTALLDIR]" Action="set" System="no" Permanent="no" Part="last" Separator=";" />
-      </Component>
+      <ComponentRef Id="InstallDir" />
+    </Feature>
+
+    <Feature Id="Path"
+             Title="Add to PATH"
+             Description="Add JReleaser to PATH environment variable"
+             Display="6"
+             Level="1"
+             AllowAdvertise="no">
+        <ComponentRef Id="PathEnvPerMachine" />
+        <ComponentRef Id="PathEnvPerUser" />
     </Feature>
 
     <CustomAction Id="JpSetARPINSTALLLOCATION" Property="ARPINSTALLLOCATION" Value="[INSTALLDIR]" />

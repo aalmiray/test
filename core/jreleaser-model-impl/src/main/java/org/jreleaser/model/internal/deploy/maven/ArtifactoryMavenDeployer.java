@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,7 +31,11 @@ import static java.util.Collections.unmodifiableMap;
  * @since 1.3.0
  */
 public final class ArtifactoryMavenDeployer extends AbstractMavenDeployer<ArtifactoryMavenDeployer, org.jreleaser.model.api.deploy.maven.ArtifactoryMavenDeployer> {
+    private static final long serialVersionUID = 2876306953402604076L;
+
     private final org.jreleaser.model.api.deploy.maven.ArtifactoryMavenDeployer immutable = new org.jreleaser.model.api.deploy.maven.ArtifactoryMavenDeployer() {
+        private static final long serialVersionUID = 7913526241183452717L;
+
         @Override
         public String getGroup() {
             return org.jreleaser.model.api.deploy.maven.MavenDeployer.GROUP;
@@ -39,22 +43,22 @@ public final class ArtifactoryMavenDeployer extends AbstractMavenDeployer<Artifa
 
         @Override
         public String getUrl() {
-            return url;
+            return ArtifactoryMavenDeployer.this.getUrl();
         }
 
         @Override
         public String getUsername() {
-            return username;
+            return ArtifactoryMavenDeployer.this.getUsername();
         }
 
         @Override
         public String getPassword() {
-            return password;
+            return ArtifactoryMavenDeployer.this.getPassword();
         }
 
         @Override
         public Http.Authorization getAuthorization() {
-            return authorization;
+            return ArtifactoryMavenDeployer.this.getAuthorization();
         }
 
         @Override
@@ -74,22 +78,22 @@ public final class ArtifactoryMavenDeployer extends AbstractMavenDeployer<Artifa
 
         @Override
         public List<String> getStagingRepositories() {
-            return unmodifiableList(stagingRepositories);
+            return unmodifiableList(ArtifactoryMavenDeployer.this.getStagingRepositories());
         }
 
         @Override
         public String getType() {
-            return type;
+            return ArtifactoryMavenDeployer.this.getType();
         }
 
         @Override
         public String getName() {
-            return name;
+            return ArtifactoryMavenDeployer.this.getName();
         }
 
         @Override
         public Active getActive() {
-            return active;
+            return ArtifactoryMavenDeployer.this.getActive();
         }
 
         @Override
@@ -109,17 +113,17 @@ public final class ArtifactoryMavenDeployer extends AbstractMavenDeployer<Artifa
 
         @Override
         public Map<String, Object> getExtraProperties() {
-            return unmodifiableMap(extraProperties);
+            return unmodifiableMap(ArtifactoryMavenDeployer.this.getExtraProperties());
         }
 
         @Override
         public Integer getConnectTimeout() {
-            return connectTimeout;
+            return ArtifactoryMavenDeployer.this.getConnectTimeout();
         }
 
         @Override
         public Integer getReadTimeout() {
-            return readTimeout;
+            return ArtifactoryMavenDeployer.this.getReadTimeout();
         }
     };
 
@@ -134,15 +138,15 @@ public final class ArtifactoryMavenDeployer extends AbstractMavenDeployer<Artifa
 
     @Override
     protected void asMap(boolean full, Map<String, Object> props) {
-
+        // noop
     }
 
     @Override
     public Http.Authorization resolveAuthorization() {
-        if (null == authorization) {
-            authorization = Http.Authorization.BEARER;
+        if (null == getAuthorization()) {
+            setAuthorization(Http.Authorization.BEARER);
         }
 
-        return authorization;
+        return getAuthorization();
     }
 }

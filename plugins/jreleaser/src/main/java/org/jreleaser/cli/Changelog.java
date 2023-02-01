@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,10 +27,18 @@ import picocli.CommandLine;
  * @since 0.1.0
  */
 @CommandLine.Command(name = "changelog")
-public class Changelog extends AbstractModelCommand {
+public class Changelog extends AbstractModelCommand<Main> {
+    @CommandLine.Option(names = {"--dry-run"})
+    Boolean dryrun;
+
     @Override
     protected void doExecute(JReleaserContext context) {
         Workflows.changelog(context).execute();
+    }
+
+    @Override
+    protected Boolean dryrun() {
+        return dryrun;
     }
 
     @Override

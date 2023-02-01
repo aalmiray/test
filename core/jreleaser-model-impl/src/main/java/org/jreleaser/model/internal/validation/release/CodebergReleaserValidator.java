@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,13 +24,19 @@ import org.jreleaser.util.Errors;
 
 import static org.jreleaser.model.api.release.Releaser.DRAFT;
 import static org.jreleaser.model.api.release.Releaser.PRERELEASE_PATTERN;
+import static org.jreleaser.model.internal.validation.common.Validator.checkProperty;
+import static org.jreleaser.model.internal.validation.release.BaseReleaserValidator.validateGitService;
 
 
 /**
  * @author Andres Almiray
  * @since 0.1.0
  */
-public abstract class CodebergReleaserValidator extends BaseReleaserValidator {
+public final class CodebergReleaserValidator {
+    private CodebergReleaserValidator() {
+        // noop
+    }
+
     public static boolean validateCodeberg(JReleaserContext context, Mode mode, CodebergReleaser codeberg, Errors errors) {
         if (null == codeberg) return false;
         context.getLogger().debug("release.codeberg");
@@ -44,7 +50,7 @@ public abstract class CodebergReleaserValidator extends BaseReleaserValidator {
         codeberg.getPrerelease().setPattern(
             checkProperty(context,
                 PRERELEASE_PATTERN,
-                "codeberg.github.prerelease.pattern",
+                "release.codeberg.prerelease.pattern",
                 codeberg.getPrerelease().getPattern(),
                 ""));
         codeberg.getPrerelease().isPrerelease(context.getModel().getProject().getResolvedVersion());
@@ -53,7 +59,7 @@ public abstract class CodebergReleaserValidator extends BaseReleaserValidator {
             codeberg.setDraft(
                 checkProperty(context,
                     DRAFT,
-                    "codeberg.draft",
+                    "release.codeberg.draft",
                     null,
                     false));
         }

@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,7 +33,11 @@ import java.util.stream.StreamSupport;
  * @author Andres Almiray
  * @since 0.3.0
  */
-public class ArtifactUploaders {
+public final class ArtifactUploaders {
+    private ArtifactUploaders() {
+        // noop
+    }
+
     public static <A extends org.jreleaser.model.api.upload.Uploader, U extends Uploader<A>> ArtifactUploader<A, U> findUploader(JReleaserContext context, U uploader) {
         Map<String, ArtifactUploader<?, ?>> uploaders = StreamSupport.stream(ServiceLoader.load(ArtifactUploaderFactory.class,
                 ArtifactUploaders.class.getClassLoader()).spliterator(), false)

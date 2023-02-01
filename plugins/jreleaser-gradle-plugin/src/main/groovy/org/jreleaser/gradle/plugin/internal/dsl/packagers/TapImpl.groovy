@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,6 +37,7 @@ import org.jreleaser.model.internal.packagers.MacportsPackager
 import org.jreleaser.model.internal.packagers.ScoopPackager
 import org.jreleaser.model.internal.packagers.SnapPackager
 import org.jreleaser.model.internal.packagers.SpecPackager
+import org.jreleaser.model.internal.packagers.WingetPackager
 
 import javax.inject.Inject
 
@@ -168,6 +169,12 @@ class TapImpl implements Tap {
 
     JbangPackager.JbangRepository toJbangCatalog() {
         JbangPackager.JbangRepository tap = new JbangPackager.JbangRepository()
+        convert(tap)
+        tap
+    }
+
+    WingetPackager.WingetRepository toWingetRepository() {
+        WingetPackager.WingetRepository tap = new WingetPackager.WingetRepository()
         convert(tap)
         tap
     }

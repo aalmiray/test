@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -87,19 +87,23 @@ public final class TemplateUtils {
         }
         Path actualTemplateDirectory = directory;
 
+        if (!Files.exists(actualTemplateDirectory)) {
+            return templates;
+        }
+
         try {
             Files.walkFileTree(actualTemplateDirectory, new SimpleFileVisitor<Path>() {
                 @Override
                 public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
                     templates.put(actualTemplateDirectory.relativize(file).toString(),
-                        asResource(file));
+                        resolveTemplate(file));
                     return FileVisitResult.CONTINUE;
                 }
             });
         } catch (IOException e) {
             String distributionTypeName = distributionType.toLowerCase(Locale.ENGLISH).replace('_', '-');
             throw new JReleaserException(RB.$("ERROR_unexpected_reading_templates_distribution",
-                distributionTypeName, toolName, actualTemplateDirectory.toAbsolutePath()));
+                distributionTypeName, toolName, actualTemplateDirectory.toAbsolutePath()), e);
         }
 
         return templates;
@@ -108,23 +112,27 @@ public final class TemplateUtils {
     public static Map<String, TemplateResource> resolveTemplates(Path templateDirectory) {
         Map<String, TemplateResource> templates = new LinkedHashMap<>();
 
+        if (!Files.exists(templateDirectory)) {
+            return templates;
+        }
+
         try {
             Files.walkFileTree(templateDirectory, new SimpleFileVisitor<Path>() {
                 @Override
                 public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
                     templates.put(templateDirectory.relativize(file).toString(),
-                        asResource(file));
+                        resolveTemplate(file));
                     return FileVisitResult.CONTINUE;
                 }
             });
         } catch (IOException e) {
-            throw new JReleaserException(RB.$("ERROR_unexpected_reading_templates_from", templateDirectory.toAbsolutePath()));
+            throw new JReleaserException(RB.$("ERROR_unexpected_reading_templates_from", templateDirectory.toAbsolutePath()), e);
         }
 
         return templates;
     }
 
-    private static TemplateResource asResource(Path file) throws IOException {
+    public static TemplateResource resolveTemplate(Path file) throws IOException {
         FileInputStream inputStream = new FileInputStream(file.toFile());
         if (file.getFileName().toString().endsWith(TPL)) {
             return new ReaderTemplateResource(new InputStreamReader(inputStream, StandardCharsets.UTF_8));
@@ -140,18 +148,20 @@ public final class TemplateUtils {
 
         logger.debug(RB.$("templates.templates.resolve.classpath"));
 
-        String templatePrefix = distributionTypeName + "." + toolName.toLowerCase(Locale.ENGLISH) + (snapshot ? "-snapshot" : "");
+        String suffix = snapshot ? "-snapshot" : "";
+        String templatePrefix = distributionTypeName + "." + toolName.toLowerCase(Locale.ENGLISH) + suffix;
         logger.debug(RB.$("templates.template.resolve.classpath", templatePrefix));
         String values = TEMPLATES_INVENTORY.getProperty(templatePrefix);
         if (isBlank(values) && snapshot) {
             templatePrefix = distributionTypeName + "." + toolName.toLowerCase(Locale.ENGLISH);
             logger.debug(RB.$("templates.template.resolve.classpath", templatePrefix));
             values = TEMPLATES_INVENTORY.getProperty(templatePrefix);
+            suffix = "";
         }
 
         if (isNotBlank(values)) {
             for (String k : values.split(",")) {
-                templates.put(k, resolveTemplate(logger, distributionTypeName + "/" + toolName.toLowerCase(Locale.ENGLISH) + "/" + k));
+                templates.put(k, resolveTemplate(logger, distributionTypeName + "/" + toolName.toLowerCase(Locale.ENGLISH) + suffix + "/" + k));
             }
         }
 

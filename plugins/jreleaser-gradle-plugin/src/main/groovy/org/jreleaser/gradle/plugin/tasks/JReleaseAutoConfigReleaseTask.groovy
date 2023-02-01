@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,11 +26,13 @@ import org.gradle.api.provider.ListProperty
 import org.gradle.api.provider.Property
 import org.gradle.api.provider.SetProperty
 import org.gradle.api.tasks.Input
+import org.gradle.api.tasks.InputDirectory
+import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.Optional
 import org.gradle.api.tasks.TaskAction
 import org.gradle.api.tasks.options.Option
 import org.jreleaser.engine.context.ModelAutoConfigurer
-import org.jreleaser.gradle.plugin.internal.JReleaserLoggerAdapter
+import org.jreleaser.gradle.plugin.internal.JReleaserLoggerService
 import org.jreleaser.model.UpdateSection
 import org.jreleaser.model.internal.JReleaserContext
 import org.jreleaser.util.Env
@@ -38,8 +40,6 @@ import org.jreleaser.util.PlatformUtils
 import org.jreleaser.workflow.Workflows
 
 import javax.inject.Inject
-import java.nio.file.Files
-import java.nio.file.Path
 
 import static java.util.stream.Collectors.toList
 import static org.jreleaser.util.StringUtils.isBlank
@@ -52,7 +52,9 @@ import static org.jreleaser.util.StringUtils.isNotBlank
  */
 @CompileStatic
 abstract class JReleaseAutoConfigReleaseTask extends DefaultTask {
-    @Input
+    static final String NAME = 'jreleaserAutoConfigRelease'
+
+    @InputDirectory
     final DirectoryProperty outputDirectory
     @Input
     @Optional
@@ -167,6 +169,8 @@ abstract class JReleaseAutoConfigReleaseTask extends DefaultTask {
     @Input
     @Optional
     final ListProperty<String> rejectPlatforms
+    @Internal
+    final Property<JReleaserLoggerService> jlogger
 
     @Option(option = 'project-name', description = 'The project name (OPTIONAL).')
     void setProjectName(String projectName) {
@@ -263,7 +267,7 @@ abstract class JReleaseAutoConfigReleaseTask extends DefaultTask {
         this.commitAuthorEmail.set(commitAuthorEmail)
     }
 
-    @Option(option = 'dry-run', description = 'Skip remote operations (OPTIONAL).')
+    @Option(option = 'dryrun', description = 'Skip remote operations (OPTIONAL).')
     void setDryrun(boolean dryrun) {
         this.dryrun.set(dryrun)
     }
@@ -370,6 +374,7 @@ abstract class JReleaseAutoConfigReleaseTask extends DefaultTask {
         gitRootSearch = objects.property(Boolean)
         strict = objects.property(Boolean)
         outputDirectory = objects.directoryProperty()
+        jlogger = objects.property(JReleaserLoggerService)
 
         projectName = objects.property(String).convention(project.name)
         projectVersion = objects.property(String).convention(String.valueOf(project.version))
@@ -410,15 +415,10 @@ abstract class JReleaseAutoConfigReleaseTask extends DefaultTask {
 
     @TaskAction
     void performAction() {
-        Path outputDirectoryPath = outputDirectory.get().asFile.toPath()
-        Files.createDirectories(outputDirectoryPath)
-        PrintWriter tracer = new PrintWriter(new FileOutputStream(outputDirectoryPath
-            .resolve('trace.log').toFile()))
-
         JReleaserContext context = ModelAutoConfigurer.builder()
-            .logger(new JReleaserLoggerAdapter(project, tracer))
+            .logger(jlogger.get().logger)
             .basedir(project.projectDir.toPath())
-            .outputDirectory(outputDirectoryPath)
+            .outputDirectory(outputDirectory.get().asFile.toPath())
             .dryrun(dryrun.getOrElse(false))
             .gitRootSearch(gitRootSearch.getOrElse(false))
             .strict(strict.getOrElse(false))
@@ -478,7 +478,7 @@ abstract class JReleaseAutoConfigReleaseTask extends DefaultTask {
     }
 
     protected List<String> resolveCollection(String key, List<String> values) {
-        if (!values.isEmpty()) return values;
+        if (!values.isEmpty()) return values
         String resolvedValue = Env.resolve(key, '')
         if (isBlank(resolvedValue)) return Collections.emptyList()
         return Arrays.stream(resolvedValue.trim().split(','))

@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,9 +28,11 @@ import static org.jreleaser.util.StringUtils.isBlank;
 public class Distribution {
     public enum DistributionType {
         BINARY("binary"),
+        FLAT_BINARY("flat"),
         JAVA_BINARY("java"),
         JLINK("jlink"),
         SINGLE_JAR("uberjar"),
+        @Deprecated
         NATIVE_IMAGE("graal"),
         NATIVE_PACKAGE("jpackage");
 
@@ -43,8 +45,8 @@ public class Distribution {
         public static DistributionType of(String str) {
             if (isBlank(str)) return null;
 
-            String value = str.replaceAll(" ", "_")
-                .replaceAll("-", "_")
+            String value = str.replace(" ", "_")
+                .replace("-", "_")
                 .toUpperCase(Locale.ENGLISH).trim();
 
             // try alias

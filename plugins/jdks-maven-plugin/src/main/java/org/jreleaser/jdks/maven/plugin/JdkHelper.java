@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,6 +36,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Locale;
 
+import static org.jreleaser.util.StringUtils.isBlank;
 import static org.twdata.maven.mojoexecutor.MojoExecutor.configuration;
 import static org.twdata.maven.mojoexecutor.MojoExecutor.element;
 import static org.twdata.maven.mojoexecutor.MojoExecutor.executeMojo;
@@ -108,7 +109,7 @@ public class JdkHelper {
             executeMojo(
                 plugin("com.googlecode.maven-download-plugin",
                     "download-maven-plugin",
-                    "1.6.7"),
+                    "1.6.8"),
                 goal("wget"),
                 configuration(
                     element("uri", jdk.getUrl()),
@@ -126,15 +127,20 @@ public class JdkHelper {
     }
 
     private void verifyJdk(File jdkExtractDirectory, Jdk jdk) throws MojoExecutionException {
-        String algo = Algorithm.SHA_256.formatted();
         String checksum = jdk.getChecksum();
+        String filename = getFilename(jdk);
+
+        if (isBlank(checksum)) {
+            log.info("Checksum not available. Skipping verification of " + filename);
+            return;
+        }
+
+        String algo = Algorithm.SHA_256.formatted();
         if (checksum.contains("/")) {
             String[] parts = checksum.split("/");
             algo = parts[0];
             checksum = parts[1];
         }
-
-        String filename = getFilename(jdk);
 
         try {
             // calculate checksum
@@ -161,14 +167,6 @@ public class JdkHelper {
     private String getDirname(Jdk jdk) {
         String filename = getFilename(jdk);
         return filename.substring(0, filename.lastIndexOf('.'));
-    }
-
-    private String toHex(byte[] barr) {
-        StringBuilder result = new StringBuilder();
-        for (byte b : barr) {
-            result.append(String.format("%02X", b));
-        }
-        return result.toString();
     }
 
     private void extractJdk(File jdkExtractDirectory, Jdk jdk) throws MojoExecutionException {

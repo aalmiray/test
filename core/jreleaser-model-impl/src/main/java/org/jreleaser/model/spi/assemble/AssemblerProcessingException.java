@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,6 +22,8 @@ package org.jreleaser.model.spi.assemble;
  * @since 0.2.0
  */
 public class AssemblerProcessingException extends Exception {
+    private static final long serialVersionUID = -5780385999973744325L;
+
     public AssemblerProcessingException(String message) {
         super(message);
     }

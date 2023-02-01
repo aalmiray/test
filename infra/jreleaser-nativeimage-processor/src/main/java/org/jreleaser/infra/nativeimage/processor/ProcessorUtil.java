@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,8 +30,12 @@ import java.io.Writer;
  * @since 1.0.0
  */
 public final class ProcessorUtil {
+    private ProcessorUtil() {
+        // noop
+    }
+
     static void generate(Location location, String fileName, String content, Context context) throws IOException {
-        if (content == null || content.isEmpty()) return;
+        if (null == content || content.isEmpty()) return;
 
         FileObject resource = context.getProcessingEnv().getFiler().createResource(
             location,
@@ -49,7 +53,7 @@ public final class ProcessorUtil {
             writer.write(text);
             writer.flush();
         } finally {
-            if (writer != null) {
+            if (null != writer) {
                 writer.close();
             }
         }

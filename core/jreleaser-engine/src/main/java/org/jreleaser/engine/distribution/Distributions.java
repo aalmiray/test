@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,7 +36,11 @@ import static org.jreleaser.model.internal.JReleaserSupport.supportedPackagers;
  * @author Andres Almiray
  * @since 0.1.0
  */
-public class Distributions {
+public final class Distributions {
+    private Distributions() {
+        // noop
+    }
+
     public static void process(JReleaserContext context, DistributionProcessor.PackagingAction action) {
         List<Distribution> activeDistributions = context.getModel().getActiveDistributions();
 
@@ -126,7 +130,7 @@ public class Distributions {
     }
 
     private static void processPackager(JReleaserContext context, Distribution distribution, String packagerName, DistributionProcessor.PackagingAction action) {
-        Packager<?> packager = distribution.getPackager(packagerName);
+        Packager<?> packager = distribution.findPackager(packagerName);
 
         try {
             context.getLogger().increaseIndent();
@@ -155,6 +159,9 @@ public class Distributions {
                 return JReleaserCommand.PACKAGE.toStep();
             case PUBLISH:
                 return JReleaserCommand.PUBLISH.toStep();
+            default:
+                // noop
+                break;
         }
         return JReleaserCommand.PREPARE.toStep();
     }

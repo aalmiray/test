@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,14 +18,12 @@
 package org.jreleaser.model.internal.validation.assemble;
 
 import org.jreleaser.bundle.RB;
-import org.jreleaser.model.Active;
 import org.jreleaser.model.api.JReleaserContext.Mode;
 import org.jreleaser.model.internal.JReleaserContext;
 import org.jreleaser.model.internal.assemble.JlinkAssembler;
 import org.jreleaser.model.internal.assemble.JpackageAssembler;
 import org.jreleaser.model.internal.common.Artifact;
 import org.jreleaser.model.internal.project.Project;
-import org.jreleaser.model.internal.validation.common.Validator;
 import org.jreleaser.util.Errors;
 import org.jreleaser.util.PlatformUtils;
 import org.jreleaser.version.SemanticVersion;
@@ -39,6 +37,8 @@ import java.util.regex.Pattern;
 import static java.util.Collections.singletonList;
 import static java.util.stream.Collectors.groupingBy;
 import static org.jreleaser.model.internal.validation.common.TemplateValidator.validateTemplate;
+import static org.jreleaser.model.internal.validation.common.Validator.resolveActivatable;
+import static org.jreleaser.util.CollectionUtils.listOf;
 import static org.jreleaser.util.StringUtils.isBlank;
 import static org.jreleaser.util.StringUtils.isNotBlank;
 
@@ -46,9 +46,13 @@ import static org.jreleaser.util.StringUtils.isNotBlank;
  * @author Andres Almiray
  * @since 0.10.0
  */
-public abstract class JpackageAssemblerValidator extends Validator {
+public final class JpackageAssemblerValidator {
     private static final String MAC_IDENTIFIER = "[a-zA-Z0-9][a-zA-Z0-9\\.\\-]*";
     private static final Pattern MAC_IDENTIFIER_PATTERN = Pattern.compile(MAC_IDENTIFIER);
+
+    private JpackageAssemblerValidator() {
+        // noop
+    }
 
     public static void validateJpackage(JReleaserContext context, Mode mode, Errors errors) {
         Map<String, JpackageAssembler> jpackage = context.getModel().getAssemble().getJpackage();
@@ -62,21 +66,21 @@ public abstract class JpackageAssemblerValidator extends Validator {
         }
     }
 
-    public static void postValidateJpackage(JReleaserContext context, Mode mode, Errors errors) {
+    public static void postValidateJpackage(JReleaserContext context) {
         context.getLogger().debug("assemble.jpackage");
         Map<String, JpackageAssembler> jpackage = context.getModel().getAssemble().getJpackage();
 
         for (Map.Entry<String, JpackageAssembler> e : jpackage.entrySet()) {
-            postValidateJpackage(context, mode, e.getValue(), errors);
+            postValidateJpackage(context, e.getValue());
         }
     }
 
     private static void validateJpackage(JReleaserContext context, Mode mode, JpackageAssembler jpackage, Errors errors) {
         context.getLogger().debug("assemble.jpackage.{}", jpackage.getName());
 
-        if (!jpackage.isActiveSet()) {
-            jpackage.setActive(Active.NEVER);
-        }
+        resolveActivatable(context, jpackage,
+            listOf("assemble.jpackage." + jpackage.getName(), "assemble.jpackage"),
+            "NEVER");
 
         Project project = context.getModel().getProject();
         if (!jpackage.resolveEnabled(project)) {
@@ -113,7 +117,7 @@ public abstract class JpackageAssemblerValidator extends Validator {
                 candidateRuntimeImages.add(Artifact.of(path, platform));
             }
 
-            if (jpackage.getRuntimeImages().size() > 0 && jpackage.getRuntimeImages().size() != candidateRuntimeImages.size()) {
+            if (!jpackage.getRuntimeImages().isEmpty() && jpackage.getRuntimeImages().size() != candidateRuntimeImages.size()) {
                 errors.configuration(RB.$("validation_jpackage_jlink_application", jpackage.getName()));
             }
 
@@ -121,14 +125,14 @@ public abstract class JpackageAssemblerValidator extends Validator {
             for (Artifact runtimeImage : jpackage.getRuntimeImages()) {
                 Path rp = runtimeImage.getResolvedPath(context, jpackage);
                 Path tp = runtimeImage.getResolvedTransform(context, jpackage);
-                Path path = tp != null ? tp : rp;
+                Path path = null != tp ? tp : rp;
                 if (candidateRuntimeImages.stream()
                     .anyMatch(a -> a.getPath().equals(path.toString()))) {
                     count++;
                 }
             }
 
-            if (jpackage.getRuntimeImages().size() > 0 && count != candidateRuntimeImages.size()) {
+            if (!jpackage.getRuntimeImages().isEmpty() && count != candidateRuntimeImages.size()) {
                 errors.configuration(RB.$("validation_jpackage_jlink_application", jpackage.getName()));
             }
 
@@ -157,7 +161,7 @@ public abstract class JpackageAssemblerValidator extends Validator {
             jpackage.setExecutable(jpackage.getName());
         }
 
-        if (jpackage.getRuntimeImages().size() == 0) {
+        if (jpackage.getRuntimeImages().isEmpty()) {
             errors.configuration(RB.$("validation_jpackage_runtime_images_missing", jpackage.getName()));
             return;
         }
@@ -249,11 +253,9 @@ public abstract class JpackageAssemblerValidator extends Validator {
     }
 
     private static void validateOsx(JReleaserContext context, JpackageAssembler jpackage, JpackageAssembler.Osx packager, Errors errors) {
-        if (isNotBlank(packager.getPackageIdentifier())) {
-            if (!MAC_IDENTIFIER_PATTERN.matcher(packager.getPackageIdentifier()).matches()) {
-                errors.configuration(RB.$("validation_jpackage_invalid_mac_package_identifier",
-                    packager.getPackageIdentifier(), MAC_IDENTIFIER));
-            }
+        if (isNotBlank(packager.getPackageIdentifier()) && !MAC_IDENTIFIER_PATTERN.matcher(packager.getPackageIdentifier()).matches()) {
+            errors.configuration(RB.$("validation_jpackage_invalid_mac_package_identifier",
+                packager.getPackageIdentifier(), MAC_IDENTIFIER));
         }
 
         if (isBlank(packager.getPackageName())) {
@@ -272,7 +274,7 @@ public abstract class JpackageAssemblerValidator extends Validator {
     }
 
     private static void validateWindows(JReleaserContext context, JpackageAssembler jpackage, JpackageAssembler.Windows packager, Errors errors) {
-
+        // noop
     }
 
     private static boolean validateJava(JReleaserContext context, JpackageAssembler jpackage, Errors errors) {
@@ -285,7 +287,7 @@ public abstract class JpackageAssemblerValidator extends Validator {
             jpackage.getJava().setEnabled(jpackage.getJava().isSet());
         }
 
-        if (!jpackage.getJava().isEnabled()) return true;
+        if (!jpackage.getJava().isEnabled()) return false;
 
         if (isBlank(jpackage.getJava().getArtifactId())) {
             jpackage.getJava().setArtifactId(project.getJava().getArtifactId());
@@ -331,7 +333,7 @@ public abstract class JpackageAssemblerValidator extends Validator {
         }
     }
 
-    private static void postValidateJpackage(JReleaserContext context, Mode mode, JpackageAssembler jpackage, Errors errors) {
+    private static void postValidateJpackage(JReleaserContext context, JpackageAssembler jpackage) {
         Project project = context.getModel().getProject();
         if (!jpackage.resolveEnabled(project)) return;
 

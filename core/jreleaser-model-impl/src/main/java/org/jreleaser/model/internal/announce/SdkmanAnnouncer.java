@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,6 +33,8 @@ import static org.jreleaser.util.StringUtils.isNotBlank;
  * @since 0.1.0
  */
 public final class SdkmanAnnouncer extends AbstractAnnouncer<SdkmanAnnouncer, org.jreleaser.model.api.announce.SdkmanAnnouncer> {
+    private static final long serialVersionUID = 6870988423400683133L;
+
     private String consumerKey;
     private String consumerToken;
     private String candidate;
@@ -41,6 +43,8 @@ public final class SdkmanAnnouncer extends AbstractAnnouncer<SdkmanAnnouncer, or
     private Sdkman.Command command;
 
     private final org.jreleaser.model.api.announce.SdkmanAnnouncer immutable = new org.jreleaser.model.api.announce.SdkmanAnnouncer() {
+        private static final long serialVersionUID = 733706145901019309L;
+
         @Override
         public String getType() {
             return org.jreleaser.model.api.announce.SdkmanAnnouncer.TYPE;
@@ -83,7 +87,7 @@ public final class SdkmanAnnouncer extends AbstractAnnouncer<SdkmanAnnouncer, or
 
         @Override
         public String getName() {
-            return name;
+            return SdkmanAnnouncer.this.getName();
         }
 
         @Override
@@ -93,7 +97,7 @@ public final class SdkmanAnnouncer extends AbstractAnnouncer<SdkmanAnnouncer, or
 
         @Override
         public Active getActive() {
-            return active;
+            return SdkmanAnnouncer.this.getActive();
         }
 
         @Override
@@ -113,17 +117,17 @@ public final class SdkmanAnnouncer extends AbstractAnnouncer<SdkmanAnnouncer, or
 
         @Override
         public Map<String, Object> getExtraProperties() {
-            return unmodifiableMap(extraProperties);
+            return unmodifiableMap(SdkmanAnnouncer.this.getExtraProperties());
         }
 
         @Override
         public Integer getConnectTimeout() {
-            return connectTimeout;
+            return SdkmanAnnouncer.this.getConnectTimeout();
         }
 
         @Override
         public Integer getReadTimeout() {
-            return readTimeout;
+            return SdkmanAnnouncer.this.getReadTimeout();
         }
     };
 
@@ -205,7 +209,7 @@ public final class SdkmanAnnouncer extends AbstractAnnouncer<SdkmanAnnouncer, or
     }
 
     public boolean isCommandSet() {
-        return command != null;
+        return null != command;
     }
 
     public boolean isMajor() {

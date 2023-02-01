@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,21 +20,25 @@ package org.jreleaser.model.internal.validation.deploy.maven;
 import org.jreleaser.model.api.JReleaserContext.Mode;
 import org.jreleaser.model.internal.JReleaserContext;
 import org.jreleaser.model.internal.deploy.maven.GiteaMavenDeployer;
-import org.jreleaser.model.internal.validation.common.Validator;
-import org.jreleaser.util.Env;
+import org.jreleaser.model.internal.release.BaseReleaser;
 import org.jreleaser.util.Errors;
 
-import java.util.Locale;
 import java.util.Map;
 
+import static org.jreleaser.model.internal.validation.common.Validator.checkProperty;
 import static org.jreleaser.model.internal.validation.deploy.maven.MavenDeployersValidator.validateMavenDeployer;
+import static org.jreleaser.util.CollectionUtils.listOf;
 import static org.jreleaser.util.StringUtils.isBlank;
 
 /**
  * @author Andres Almiray
  * @since 1.3.0
  */
-public abstract class GiteaMavenDeployerValidator extends Validator {
+public final class GiteaMavenDeployerValidator {
+    private GiteaMavenDeployerValidator() {
+        // noop
+    }
+
     public static void validateGiteaMavenDeployer(JReleaserContext context, Mode mode, Errors errors) {
         Map<String, GiteaMavenDeployer> gitea = context.getModel().getDeploy().getMaven().getGitea();
         if (!gitea.isEmpty()) context.getLogger().debug("deploy.maven.gitea");
@@ -42,23 +46,42 @@ public abstract class GiteaMavenDeployerValidator extends Validator {
         for (Map.Entry<String, GiteaMavenDeployer> e : gitea.entrySet()) {
             e.getValue().setName(e.getKey());
             if (mode.validateDeploy() || mode.validateConfig()) {
-                validateGiteaMavenDeployer(context, mode, e.getValue(), errors);
+                validateGiteaMavenDeployer(context, e.getValue(), errors);
             }
         }
     }
 
-    private static void validateGiteaMavenDeployer(JReleaserContext context, Mode mode, GiteaMavenDeployer mavenDeployer, Errors errors) {
-        validateMavenDeployer(context, mode, mavenDeployer, errors);
+    private static void validateGiteaMavenDeployer(JReleaserContext context, GiteaMavenDeployer mavenDeployer, Errors errors) {
+        validateMavenDeployer(context, mavenDeployer, errors);
+        if (!mavenDeployer.isEnabled()) return;
 
-        String baseEnvKey = mavenDeployer.getType().toLowerCase(Locale.ENGLISH);
+        BaseReleaser<?, ?> service = context.getModel().getRelease().getReleaser();
 
         mavenDeployer.setUsername(
             checkProperty(context,
-                baseEnvKey + "_" + Env.toVar(mavenDeployer.getName()) + "_USERNAME",
-                mavenDeployer.getType() + ".username",
+                listOf(
+                    "deploy.maven." + mavenDeployer.getType() + "." + mavenDeployer.getName() + ".username",
+                    "deploy.maven." + mavenDeployer.getType() + ".username",
+                    mavenDeployer.getType() + "." + mavenDeployer.getName() + ".username",
+                    mavenDeployer.getType() + ".username"),
+                "deploy.maven." + mavenDeployer.getType() + "." + mavenDeployer.getName() + ".username",
                 mavenDeployer.getUsername(),
-                errors,
-                true));
+                service.getUsername()));
+
+        mavenDeployer.setPassword(
+            checkProperty(context,
+                listOf(
+                    "deploy.maven." + mavenDeployer.getType() + "." + mavenDeployer.getName() + ".password",
+                    "deploy.maven." + mavenDeployer.getType() + "." + mavenDeployer.getName() + ".token",
+                    "deploy.maven." + mavenDeployer.getType() + ".password",
+                    "deploy.maven." + mavenDeployer.getType() + ".token",
+                    mavenDeployer.getType() + "." + mavenDeployer.getName() + ".password",
+                    mavenDeployer.getType() + "." + mavenDeployer.getName() + ".token",
+                    mavenDeployer.getType() + ".password",
+                    mavenDeployer.getType() + ".token"),
+                "deploy.maven." + mavenDeployer.getType() + "." + mavenDeployer.getName() + ".password",
+                mavenDeployer.getPassword(),
+                service.getToken()));
 
         if (isBlank(mavenDeployer.getUsername())) {
             mavenDeployer.setUsername(context.getModel().getRelease().getReleaser().getUsername());

@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,13 +17,9 @@
  */
 package org.jreleaser.model.internal.hooks;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.jreleaser.model.Active;
-import org.jreleaser.model.internal.common.AbstractModelObject;
-import org.jreleaser.model.internal.common.Activatable;
+import org.jreleaser.model.internal.common.AbstractActivatable;
 import org.jreleaser.model.internal.common.Domain;
-import org.jreleaser.model.internal.project.Project;
-import org.jreleaser.util.Env;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -37,16 +33,16 @@ import static java.util.stream.Collectors.toList;
  * @author Andres Almiray
  * @since 1.2.0
  */
-public final class CommandHooks extends AbstractModelObject<CommandHooks> implements Domain, Activatable {
+public final class CommandHooks extends AbstractActivatable<CommandHooks> implements Domain {
+    private static final long serialVersionUID = 2902577556347608164L;
+
     private final List<CommandHook> before = new ArrayList<>();
     private final List<CommandHook> success = new ArrayList<>();
     private final List<CommandHook> failure = new ArrayList<>();
 
-    private Active active;
-    @JsonIgnore
-    private boolean enabled = true;
-
     private final org.jreleaser.model.api.hooks.CommandHooks immutable = new org.jreleaser.model.api.hooks.CommandHooks() {
+        private static final long serialVersionUID = 5109938718153117453L;
+
         private List<? extends org.jreleaser.model.api.hooks.CommandHook> before;
         private List<? extends org.jreleaser.model.api.hooks.CommandHook> success;
         private List<? extends org.jreleaser.model.api.hooks.CommandHook> failure;
@@ -83,7 +79,7 @@ public final class CommandHooks extends AbstractModelObject<CommandHooks> implem
 
         @Override
         public Active getActive() {
-            return active;
+            return CommandHooks.this.getActive();
         }
 
         @Override
@@ -97,61 +93,28 @@ public final class CommandHooks extends AbstractModelObject<CommandHooks> implem
         }
     };
 
+    public CommandHooks() {
+        enabledSet(true);
+    }
+
     public org.jreleaser.model.api.hooks.CommandHooks asImmutable() {
         return immutable;
     }
 
     @Override
     public void merge(CommandHooks source) {
-        this.active = merge(this.active, source.active);
-        this.enabled = merge(this.enabled, source.enabled);
+        super.merge(source);
         setBefore(merge(this.before, source.before));
         setSuccess(merge(this.success, source.success));
         setFailure(merge(this.failure, source.failure));
     }
 
+    @Override
     public boolean isSet() {
-        return !before.isEmpty() ||
+        return super.isSet() ||
+            !before.isEmpty() ||
             !success.isEmpty() ||
             !failure.isEmpty();
-    }
-
-    @Override
-    public boolean isEnabled() {
-        return enabled;
-    }
-
-    public void disable() {
-        active = Active.NEVER;
-        enabled = false;
-    }
-
-    public boolean resolveEnabled(Project project) {
-        if (null == active) {
-            setActive(Env.resolveOrDefault("hooks.command.active", "", "ALWAYS"));
-        }
-        enabled = active.check(project);
-        return enabled;
-    }
-
-    @Override
-    public Active getActive() {
-        return active;
-    }
-
-    @Override
-    public void setActive(Active active) {
-        this.active = active;
-    }
-
-    @Override
-    public void setActive(String str) {
-        setActive(Active.of(str));
-    }
-
-    @Override
-    public boolean isActiveSet() {
-        return active != null;
     }
 
     public List<CommandHook> getBefore() {
@@ -203,7 +166,7 @@ public final class CommandHooks extends AbstractModelObject<CommandHooks> implem
     public Map<String, Object> asMap(boolean full) {
         Map<String, Object> map = new LinkedHashMap<>();
         map.put("enabled", isEnabled());
-        map.put("active", active);
+        map.put("active", getActive());
 
         Map<String, Map<String, Object>> m = new LinkedHashMap<>();
         int i = 0;

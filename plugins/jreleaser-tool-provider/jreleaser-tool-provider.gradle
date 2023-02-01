@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,11 +18,19 @@
 plugins {
     id 'com.github.johnrengelman.shadow'
     id 'application'
+    id 'org.moditect.gradleplugin'
 }
 
-mainClassName = 'org.jreleaser.tool.JReleaser'
+application {
+    mainClass = 'org.jreleaser.tool.JReleaser'
+    // shadow complains if this is not set
+    mainClassName = 'org.jreleaser.tool.JReleaser'
+}
 
 config {
+    info {
+        bytecodeVersion = project.findProperty('targetCompatibility')
+    }
     docs {
         javadoc {
             empty = true
@@ -54,6 +62,17 @@ idea {
     }
 }
 
+addMainModuleInfo {
+    version = project.version
+    jvmVersion = targetCompatibility
+    overwriteExistingFiles = true
+    jdepsExtraArgs = ['-q']
+    module {
+        mainClass = application.mainClass.get()
+        moduleInfoFile = file('src/java11/module-info.java')
+    }
+}
+
 shadowJar {
     configurations    = [project.configurations.uberjar]
     archiveBaseName   = project.name
@@ -67,14 +86,20 @@ shadowJar {
     exclude 'plugin.xml'
 }
 
-task relocateShadowJar(type: com.github.jengelman.gradle.plugins.shadow.tasks.ConfigureShadowRelocation) {
+task relocateShadowJar(type: org.jreleaser.gradle.shadow.ConfigureShadowRelocation) {
     target = tasks.shadowJar
-    prefix = 'jreleaser.shadow'
+    exclude('zstd-jni')
+    exclude('jreleaser-logger-api')
+    exclude('jreleaser-model-api')
+    exclude('jreleaser-resource-bundle')
+    exclude('jreleaser-utils')
+    exclude('jreleaser-templates')
 }
 
 tasks.shadowJar.dependsOn tasks.relocateShadowJar
 
 jar.finalizedBy shadowJar
+addMainModuleInfo.mustRunAfter(shadowJar)
 
 tasks.withType(JavaCompile) { JavaCompile c ->
     c.sourceCompatibility = JavaVersion.VERSION_11

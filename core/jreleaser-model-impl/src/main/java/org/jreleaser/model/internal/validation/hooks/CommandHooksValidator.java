@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,36 +18,39 @@
 package org.jreleaser.model.internal.validation.hooks;
 
 import org.jreleaser.bundle.RB;
-import org.jreleaser.model.Active;
-import org.jreleaser.model.api.JReleaserContext.Mode;
 import org.jreleaser.model.internal.JReleaserContext;
 import org.jreleaser.model.internal.hooks.CommandHook;
 import org.jreleaser.model.internal.hooks.CommandHooks;
-import org.jreleaser.model.internal.validation.common.Validator;
 import org.jreleaser.util.Errors;
 
+import static org.jreleaser.model.internal.validation.common.Validator.resolveActivatable;
 import static org.jreleaser.util.StringUtils.isBlank;
 
 /**
  * @author Andres Almiray
  * @since 1.2.0
  */
-public abstract class CommandHooksValidator extends Validator {
-    public static void validateCommandHooks(JReleaserContext context, Mode mode, Errors errors) {
+public final class CommandHooksValidator {
+    private CommandHooksValidator() {
+        // noop
+    }
+
+    public static void validateCommandHooks(JReleaserContext context, Errors errors) {
         context.getLogger().debug("hooks.command");
 
         CommandHooks hooks = context.getModel().getHooks().getCommand();
         boolean activeSet = hooks.isActiveSet();
+        resolveActivatable(context, hooks, "hooks.command", "ALWAYS");
         hooks.resolveEnabled(context.getModel().getProject());
 
         for (int i = 0; i < hooks.getBefore().size(); i++) {
-            validateCommandHook(context, mode, hooks.getBefore().get(i), "before", i, errors);
+            validateCommandHook(context, hooks.getBefore().get(i), "before", i, errors);
         }
         for (int i = 0; i < hooks.getSuccess().size(); i++) {
-            validateCommandHook(context, mode, hooks.getSuccess().get(i), "success", i, errors);
+            validateCommandHook(context, hooks.getSuccess().get(i), "success", i, errors);
         }
         for (int i = 0; i < hooks.getFailure().size(); i++) {
-            validateCommandHook(context, mode, hooks.getFailure().get(i), "failure", i, errors);
+            validateCommandHook(context, hooks.getFailure().get(i), "failure", i, errors);
         }
 
         if (hooks.isEnabled()) {
@@ -62,12 +65,10 @@ public abstract class CommandHooksValidator extends Validator {
         }
     }
 
-    private static void validateCommandHook(JReleaserContext context, Mode mode, CommandHook hook, String type, int index, Errors errors) {
+    private static void validateCommandHook(JReleaserContext context, CommandHook hook, String type, int index, Errors errors) {
         context.getLogger().debug("hooks.command.{}[{}]", type, index);
 
-        if (!hook.isActiveSet()) {
-            hook.setActive(Active.ALWAYS);
-        }
+        resolveActivatable(context, hook, "hooks.command." + type + "." + index, "ALWAYS");
         if (!hook.resolveEnabled(context.getModel().getProject())) {
             context.getLogger().debug(RB.$("validation.disabled"));
             return;

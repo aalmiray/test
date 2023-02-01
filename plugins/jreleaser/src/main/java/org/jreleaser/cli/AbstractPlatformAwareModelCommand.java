@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,13 +23,14 @@ import picocli.CommandLine;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 
 /**
  * @author Andres Almiray
  * @since 0.6.0
  */
 @CommandLine.Command
-public abstract class AbstractPlatformAwareModelCommand extends AbstractModelCommand {
+public abstract class AbstractPlatformAwareModelCommand<C extends IO> extends AbstractModelCommand<C> {
     @CommandLine.Option(names = {"-scp", "--select-current-platform"})
     Boolean selectCurrentPlatform;
 
@@ -42,12 +43,20 @@ public abstract class AbstractPlatformAwareModelCommand extends AbstractModelCom
     String[] rejectedPlatforms;
 
     @Override
+    protected void collectCandidateDeprecatedArgs(Set<AbstractCommand<C>.DeprecatedArg> args) {
+        super.collectCandidateDeprecatedArgs(args);
+        args.add(new DeprecatedArg("-scp", "--select-current-platform", "1.5.0"));
+        args.add(new DeprecatedArg("-sp", "--select-platform", "1.5.0"));
+        args.add(new DeprecatedArg("-rp", "--reject-platform", "1.5.0"));
+    }
+
+    @Override
     protected List<String> collectSelectedPlatforms() {
         boolean resolvedSelectCurrentPlatform = resolveBoolean(org.jreleaser.model.api.JReleaserContext.SELECT_CURRENT_PLATFORM, selectCurrentPlatform);
         if (resolvedSelectCurrentPlatform) return Collections.singletonList(PlatformUtils.getCurrentFull());
 
         List<String> list = new ArrayList<>();
-        if (selectPlatforms != null && selectPlatforms.length > 0) {
+        if (null != selectPlatforms && selectPlatforms.length > 0) {
             Collections.addAll(list, selectPlatforms);
         }
         return resolveCollection(org.jreleaser.model.api.JReleaserContext.SELECT_PLATFORMS, list);
@@ -56,7 +65,7 @@ public abstract class AbstractPlatformAwareModelCommand extends AbstractModelCom
     @Override
     protected List<String> collectRejectedPlatforms() {
         List<String> list = new ArrayList<>();
-        if (rejectedPlatforms != null && rejectedPlatforms.length > 0) {
+        if (null != rejectedPlatforms && rejectedPlatforms.length > 0) {
             Collections.addAll(list, rejectedPlatforms);
         }
         return resolveCollection(org.jreleaser.model.api.JReleaserContext.REJECT_PLATFORMS, list);

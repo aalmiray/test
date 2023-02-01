@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,18 +22,25 @@ import org.jreleaser.model.Active;
 import org.jreleaser.model.internal.JReleaserContext;
 import org.jreleaser.model.internal.announce.SdkmanAnnouncer;
 import org.jreleaser.model.internal.packagers.SdkmanPackager;
-import org.jreleaser.model.internal.validation.common.Validator;
 import org.jreleaser.util.Errors;
 
+import static org.jreleaser.model.Constants.MAGIC_SET;
 import static org.jreleaser.model.api.packagers.SdkmanPackager.SDKMAN_CONSUMER_KEY;
 import static org.jreleaser.model.api.packagers.SdkmanPackager.SDKMAN_CONSUMER_TOKEN;
+import static org.jreleaser.model.internal.validation.common.Validator.checkProperty;
+import static org.jreleaser.model.internal.validation.common.Validator.validateTimeout;
+import static org.jreleaser.util.CollectionUtils.listOf;
 import static org.jreleaser.util.StringUtils.isBlank;
 
 /**
  * @author Andres Almiray
  * @since 0.1.0
  */
-public abstract class SdkmanAnnouncerValidator extends Validator {
+public final class SdkmanAnnouncerValidator {
+    private SdkmanAnnouncerValidator() {
+        // noop
+    }
+
     public static void validateSdkmanAnnouncer(JReleaserContext context, SdkmanAnnouncer sdkman, Errors errors) {
         context.getLogger().debug("announce.sdkman");
         // activate if there are any active distributions with Sdkman packager enabled
@@ -42,7 +49,7 @@ public abstract class SdkmanAnnouncerValidator extends Validator {
             .findFirst()
             .ifPresent(distribution -> sdkman.setActive(Active.ALWAYS));
 
-        if (!sdkman.resolveEnabled(context.getModel().getProject())) {
+        if (!sdkman.resolveEnabledWithSnapshot(context.getModel().getProject())) {
             context.getLogger().debug(RB.$("validation.disabled"));
             return;
         }
@@ -52,18 +59,29 @@ public abstract class SdkmanAnnouncerValidator extends Validator {
             return;
         }
 
+        Boolean set = (Boolean) sdkman.getExtraProperties().get(MAGIC_SET);
+        if (null != set && set) {
+            context.getLogger().debug(RB.$("validation.disabled"));
+            sdkman.disable();
+            return;
+        }
+
         sdkman.setConsumerKey(
             checkProperty(context,
-                SDKMAN_CONSUMER_KEY,
-                "sdkman.consumerKey",
+                listOf(
+                    "announce.sdkman.consumer.key",
+                    SDKMAN_CONSUMER_KEY),
+                "announce.sdkman.consumerKey",
                 sdkman.getConsumerKey(),
                 errors,
                 context.isDryrun()));
 
         sdkman.setConsumerToken(
             checkProperty(context,
-                SDKMAN_CONSUMER_TOKEN,
-                "sdkman.consumerToken",
+                listOf(
+                    "announce.sdkman.consumer.token",
+                    SDKMAN_CONSUMER_TOKEN),
+                "announce.sdkman.consumerToken",
                 sdkman.getConsumerToken(),
                 errors,
                 context.isDryrun()));

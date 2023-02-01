@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,18 +18,23 @@
 package org.jreleaser.model.internal.validation.files;
 
 import org.jreleaser.bundle.RB;
-import org.jreleaser.model.Active;
 import org.jreleaser.model.api.JReleaserContext.Mode;
 import org.jreleaser.model.internal.JReleaserContext;
 import org.jreleaser.model.internal.files.Files;
-import org.jreleaser.model.internal.validation.common.Validator;
 import org.jreleaser.util.Errors;
+
+import static org.jreleaser.model.internal.validation.common.Validator.resolveActivatable;
+import static org.jreleaser.model.internal.validation.common.Validator.validateGlobs;
 
 /**
  * @author Andres Almiray
  * @since 0.1.0
  */
-public abstract class FilesValidator extends Validator {
+public final class FilesValidator {
+    private FilesValidator() {
+        // noop
+    }
+
     public static void validateFiles(JReleaserContext context, Mode mode, Errors errors) {
         if (!mode.validateConfig()) {
             return;
@@ -38,9 +43,7 @@ public abstract class FilesValidator extends Validator {
         context.getLogger().debug("files");
         Files files = context.getModel().getFiles();
 
-        if (!files.isActiveSet()) {
-            files.setActive(Active.ALWAYS);
-        }
+        resolveActivatable(context, files, "files", "ALWAYS");
         if (!files.resolveEnabled(context.getModel().getProject())) {
             context.getLogger().debug(RB.$("validation.disabled"));
             return;
@@ -51,6 +54,6 @@ public abstract class FilesValidator extends Validator {
                 if (context.isPlatformSelected(artifact)) artifact.activate();
             });
 
-        validateGlobs(context, files.getGlobs(), "files.glob", errors);
+        validateGlobs(files.getGlobs(), "files.glob", errors);
     }
 }

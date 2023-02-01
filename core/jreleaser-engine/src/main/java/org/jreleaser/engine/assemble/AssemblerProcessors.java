@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,7 +33,11 @@ import java.util.stream.StreamSupport;
  * @author Andres Almiray
  * @since 0.2.0
  */
-public class AssemblerProcessors {
+public final class AssemblerProcessors {
+    private AssemblerProcessors() {
+        // noop
+    }
+
     public static <A extends org.jreleaser.model.api.assemble.Assembler, S extends Assembler<A>> AssemblerProcessor<A, S> findProcessor(JReleaserContext context, S assembler) {
         Map<String, AssemblerProcessor<?, ?>> processors = StreamSupport.stream(ServiceLoader.load(AssemblerProcessorFactory.class,
                 AssemblerProcessors.class.getClassLoader()).spliterator(), false)

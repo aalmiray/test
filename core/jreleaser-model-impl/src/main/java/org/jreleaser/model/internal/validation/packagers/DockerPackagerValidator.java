@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,8 +29,6 @@ import org.jreleaser.model.internal.packagers.DockerPackager;
 import org.jreleaser.model.internal.packagers.DockerSpec;
 import org.jreleaser.model.internal.project.Project;
 import org.jreleaser.model.internal.release.BaseReleaser;
-import org.jreleaser.model.internal.validation.common.Validator;
-import org.jreleaser.util.Env;
 import org.jreleaser.util.Errors;
 import org.jreleaser.util.PlatformUtils;
 
@@ -51,14 +49,24 @@ import static org.jreleaser.model.internal.packagers.DockerPackager.LABEL_OCI_IM
 import static org.jreleaser.model.internal.packagers.DockerPackager.LABEL_OCI_IMAGE_VERSION;
 import static org.jreleaser.model.internal.validation.common.ExtraPropertiesValidator.mergeExtraProperties;
 import static org.jreleaser.model.internal.validation.common.TemplateValidator.validateTemplate;
+import static org.jreleaser.model.internal.validation.common.Validator.checkProperty;
+import static org.jreleaser.model.internal.validation.common.Validator.resolveActivatable;
+import static org.jreleaser.model.internal.validation.common.Validator.validateCommitAuthor;
+import static org.jreleaser.model.internal.validation.common.Validator.validateContinueOnError;
+import static org.jreleaser.model.internal.validation.common.Validator.validateTap;
 import static org.jreleaser.model.internal.validation.distributions.DistributionsValidator.validateArtifactPlatforms;
+import static org.jreleaser.util.CollectionUtils.listOf;
 import static org.jreleaser.util.StringUtils.isBlank;
 
 /**
  * @author Andres Almiray
  * @since 0.1.0
  */
-public abstract class DockerPackagerValidator extends Validator {
+public final class DockerPackagerValidator {
+    private DockerPackagerValidator() {
+        // noop
+    }
+
     public static void validateDocker(JReleaserContext context, Distribution distribution, DockerPackager packager, Errors errors) {
         String element = "distribution." + distribution.getName() + ".docker";
         context.getLogger().debug(element);
@@ -66,18 +74,14 @@ public abstract class DockerPackagerValidator extends Validator {
         Project project = model.getProject();
         DockerPackager parentPackager = model.getPackagers().getDocker();
 
-        if (!packager.isActiveSet() && parentPackager.isActiveSet()) {
-            packager.setActive(parentPackager.getActive());
-        }
-        if (!packager.resolveEnabled(context.getModel().getProject(), distribution)) {
+        resolveActivatable(context, packager, "distributions." + distribution.getName() + "." + packager.getType(), parentPackager);
+        if (!packager.resolveEnabled(context.getModel().getProject())) {
             context.getLogger().debug(RB.$("validation.disabled"));
-            packager.disable();
             return;
         }
 
         List<Artifact> candidateArtifacts = packager.resolveCandidateArtifacts(context, distribution);
-        if (candidateArtifacts.size() == 0) {
-            packager.setActive(Active.NEVER);
+        if (candidateArtifacts.isEmpty()) {
             context.getLogger().debug(RB.$("validation.disabled.no.artifacts"));
             errors.warning(RB.$("WARNING.validation.packager.no.artifacts", distribution.getName(),
                 packager.getType(), packager.getSupportedFileExtensions(distribution.getType())));
@@ -90,14 +94,14 @@ public abstract class DockerPackagerValidator extends Validator {
             if (!spec.isActiveSet() && packager.isActiveSet()) {
                 spec.setActive(packager.getActive());
             }
-            spec.resolveEnabled(context.getModel().getProject(), distribution);
+            resolveActivatable(context, packager, "distributions." + distribution.getName() + "." + packager.getType() + "." + spec.getName(), "NEVER");
+            spec.resolveEnabled(context.getModel().getProject());
         }
 
         validateTemplate(context, distribution, packager, parentPackager, errors);
 
         validateCommitAuthor(packager, parentPackager);
         DockerPackager.DockerRepository repository = packager.getPackagerRepository();
-        repository.resolveEnabled(model.getProject());
         if (!repository.isVersionedSubfoldersSet()) {
             repository.setVersionedSubfolders(parentPackager.getPackagerRepository().isVersionedSubfolders());
         }
@@ -146,7 +150,7 @@ public abstract class DockerPackagerValidator extends Validator {
         }
         validateLabels(packager);
 
-        validateArtifactPlatforms(context, distribution, packager, candidateArtifacts, errors);
+        validateArtifactPlatforms(distribution, packager, candidateArtifacts, errors);
 
         validateRegistries(context, packager, parentPackager, errors, element);
 
@@ -157,12 +161,57 @@ public abstract class DockerPackagerValidator extends Validator {
             packager.setUseLocalArtifact(true);
         }
 
+        validateBuildx(context, distribution, packager, packager.getBuildx(), parentPackager.getBuildx(), errors);
+
         for (Map.Entry<String, DockerSpec> e : packager.getSpecs().entrySet()) {
             DockerSpec spec = e.getValue();
             if (isBlank(spec.getName())) {
                 spec.setName(e.getKey());
             }
             validateDockerSpec(context, distribution, spec, packager, errors);
+        }
+    }
+
+    private static void validateBuildx(JReleaserContext context, Distribution distribution, DockerPackager packager, DockerConfiguration.Buildx buildx, DockerConfiguration.Buildx parentBuildx, Errors errors) {
+        if (!buildx.isEnabledSet()) {
+            buildx.setEnabled(parentBuildx.isEnabled());
+        }
+
+        if (!buildx.isCreateBuilderSet()) {
+            buildx.setCreateBuilder(parentBuildx.isCreateBuilder());
+        }
+
+        if (buildx.getPlatforms().isEmpty()) {
+            buildx.setPlatforms(parentBuildx.getPlatforms());
+        }
+
+        if (buildx.isEnabled() && buildx.getPlatforms().isEmpty()) {
+            packager.setActive(Active.NEVER);
+            context.getLogger().debug(RB.$("validation.disabled.no.platforms"));
+            errors.warning(RB.$("WARNING.validation.docker.buildx.no.platforms", distribution.getName()));
+            packager.disable();
+        }
+
+        if (buildx.isEnabled() && distribution.getType() != org.jreleaser.model.Distribution.DistributionType.JAVA_BINARY &&
+            distribution.getType() != org.jreleaser.model.Distribution.DistributionType.SINGLE_JAR) {
+            packager.setActive(Active.NEVER);
+            context.getLogger().debug(RB.$("validation.disabled.distributions", listOf(
+                org.jreleaser.model.Distribution.DistributionType.JAVA_BINARY,
+                org.jreleaser.model.Distribution.DistributionType.SINGLE_JAR
+            )));
+            errors.warning(RB.$("WARNING.validation.docker.buildx.distributions", distribution.getName(), listOf(
+                org.jreleaser.model.Distribution.DistributionType.JAVA_BINARY,
+                org.jreleaser.model.Distribution.DistributionType.SINGLE_JAR
+            )));
+            packager.disable();
+        }
+
+        if (buildx.getCreateBuilderFlags().isEmpty()) {
+            buildx.setCreateBuilderFlags(parentBuildx.getCreateBuilderFlags());
+        }
+
+        if (buildx.getCreateBuilderFlags().isEmpty()) {
+            buildx.getCreateBuilderFlags().addAll(listOf("--name", "jreleaser", "--driver", "docker-container", "--bootstrap", "--use"));
         }
     }
 
@@ -210,12 +259,20 @@ public abstract class DockerPackagerValidator extends Validator {
             errors.configuration(RB.$("validation_must_not_be_empty", element + ".matchers"));
         }
 
+        if (null == spec.getArtifact()) {
+            context.getLogger().debug(RB.$("validation.disabled.no.artifacts"));
+            spec.disable();
+            return;
+        }
+
         if (!spec.isUseLocalArtifactSet() && docker.isUseLocalArtifactSet()) {
             spec.setUseLocalArtifact(docker.isUseLocalArtifact());
         }
         if (distribution.getType() == org.jreleaser.model.Distribution.DistributionType.SINGLE_JAR) {
             spec.setUseLocalArtifact(true);
         }
+
+        validateBuildx(context, distribution, docker, spec.getBuildx(), docker.getBuildx(), errors);
     }
 
     private static void validateBaseImage(Distribution distribution, DockerConfiguration docker) {
@@ -306,6 +363,7 @@ public abstract class DockerPackagerValidator extends Validator {
             context.getLogger().info(RB.$("validation_docker_no_registries", element, username));
             DockerConfiguration.Registry registry = new DockerConfiguration.Registry();
             registry.setServerName(DockerConfiguration.Registry.DEFAULT_NAME);
+            registry.setServer("docker.io");
             registry.setUsername(username);
             self.addRegistry(registry);
         }
@@ -316,13 +374,19 @@ public abstract class DockerPackagerValidator extends Validator {
         self.setRegistries(registries);
 
         for (AbstractDockerConfiguration.Registry registry : registries) {
-            BaseReleaser service = model.getRelease().getReleaser();
+            BaseReleaser<?, ?> service = model.getRelease().getReleaser();
             String serverName = registry.getServerName();
+
+            if (isBlank(registry.getServer())) {
+                registry.setServer(serverName);
+            }
 
             registry.setUsername(
                 checkProperty(context,
-                    "DOCKER_" + Env.toVar(serverName) + "_USERNAME",
-                    "registry." + Env.toVar(serverName) + ".username",
+                    listOf(
+                        element + "." + serverName + ".username",
+                        "docker." + serverName + ".username"),
+                    "registry." + serverName + ".username",
                     registry.getUsername(),
                     service.getUsername()));
 
@@ -330,18 +394,22 @@ public abstract class DockerPackagerValidator extends Validator {
                 registry.setRepositoryName(service.getOwner());
             }
 
-            if (isBlank(registry.getUsername())) {
-                errors.configuration(RB.$("validation_must_not_be_blank", element +
-                    ".registry." + serverName + ".username"));
-            }
+            if (!registry.isExternalLogin()) {
+                if (isBlank(registry.getUsername())) {
+                    errors.configuration(RB.$("validation_must_not_be_blank", element +
+                        ".registry." + serverName + ".username"));
+                }
 
-            registry.setPassword(
-                checkProperty(context,
-                    "DOCKER_" + Env.toVar(serverName) + "_PASSWORD",
-                    "registry." + Env.toVar(serverName) + ".password",
-                    registry.getPassword(),
-                    errors,
-                    context.isDryrun()));
+                registry.setPassword(
+                    checkProperty(context,
+                        listOf(
+                            element + "." + serverName + ".password",
+                            "docker." + serverName + ".password"),
+                        "registry." + serverName + ".password",
+                        registry.getPassword(),
+                        errors,
+                        context.isDryrun()));
+            }
         }
     }
 }

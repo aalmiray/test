@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -77,7 +77,7 @@ public final class CommandHookExecutor {
                 break;
         }
 
-        if (hooks.size() > 0) {
+        if (!hooks.isEmpty()) {
             context.getLogger().info(RB.$("hooks.execution"), event.getType().name().toLowerCase(Locale.ENGLISH), hooks.size());
         }
 
@@ -103,7 +103,7 @@ public final class CommandHookExecutor {
                     if (!hook.isContinueOnError()) {
                         throw new JReleaserException(RB.$("ERROR_command_hook_unexpected_error"), e);
                     } else {
-                        if (e.getCause() != null) {
+                        if (null != e.getCause()) {
                             context.getLogger().warn(e.getCause().getMessage());
                         } else {
                             context.getLogger().warn(e.getMessage());

@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,6 +29,7 @@ import org.bouncycastle.openpgp.operator.KeyFingerPrintCalculator;
 import org.bouncycastle.openpgp.operator.bc.BcKeyFingerprintCalculator;
 import org.jreleaser.bundle.RB;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Collections;
@@ -46,7 +47,7 @@ public abstract class Keyring {
     private PGPPublicKeyRingCollection publicKeyRings;
     private PGPSecretKeyRingCollection secretKeyRings;
 
-    public Keyring() throws IOException, PGPException {
+    protected Keyring() throws IOException, PGPException {
         this.publicKeyRings = new PGPPublicKeyRingCollection(Collections.emptyList());
         this.secretKeyRings = new PGPSecretKeyRingCollection(Collections.emptyList());
     }
@@ -54,7 +55,9 @@ public abstract class Keyring {
     public Keyring initialize(boolean armored) throws IOException, PGPException {
         try (InputStream pub = getPublicKeyRingStream();
              InputStream sec = getSecretKeyRingStream()) {
-            addPublicKey(armored, pub);
+            if (!(pub instanceof EmptyInputStream)) {
+                addPublicKey(armored, pub);
+            }
             addSecretKey(armored, sec);
         }
 
@@ -69,7 +72,7 @@ public abstract class Keyring {
 
     protected abstract InputStream getSecretKeyRingStream() throws IOException;
 
-    public void addPublicKey(boolean armored, InputStream raw) throws IOException, PGPException {
+    public void addPublicKey(boolean armored, InputStream raw) throws IOException {
         if (!armored) {
             addPublicKeyRing(new PGPPublicKeyRing(raw, keyFingerPrintCalculator));
             return;
@@ -99,10 +102,6 @@ public abstract class Keyring {
         this.publicKeyRings = PGPPublicKeyRingCollection.addPublicKeyRing(this.publicKeyRings, keyring);
     }
 
-    public PGPSecretKey getSecretKey() throws SigningException, PGPException {
-        return secretKeyRings.getSecretKey(readPublicKey().getKeyID());
-    }
-
     public PGPPublicKey readPublicKey() throws SigningException {
         Iterator<PGPPublicKeyRing> keyRingIter = publicKeyRings.getKeyRings();
         while (keyRingIter.hasNext()) {
@@ -118,6 +117,23 @@ public abstract class Keyring {
         }
 
         throw new SigningException(RB.$("ERROR_public_key_not_found"));
+    }
+
+    public PGPSecretKey readSecretKey() throws SigningException {
+        Iterator<PGPSecretKeyRing> keyRingIter = secretKeyRings.getKeyRings();
+        while (keyRingIter.hasNext()) {
+            PGPSecretKeyRing keyRing = keyRingIter.next();
+
+            Iterator<PGPSecretKey> keyIter = keyRing.getSecretKeys();
+            while (keyIter.hasNext()) {
+                PGPSecretKey key = keyIter.next();
+                if (key.isSigningKey()) {
+                    return key;
+                }
+            }
+        }
+
+        throw new SigningException(RB.$("ERROR_secret_key_not_found"));
     }
 
     /**
@@ -139,5 +155,11 @@ public abstract class Keyring {
             algorithm == PublicKeyAlgorithmTags.RSA_SIGN ||
             algorithm == PublicKeyAlgorithmTags.RSA_GENERAL ||
             algorithm == PublicKeyAlgorithmTags.DSA;
+    }
+
+    public static class EmptyInputStream extends ByteArrayInputStream {
+        public EmptyInputStream() {
+            super(new byte[0]);
+        }
     }
 }

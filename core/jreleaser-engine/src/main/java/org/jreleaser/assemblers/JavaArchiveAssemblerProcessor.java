@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,8 +24,8 @@ import org.jreleaser.model.Constants;
 import org.jreleaser.model.internal.JReleaserContext;
 import org.jreleaser.model.internal.assemble.JavaArchiveAssembler;
 import org.jreleaser.model.internal.common.Glob;
-import org.jreleaser.model.internal.project.Project;
 import org.jreleaser.model.spi.assemble.AssemblerProcessingException;
+import org.jreleaser.mustache.TemplateContext;
 import org.jreleaser.templates.TemplateResource;
 import org.jreleaser.util.FileUtils;
 
@@ -53,8 +53,8 @@ public class JavaArchiveAssemblerProcessor extends AbstractAssemblerProcessor<or
     }
 
     @Override
-    protected void doAssemble(Map<String, Object> props) throws AssemblerProcessingException {
-        Path assembleDirectory = (Path) props.get(Constants.KEY_DISTRIBUTION_ASSEMBLE_DIRECTORY);
+    protected void doAssemble(TemplateContext props) throws AssemblerProcessingException {
+        Path assembleDirectory = props.get(Constants.KEY_DISTRIBUTION_ASSEMBLE_DIRECTORY);
         String archiveName = assembler.getResolvedArchiveName(context);
 
         Path inputsDirectory = assembleDirectory.resolve("inputs");
@@ -86,10 +86,10 @@ public class JavaArchiveAssemblerProcessor extends AbstractAssemblerProcessor<or
                     context.getLogger().debug(RB.$("packager.evaluate.template"), key, assembler.getName(), assembler.getType());
                     String content = applyTemplate(value.getReader(), props, key);
                     context.getLogger().debug(RB.$("packager.write.template"), key, assembler.getName(), assembler.getType());
-                    writeFile(context.getModel().getProject(), content, props, key);
+                    writeFile(content, props, key);
                 } else {
                     context.getLogger().debug(RB.$("packager.write.template"), key, assembler.getName(), assembler.getType());
-                    writeFile(context.getModel().getProject(), IOUtils.toByteArray(value.getInputStream()), props, key);
+                    writeFile(IOUtils.toByteArray(value.getInputStream()), props, key);
                 }
             }
         } catch (IllegalArgumentException | IOException e) {
@@ -133,18 +133,18 @@ public class JavaArchiveAssemblerProcessor extends AbstractAssemblerProcessor<or
     }
 
     @Override
-    protected void fillAssemblerProperties(Map<String, Object> props) {
+    protected void fillAssemblerProperties(TemplateContext props) {
         super.fillAssemblerProperties(props);
 
         if (isNotBlank(assembler.getMainJar().getPath())) {
-            props.put(Constants.KEY_DISTRIBUTION_JAVA_MAIN_JAR, assembler.getMainJar().getEffectivePath(context, assembler)
+            props.set(Constants.KEY_DISTRIBUTION_JAVA_MAIN_JAR, assembler.getMainJar().getEffectivePath(context, assembler)
                 .getFileName());
         } else {
-            props.put(Constants.KEY_DISTRIBUTION_JAVA_MAIN_JAR, "");
+            props.set(Constants.KEY_DISTRIBUTION_JAVA_MAIN_JAR, "");
         }
-        props.put(Constants.KEY_DISTRIBUTION_JAVA_MAIN_CLASS, assembler.getJava().getMainClass());
-        props.put(Constants.KEY_DISTRIBUTION_JAVA_MAIN_MODULE, assembler.getJava().getMainModule());
-        props.put(Constants.KEY_DISTRIBUTION_JAVA_OPTIONS, !assembler.getJava().getOptions().isEmpty() ? assembler.getJava().getOptions() : "");
+        props.set(Constants.KEY_DISTRIBUTION_JAVA_MAIN_CLASS, assembler.getJava().getMainClass());
+        props.set(Constants.KEY_DISTRIBUTION_JAVA_MAIN_MODULE, assembler.getJava().getMainModule());
+        props.set(Constants.KEY_DISTRIBUTION_JAVA_OPTIONS, !assembler.getJava().getOptions().isEmpty() ? assembler.getJava().getOptions() : "");
     }
 
     private void archive(Path workDirectory, Path assembleDirectory, String archiveName, Archive.Format format) throws AssemblerProcessingException {
@@ -153,25 +153,7 @@ public class JavaArchiveAssemblerProcessor extends AbstractAssemblerProcessor<or
 
         try {
             Path archiveFile = assembleDirectory.resolve(finalArchiveName);
-            switch (format) {
-                case ZIP:
-                    FileUtils.zip(workDirectory, archiveFile);
-                    break;
-                case TAR:
-                    FileUtils.tar(workDirectory, archiveFile);
-                    break;
-                case TGZ:
-                case TAR_GZ:
-                    FileUtils.tgz(workDirectory, archiveFile);
-                    break;
-                case TXZ:
-                case TAR_XZ:
-                    FileUtils.xz(workDirectory, archiveFile);
-                    break;
-                case TBZ2:
-                case TAR_BZ2:
-                    FileUtils.bz2(workDirectory, archiveFile);
-            }
+            FileUtils.packArchive(workDirectory, archiveFile, context.getModel().resolveArchiveTimestamp());
         } catch (IOException e) {
             throw new AssemblerProcessingException(RB.$("ERROR_unexpected_error"), e);
         }
@@ -201,11 +183,11 @@ public class JavaArchiveAssemblerProcessor extends AbstractAssemblerProcessor<or
         return paths;
     }
 
-    private void writeFile(Project project, String content, Map<String, Object> props, String fileName)
+    private void writeFile(String content, TemplateContext props, String fileName)
         throws AssemblerProcessingException {
         fileName = trimTplExtension(fileName);
 
-        Path outputDirectory = (Path) props.get(Constants.KEY_DISTRIBUTION_ASSEMBLE_DIRECTORY);
+        Path outputDirectory = props.get(Constants.KEY_DISTRIBUTION_ASSEMBLE_DIRECTORY);
         Path inputsDirectory = outputDirectory.resolve("inputs");
         try {
             Files.createDirectories(inputsDirectory);
@@ -224,8 +206,8 @@ public class JavaArchiveAssemblerProcessor extends AbstractAssemblerProcessor<or
         writeFile(content, outputFile);
     }
 
-    private void writeFile(Project project, byte[] content, Map<String, Object> props, String fileName) throws AssemblerProcessingException {
-        Path outputDirectory = (Path) props.get(Constants.KEY_DISTRIBUTION_ASSEMBLE_DIRECTORY);
+    private void writeFile(byte[] content, TemplateContext props, String fileName) throws AssemblerProcessingException {
+        Path outputDirectory = props.get(Constants.KEY_DISTRIBUTION_ASSEMBLE_DIRECTORY);
         Path inputsDirectory = outputDirectory.resolve("inputs");
         try {
             Files.createDirectories(inputsDirectory);

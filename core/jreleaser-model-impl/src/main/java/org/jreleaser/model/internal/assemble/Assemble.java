@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,14 +17,11 @@
  */
 package org.jreleaser.model.internal.assemble;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.jreleaser.model.Active;
 import org.jreleaser.model.JReleaserException;
-import org.jreleaser.model.internal.common.AbstractModelObject;
+import org.jreleaser.model.internal.common.AbstractActivatable;
 import org.jreleaser.model.internal.common.Activatable;
 import org.jreleaser.model.internal.common.Domain;
-import org.jreleaser.model.internal.project.Project;
-import org.jreleaser.util.Env;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -44,18 +41,18 @@ import static org.jreleaser.util.StringUtils.isBlank;
  * @author Andres Almiray
  * @since 0.2.0
  */
-public final class Assemble extends AbstractModelObject<Assemble> implements Domain, Activatable {
+public final class Assemble extends AbstractActivatable<Assemble> implements Domain, Activatable {
+    private static final long serialVersionUID = -1628051897310444948L;
+
     private final Map<String, ArchiveAssembler> archive = new LinkedHashMap<>();
     private final Map<String, JavaArchiveAssembler> javaArchive = new LinkedHashMap<>();
     private final Map<String, JlinkAssembler> jlink = new LinkedHashMap<>();
     private final Map<String, JpackageAssembler> jpackage = new LinkedHashMap<>();
     private final Map<String, NativeImageAssembler> nativeImage = new LinkedHashMap<>();
 
-    private Active active;
-    @JsonIgnore
-    private boolean enabled = true;
-
     private final org.jreleaser.model.api.assemble.Assemble immutable = new org.jreleaser.model.api.assemble.Assemble() {
+        private static final long serialVersionUID = -7622959098817234697L;
+
         private Map<String, ? extends org.jreleaser.model.api.assemble.ArchiveAssembler> archive;
         private Map<String, ? extends org.jreleaser.model.api.assemble.JavaArchiveAssembler> javaArchive;
         private Map<String, ? extends org.jreleaser.model.api.assemble.JlinkAssembler> jlink;
@@ -114,7 +111,7 @@ public final class Assemble extends AbstractModelObject<Assemble> implements Dom
 
         @Override
         public Active getActive() {
-            return active;
+            return Assemble.this.getActive();
         }
 
         @Override
@@ -128,14 +125,17 @@ public final class Assemble extends AbstractModelObject<Assemble> implements Dom
         }
     };
 
+    public Assemble() {
+        enabledSet(true);
+    }
+
     public org.jreleaser.model.api.assemble.Assemble asImmutable() {
         return immutable;
     }
 
     @Override
     public void merge(Assemble source) {
-        this.active = merge(this.active, source.active);
-        this.enabled = merge(this.enabled, source.enabled);
+        super.merge(source);
         setArchive(mergeModel(this.archive, source.archive));
         setJavaArchive(mergeModel(this.javaArchive, source.javaArchive));
         setJlink(mergeModel(this.jlink, source.jlink));
@@ -143,50 +143,12 @@ public final class Assemble extends AbstractModelObject<Assemble> implements Dom
         setNativeImage(mergeModel(this.nativeImage, source.nativeImage));
     }
 
-    @Override
-    public boolean isEnabled() {
-        return enabled;
-    }
-
     @Deprecated
     public void setEnabled(Boolean enabled) {
         nag("assemble.enabled is deprecated since 1.1.0 and will be removed in 2.0.0");
         if (null != enabled) {
-            this.active = enabled ? Active.ALWAYS : Active.NEVER;
+            setActive(enabled ? Active.ALWAYS : Active.NEVER);
         }
-    }
-
-    public void disable() {
-        active = Active.NEVER;
-        enabled = false;
-    }
-
-    public boolean resolveEnabled(Project project) {
-        if (null == active) {
-            setActive(Env.resolveOrDefault("assemble.active", "", "ALWAYS"));
-        }
-        enabled = active.check(project);
-        return enabled;
-    }
-
-    @Override
-    public Active getActive() {
-        return active;
-    }
-
-    @Override
-    public void setActive(Active active) {
-        this.active = active;
-    }
-
-    @Override
-    public void setActive(String str) {
-        setActive(Active.of(str));
-    }
-
-    @Override
-    public boolean isActiveSet() {
-        return active != null;
     }
 
     public List<ArchiveAssembler> getActiveArchives() {
@@ -300,7 +262,7 @@ public final class Assemble extends AbstractModelObject<Assemble> implements Dom
     public Map<String, Object> asMap(boolean full) {
         Map<String, Object> map = new LinkedHashMap<>();
         map.put("enabled", isEnabled());
-        map.put("active", active);
+        map.put("active", getActive());
 
         List<Map<String, Object>> archive = this.archive.values()
             .stream()
@@ -340,7 +302,7 @@ public final class Assemble extends AbstractModelObject<Assemble> implements Dom
         return map;
     }
 
-    public <A extends Assembler> Map<String, A> findAssemblersByType(String assemblerName) {
+    public <A extends Assembler<?>> Map<String, A> findAssemblersByType(String assemblerName) {
         switch (assemblerName) {
             case org.jreleaser.model.api.assemble.ArchiveAssembler.TYPE:
                 return (Map<String, A>) archive;
@@ -352,12 +314,12 @@ public final class Assemble extends AbstractModelObject<Assemble> implements Dom
                 return (Map<String, A>) jpackage;
             case org.jreleaser.model.api.assemble.NativeImageAssembler.TYPE:
                 return (Map<String, A>) nativeImage;
+            default:
+                return Collections.emptyMap();
         }
-
-        return Collections.emptyMap();
     }
 
-    public <A extends Assembler> Collection<A> findAllAssemblers() {
+    public <A extends Assembler<?>> Collection<A> findAllAssemblers() {
         List<A> assemblers = new ArrayList<>();
         assemblers.addAll((List<A>) getActiveArchives());
         assemblers.addAll((List<A>) getActiveJavaArchives());

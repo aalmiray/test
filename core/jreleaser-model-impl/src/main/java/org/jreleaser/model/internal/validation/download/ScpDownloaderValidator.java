@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,24 +18,29 @@
 package org.jreleaser.model.internal.validation.download;
 
 import org.jreleaser.bundle.RB;
-import org.jreleaser.model.Active;
 import org.jreleaser.model.api.JReleaserContext.Mode;
 import org.jreleaser.model.internal.JReleaserContext;
 import org.jreleaser.model.internal.download.Downloader;
 import org.jreleaser.model.internal.download.ScpDownloader;
-import org.jreleaser.model.internal.validation.common.Validator;
 import org.jreleaser.util.Errors;
 
 import java.util.Map;
 
 import static org.jreleaser.model.internal.validation.common.SshValidator.validateSsh;
+import static org.jreleaser.model.internal.validation.common.Validator.resolveActivatable;
+import static org.jreleaser.model.internal.validation.common.Validator.validateTimeout;
+import static org.jreleaser.util.CollectionUtils.listOf;
 import static org.jreleaser.util.StringUtils.isBlank;
 
 /**
  * @author Andres Almiray
  * @since 1.1.0
  */
-public abstract class ScpDownloaderValidator extends Validator {
+public final class ScpDownloaderValidator {
+    private ScpDownloaderValidator() {
+        // noop
+    }
+
     public static void validateScpDownloader(JReleaserContext context, Mode mode, Errors errors) {
         Map<String, ScpDownloader> scp = context.getModel().getDownload().getScp();
         if (!scp.isEmpty()) context.getLogger().debug("download.scp");
@@ -43,32 +48,32 @@ public abstract class ScpDownloaderValidator extends Validator {
         for (Map.Entry<String, ScpDownloader> e : scp.entrySet()) {
             e.getValue().setName(e.getKey());
             if (mode.validateConfig() || mode.validateDownload()) {
-                validateScpDownloader(context, mode, e.getValue(), errors);
+                validateScpDownloader(context, e.getValue(), errors);
             }
         }
     }
 
-    private static void validateScpDownloader(JReleaserContext context, Mode mode, ScpDownloader scp, Errors errors) {
+    private static void validateScpDownloader(JReleaserContext context, ScpDownloader scp, Errors errors) {
         context.getLogger().debug("download.scp.{}", scp.getName());
 
-        if (!scp.isActiveSet()) {
-            scp.setActive(Active.ALWAYS);
-        }
+        resolveActivatable(context, scp,
+            listOf("download.scp." + scp.getName(), "download.scp"),
+            "ALWAYS");
         if (!scp.resolveEnabled(context.getModel().getProject())) {
             context.getLogger().debug(RB.$("validation.disabled"));
             return;
         }
 
-        validateSsh(context, scp, scp.getName(), "SCP", scp.getType(), errors);
+        validateSsh(context, scp, scp.getType(), scp.getName(), "download.", errors);
         validateTimeout(scp);
 
         if (scp.getAssets().isEmpty()) {
-            errors.configuration(RB.$("validation_must_not_be_empty", "scp." + scp.getName() + ".assets"));
+            errors.configuration(RB.$("validation_must_not_be_empty", "download.scp." + scp.getName() + ".assets"));
         } else {
             int index = 0;
             for (Downloader.Asset asset : scp.getAssets()) {
                 if (isBlank(asset.getInput())) {
-                    errors.configuration(RB.$("validation_must_not_be_null", "scp." + scp.getName() + ".asset[" + (index++) + "].input"));
+                    errors.configuration(RB.$("validation_must_not_be_null", "download.scp." + scp.getName() + ".asset[" + (index++) + "].input"));
                 }
             }
         }

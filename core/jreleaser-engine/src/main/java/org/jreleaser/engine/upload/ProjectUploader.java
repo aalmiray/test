@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -43,10 +43,10 @@ public class ProjectUploader {
         return uploader;
     }
 
-    public void upload() throws UploadException {
+    public boolean upload() throws UploadException {
         if (!uploader.isEnabled()) {
             context.getLogger().debug(RB.$("uploaders.skip.upload"), uploader.getName());
-            return;
+            return false;
         }
 
         ArtifactUploader<?, ?> artifactUploader = ArtifactUploaders.findUploader(context, uploader);
@@ -54,6 +54,7 @@ public class ProjectUploader {
         context.getLogger().info(RB.$("uploaders.upload.to"), uploader.getName());
 
         artifactUploader.upload(uploader.getName());
+        return true;
     }
 
     public static ProjectUploaderBuilder builder() {

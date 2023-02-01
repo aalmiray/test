@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,10 +17,6 @@
  */
 package org.jreleaser.sdk.sdkman;
 
-/**
- * @author Andres Almiray
- * @since 0.1.0
- */
 public class ApiEndpoints {
     public static final String ANNOUNCE_ENDPOINT = "/announce/struct";
     public static final String DEFAULT_ENDPOINT = "/default";

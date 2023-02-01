@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,7 +33,7 @@ import java.util.Set;
  * @since 0.1.0
  */
 @CommandLine.Command(name = "release")
-public class Release extends AbstractPlatformAwareModelCommand {
+public class Release extends AbstractPlatformAwareModelCommand<Main> {
     @CommandLine.Option(names = {"--dry-run"})
     Boolean dryrun;
 
@@ -54,47 +54,47 @@ public class Release extends AbstractPlatformAwareModelCommand {
         AutoConfigGroup autoConfig;
 
         String[] includedDistributions() {
-            return include != null ? include.includedDistributions : null;
+            return null != include ? include.includedDistributions : null;
         }
 
         String[] excludedDistributions() {
-            return exclude != null ? exclude.excludedDistributions : null;
+            return null != exclude ? exclude.excludedDistributions : null;
         }
 
         String[] includedDeployerTypes() {
-            return include != null ? include.includedDeployerTypes : null;
+            return null != include ? include.includedDeployerTypes : null;
         }
 
         String[] includedDeployerNames() {
-            return include != null ? include.includedDeployerNames : null;
+            return null != include ? include.includedDeployerNames : null;
         }
 
         String[] excludedDeployerTypes() {
-            return exclude != null ? exclude.excludedDeployerTypes : null;
+            return null != exclude ? exclude.excludedDeployerTypes : null;
         }
 
         String[] excludedDeployerNames() {
-            return exclude != null ? exclude.excludedDeployerNames : null;
+            return null != exclude ? exclude.excludedDeployerNames : null;
         }
 
         String[] includedUploaderTypes() {
-            return include != null ? include.includedUploaderTypes : null;
+            return null != include ? include.includedUploaderTypes : null;
         }
 
         String[] includedUploaderNames() {
-            return include != null ? include.includedUploaderNames : null;
+            return null != include ? include.includedUploaderNames : null;
         }
 
         String[] excludedUploaderTypes() {
-            return exclude != null ? exclude.excludedUploaderTypes : null;
+            return null != exclude ? exclude.excludedUploaderTypes : null;
         }
 
         String[] excludedUploaderNames() {
-            return exclude != null ? exclude.excludedUploaderNames : null;
+            return null != exclude ? exclude.excludedUploaderNames : null;
         }
 
-        boolean autoConfig() {
-            return autoConfig != null && autoConfig.autoConfig;
+        boolean isAutoConfig() {
+            return null != autoConfig && autoConfig.autoConfig;
         }
     }
 
@@ -251,6 +251,21 @@ public class Release extends AbstractPlatformAwareModelCommand {
     }
 
     @Override
+    protected void collectCandidateDeprecatedArgs(Set<AbstractCommand<Main>.DeprecatedArg> args) {
+        super.collectCandidateDeprecatedArgs(args);
+        args.add(new DeprecatedArg("-d", "--distribution", "1.5.0"));
+        args.add(new DeprecatedArg("-xd", "--exclude-distribution", "1.5.0"));
+        args.add(new DeprecatedArg("-y", "--deployer", "1.5.0"));
+        args.add(new DeprecatedArg("-yn", "--deployer-name", "1.5.0"));
+        args.add(new DeprecatedArg("-xy", "--exclude-deployer", "1.5.0"));
+        args.add(new DeprecatedArg("-xyn", "--exclude-deployer-name", "1.5.0"));
+        args.add(new DeprecatedArg("-u", "--uploader", "1.5.0"));
+        args.add(new DeprecatedArg("-un", "--uploader-name", "1.5.0"));
+        args.add(new DeprecatedArg("-xu", "--exclude-uploader", "1.5.0"));
+        args.add(new DeprecatedArg("-xun", "--exclude-uploader-name", "1.5.0"));
+    }
+
+    @Override
     protected JReleaserContext createContext() {
         JReleaserContext context = super.createContext();
         if (null != composite) {
@@ -268,8 +283,9 @@ public class Release extends AbstractPlatformAwareModelCommand {
         return context;
     }
 
+    @Override
     protected void execute() {
-        if (composite == null || !composite.autoConfig()) {
+        if (null == composite || !composite.isAutoConfig()) {
             super.execute();
             return;
         }
@@ -326,7 +342,7 @@ public class Release extends AbstractPlatformAwareModelCommand {
 
     private Set<UpdateSection> collectUpdateSections() {
         Set<UpdateSection> set = new LinkedHashSet<>();
-        if (composite.autoConfig.updateSections != null && composite.autoConfig.updateSections.length > 0) {
+        if (null != composite.autoConfig.updateSections && composite.autoConfig.updateSections.length > 0) {
             for (String updateSection : composite.autoConfig.updateSections) {
                 set.add(UpdateSection.of(updateSection.trim()));
             }
@@ -354,7 +370,7 @@ public class Release extends AbstractPlatformAwareModelCommand {
     private HaltExecutionException halt(String message) throws HaltExecutionException {
         spec.commandLine().getErr()
             .println(spec.commandLine().getColorScheme().errorText(message));
-        spec.commandLine().usage(parent.out);
+        spec.commandLine().usage(parent().getOut());
         throw new HaltExecutionException();
     }
 }

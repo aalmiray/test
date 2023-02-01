@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,13 +24,18 @@ import org.jreleaser.util.Errors;
 
 import static org.jreleaser.model.api.release.Releaser.DRAFT;
 import static org.jreleaser.model.api.release.Releaser.PRERELEASE_PATTERN;
-
+import static org.jreleaser.model.internal.validation.common.Validator.checkProperty;
+import static org.jreleaser.model.internal.validation.release.BaseReleaserValidator.validateGitService;
 
 /**
  * @author Andres Almiray
  * @since 0.1.0
  */
-public abstract class GithubReleaserValidator extends BaseReleaserValidator {
+public final class GithubReleaserValidator {
+    private GithubReleaserValidator() {
+        // noop
+    }
+
     public static boolean validateGithub(JReleaserContext context, Mode mode, GithubReleaser github, Errors errors) {
         if (null == github) return false;
         context.getLogger().debug("release.github");
@@ -53,7 +58,7 @@ public abstract class GithubReleaserValidator extends BaseReleaserValidator {
             github.setDraft(
                 checkProperty(context,
                     DRAFT,
-                    "github.draft",
+                    "release.github.draft",
                     null,
                     false));
         }

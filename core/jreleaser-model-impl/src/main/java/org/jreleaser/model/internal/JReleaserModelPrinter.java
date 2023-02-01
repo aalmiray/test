@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -38,7 +38,7 @@ public abstract class JReleaserModelPrinter {
 
     private final PrintWriter out;
 
-    public JReleaserModelPrinter(PrintWriter out) {
+    protected JReleaserModelPrinter(PrintWriter out) {
         this.out = out;
     }
 
@@ -61,12 +61,8 @@ public abstract class JReleaserModelPrinter {
         }
     }
 
-    private void print(String value, int offset) {
-        doPrintElement(value, offset);
-    }
-
     private void doPrintMap(Map<String, ?> map, final int offset) {
-        if (map != null) {
+        if (null != map) {
             map.forEach((key, value) -> {
                 if (value instanceof Map) {
                     if (!((Map) value).isEmpty()) {
@@ -113,7 +109,7 @@ public abstract class JReleaserModelPrinter {
     }
 
     private void doPrintCollection(Collection<?> collection, final int offset) {
-        if (collection != null) {
+        if (null != collection) {
             collection.forEach(value -> {
                 if (value instanceof Map) {
                     if (!((Map) value).isEmpty()) {
@@ -135,7 +131,7 @@ public abstract class JReleaserModelPrinter {
     }
 
     private void doPrintArray(Object[] array, final int offset) {
-        if (array != null) {
+        if (null != array) {
             Arrays.stream(array).forEach(value -> {
                 if (value instanceof Map) {
                     if (!((Map) value).isEmpty()) {
@@ -157,21 +153,21 @@ public abstract class JReleaserModelPrinter {
     }
 
     private void doPrintMap(String key, Map<String, ?> map, int offset) {
-        if (map != null && !map.isEmpty()) {
+        if (null != map && !map.isEmpty()) {
             out.println(multiply("    ", offset) + key + ':');
             doPrintMap(map, offset + 1);
         }
     }
 
     private void doPrintCollection(String key, Collection<?> collection, int offset) {
-        if (collection != null && !collection.isEmpty()) {
+        if (null != collection && !collection.isEmpty()) {
             out.println(multiply("    ", offset) + key + ':');
             doPrintCollection(collection, offset + 1);
         }
     }
 
     private void doPrintArray(String key, Object[] array, int offset) {
-        if (array != null && array.length > 0) {
+        if (null != array && array.length > 0) {
             out.println(multiply("    ", offset) + key + ':');
             doPrintArray(array, offset + 1);
         }
@@ -189,7 +185,7 @@ public abstract class JReleaserModelPrinter {
             return isNotBlank(String.valueOf(value));
         }
 
-        return value != null;
+        return null != value;
     }
 
     private String formatValue(Object value) {
@@ -202,18 +198,18 @@ public abstract class JReleaserModelPrinter {
             return b ? green(String.valueOf(b)) : red(String.valueOf(b));
         } else if (value instanceof Number) {
             return cyan(String.valueOf(value));
-        } else if (value != null) {
+        } else if (null != value) {
             String s = String.valueOf(value);
             if (secret && !UNSET.equals(s)) {
                 s = HIDE;
             }
 
             String r = parseAsBoolean(s);
-            if (r != null) return r;
+            if (null != r) return r;
             r = parseAsInteger(s);
-            if (r != null) return r;
+            if (null != r) return r;
             r = parseAsDouble(s);
-            if (r != null) return r;
+            if (null != r) return r;
 
             return secret ? magenta(s) : yellow(s);
         }
@@ -223,7 +219,7 @@ public abstract class JReleaserModelPrinter {
 
     private String parseAsBoolean(String s) {
         if ("true".equalsIgnoreCase(s) || "false".equalsIgnoreCase(s)) {
-            boolean b = Boolean.valueOf(s);
+            boolean b = Boolean.parseBoolean(s);
             return b ? green(String.valueOf(b)) : red(String.valueOf(b));
         } else {
             return null;
@@ -248,16 +244,6 @@ public abstract class JReleaserModelPrinter {
         }
     }
 
-    public static boolean isSecret(String key) {
-        String lower = key.toLowerCase(Locale.ENGLISH);
-
-        for (String keyword : SECRET_KEYWORDS.split(",")) {
-            if (lower.contains(keyword.trim().toLowerCase(Locale.ENGLISH))) return true;
-        }
-
-        return false;
-    }
-
     private String cyan(String s) {
         return color("cyan", s);
     }
@@ -279,6 +265,16 @@ public abstract class JReleaserModelPrinter {
     }
 
     protected abstract String color(String color, String input);
+
+    public static boolean isSecret(String key) {
+        String lower = key.toLowerCase(Locale.ENGLISH);
+
+        for (String keyword : SECRET_KEYWORDS.split(",")) {
+            if (lower.contains(keyword.trim().toLowerCase(Locale.ENGLISH))) return true;
+        }
+
+        return false;
+    }
 
     private static String multiply(CharSequence self, Number factor) {
         int size = factor.intValue();

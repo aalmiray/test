@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,8 +24,7 @@ import org.jreleaser.model.internal.distributions.Distribution;
 import org.jreleaser.model.internal.packagers.Packager;
 import org.jreleaser.model.spi.packagers.PackagerProcessingException;
 import org.jreleaser.model.spi.packagers.PackagerProcessor;
-
-import java.util.Map;
+import org.jreleaser.mustache.TemplateContext;
 
 import static java.util.Objects.requireNonNull;
 import static org.jreleaser.util.StringUtils.requireNonBlank;
@@ -57,74 +56,32 @@ public class DistributionProcessor {
 
     public void prepareDistribution() throws PackagerProcessingException {
         Distribution distribution = context.getModel().findDistribution(distributionName);
-        Packager<?> packager = distribution.getPackager(packagerName);
-        if (!packager.isEnabled()) {
-            context.getLogger().debug(RB.$("distributions.skip.distribution"), distributionName);
-            return;
-        }
-
-        PackagerProcessor<Packager<?>> packagerProcessor = PackagerProcessors.findProcessor(context, packager);
-        if (!packagerProcessor.supportsDistribution(distribution)) {
-            context.getLogger().info(RB.$("distributions.not.supported.distribution"), distributionName, distribution.getType());
-            return;
-        }
-
-        context.getLogger().info(RB.$("distributions.apply.action.distribution"), RB.$("distributions.action.preparing"), distributionName);
-
-        try {
-            packagerProcessor.prepareDistribution(distribution, initProps());
-        } catch (PackagerProcessingException tpe) {
-            if (packager.isContinueOnError()) {
-                packager.fail();
-                context.getLogger().warn(RB.$("distributions.failure"), tpe.getMessage());
-                context.getLogger().trace(tpe);
-            } else {
-                throw tpe;
-            }
-        }
+        Packager<?> packager = distribution.findPackager(packagerName);
+        executeProcessor(distribution, packager, false, RB.$("distributions.action.preparing"),
+            packagerProcessor -> packagerProcessor.prepareDistribution(distribution, initProps()));
     }
 
     public void packageDistribution() throws PackagerProcessingException {
         Distribution distribution = context.getModel().findDistribution(distributionName);
-        Packager<?> packager = distribution.getPackager(packagerName);
-        if (!packager.isEnabled()) {
-            context.getLogger().debug(RB.$("distributions.skip.distribution"), distributionName);
-            return;
-        }
-        if (packager.isFailed()) {
-            context.getLogger().warn(RB.$("distributions.previous.failure"));
-            return;
-        }
-
-        PackagerProcessor<Packager<?>> packagerProcessor = PackagerProcessors.findProcessor(context, packager);
-        if (!packagerProcessor.supportsDistribution(distribution)) {
-            context.getLogger().info(RB.$("distributions.not.supported.distribution"), distributionName, distribution.getType());
-            return;
-        }
-
-        context.getLogger().info(RB.$("distributions.apply.action.distribution"), RB.$("distributions.action.packaging"), distributionName);
-
-        try {
-            packagerProcessor.packageDistribution(distribution, initProps());
-        } catch (PackagerProcessingException tpe) {
-            if (packager.isContinueOnError()) {
-                packager.fail();
-                context.getLogger().warn(RB.$("distributions.failure"), tpe.getMessage());
-                context.getLogger().trace(tpe);
-            } else {
-                throw tpe;
-            }
-        }
+        Packager<?> packager = distribution.findPackager(packagerName);
+        executeProcessor(distribution, packager, true, RB.$("distributions.action.packaging"),
+            packagerProcessor -> packagerProcessor.packageDistribution(distribution, initProps()));
     }
 
     public void publishDistribution() throws PackagerProcessingException {
         Distribution distribution = context.getModel().findDistribution(distributionName);
-        Packager<?> packager = distribution.getPackager(packagerName);
+        Packager<?> packager = distribution.findPackager(packagerName);
+        executeProcessor(distribution, packager, true, RB.$("distributions.action.publishing"),
+            packagerProcessor -> packagerProcessor.publishDistribution(distribution, initProps()));
+    }
+
+    private void executeProcessor(Distribution distribution, Packager<?> packager, boolean checkFailed, String action, ProcessorFunction function) throws PackagerProcessingException {
         if (!packager.isEnabled()) {
             context.getLogger().debug(RB.$("distributions.skip.distribution"), distributionName);
             return;
         }
-        if (packager.isFailed()) {
+
+        if (checkFailed && packager.isFailed()) {
             context.getLogger().warn(RB.$("distributions.previous.failure"));
             return;
         }
@@ -135,29 +92,29 @@ public class DistributionProcessor {
             return;
         }
 
-        context.getLogger().info(RB.$("distributions.apply.action.distribution"), RB.$("distributions.action.publishing"), distributionName);
+        context.getLogger().info(RB.$("distributions.apply.action.distribution"), action, distributionName);
 
         try {
-            packagerProcessor.publishDistribution(distribution, initProps());
-        } catch (PackagerProcessingException tpe) {
+            function.process(packagerProcessor);
+        } catch (PackagerProcessingException ppe) {
             if (packager.isContinueOnError()) {
                 packager.fail();
-                context.getLogger().warn(RB.$("distributions.failure"), tpe.getMessage());
-                context.getLogger().trace(tpe);
+                context.getLogger().warn(RB.$("distributions.failure"), ppe.getMessage());
+                context.getLogger().trace(ppe);
             } else {
-                throw tpe;
+                throw ppe;
             }
         }
     }
 
-    private Map<String, Object> initProps() {
-        Map<String, Object> props = context.props();
-        props.put(Constants.KEY_PREPARE_DIRECTORY, context.getPrepareDirectory());
-        props.put(Constants.KEY_PACKAGE_DIRECTORY, context.getPackageDirectory());
-        props.put(Constants.KEY_DISTRIBUTION_PREPARE_DIRECTORY, context.getPrepareDirectory()
+    private TemplateContext initProps() {
+        TemplateContext props = context.props();
+        props.set(Constants.KEY_PREPARE_DIRECTORY, context.getPrepareDirectory());
+        props.set(Constants.KEY_PACKAGE_DIRECTORY, context.getPackageDirectory());
+        props.set(Constants.KEY_DISTRIBUTION_PREPARE_DIRECTORY, context.getPrepareDirectory()
             .resolve(distributionName)
             .resolve(packagerName));
-        props.put(Constants.KEY_DISTRIBUTION_PACKAGE_DIRECTORY, context.getPackageDirectory()
+        props.set(Constants.KEY_DISTRIBUTION_PACKAGE_DIRECTORY, context.getPackageDirectory()
             .resolve(distributionName)
             .resolve(packagerName));
         return props;
@@ -167,14 +124,14 @@ public class DistributionProcessor {
         return new DistributionProcessorBuilder();
     }
 
+    interface ProcessorFunction {
+        void process(PackagerProcessor<Packager<?>> packagerProcessor) throws PackagerProcessingException;
+    }
+
     public static class PackagingAction {
         private final String text;
         private final Type type;
         private final PackagerProcessingFunction function;
-
-        public static PackagingAction of(String text, Type type, PackagerProcessingFunction function) {
-            return new PackagingAction(text, type, function);
-        }
 
         private PackagingAction(String text, Type type, PackagerProcessingFunction function) {
             this.text = text;
@@ -192,6 +149,10 @@ public class DistributionProcessor {
 
         public PackagerProcessingFunction getFunction() {
             return function;
+        }
+
+        public static PackagingAction of(String text, Type type, PackagerProcessingFunction function) {
+            return new PackagingAction(text, type, function);
         }
 
         public enum Type {

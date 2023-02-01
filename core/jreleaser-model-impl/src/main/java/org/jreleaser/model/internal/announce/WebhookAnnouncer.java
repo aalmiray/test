@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,36 +17,29 @@
  */
 package org.jreleaser.model.internal.announce;
 
-import org.jreleaser.bundle.RB;
 import org.jreleaser.model.Active;
-import org.jreleaser.model.JReleaserException;
-import org.jreleaser.model.internal.JReleaserContext;
 
-import java.io.IOException;
-import java.io.Reader;
-import java.nio.file.Path;
 import java.util.Map;
 
 import static java.util.Collections.unmodifiableMap;
 import static org.jreleaser.model.Constants.HIDE;
-import static org.jreleaser.model.Constants.KEY_TAG_NAME;
 import static org.jreleaser.model.Constants.UNSET;
-import static org.jreleaser.mustache.MustacheUtils.applyTemplate;
-import static org.jreleaser.mustache.MustacheUtils.applyTemplates;
-import static org.jreleaser.mustache.Templates.resolveTemplate;
 import static org.jreleaser.util.StringUtils.isNotBlank;
 
 /**
  * @author Andres Almiray
  * @since 0.5.0
  */
-public final class WebhookAnnouncer extends AbstractAnnouncer<WebhookAnnouncer, org.jreleaser.model.api.announce.WebhookAnnouncer> {
+public final class WebhookAnnouncer extends AbstractMessageAnnouncer<WebhookAnnouncer, org.jreleaser.model.api.announce.WebhookAnnouncer> {
+    private static final long serialVersionUID = 771685577904254805L;
+
     private String webhook;
-    private String message;
     private String messageProperty;
-    private String messageTemplate;
+    private Boolean structuredMessage;
 
     private final org.jreleaser.model.api.announce.WebhookAnnouncer immutable = new org.jreleaser.model.api.announce.WebhookAnnouncer() {
+        private static final long serialVersionUID = 6579288631060633630L;
+
         @Override
         public String getType() {
             return org.jreleaser.model.api.announce.WebhooksAnnouncer.TYPE;
@@ -59,7 +52,7 @@ public final class WebhookAnnouncer extends AbstractAnnouncer<WebhookAnnouncer, 
 
         @Override
         public String getMessage() {
-            return message;
+            return WebhookAnnouncer.this.getMessage();
         }
 
         @Override
@@ -69,12 +62,17 @@ public final class WebhookAnnouncer extends AbstractAnnouncer<WebhookAnnouncer, 
 
         @Override
         public String getMessageTemplate() {
-            return messageTemplate;
+            return WebhookAnnouncer.this.getMessageTemplate();
+        }
+
+        @Override
+        public boolean isStructuredMessage() {
+            return WebhookAnnouncer.this.isStructuredMessage();
         }
 
         @Override
         public String getName() {
-            return name;
+            return WebhookAnnouncer.this.getName();
         }
 
         @Override
@@ -84,7 +82,7 @@ public final class WebhookAnnouncer extends AbstractAnnouncer<WebhookAnnouncer, 
 
         @Override
         public Active getActive() {
-            return active;
+            return WebhookAnnouncer.this.getActive();
         }
 
         @Override
@@ -104,17 +102,17 @@ public final class WebhookAnnouncer extends AbstractAnnouncer<WebhookAnnouncer, 
 
         @Override
         public Map<String, Object> getExtraProperties() {
-            return unmodifiableMap(extraProperties);
+            return unmodifiableMap(WebhookAnnouncer.this.getExtraProperties());
         }
 
         @Override
         public Integer getConnectTimeout() {
-            return connectTimeout;
+            return WebhookAnnouncer.this.getConnectTimeout();
         }
 
         @Override
         public Integer getReadTimeout() {
-            return readTimeout;
+            return WebhookAnnouncer.this.getReadTimeout();
         }
     };
 
@@ -130,43 +128,15 @@ public final class WebhookAnnouncer extends AbstractAnnouncer<WebhookAnnouncer, 
     @Override
     public void merge(WebhookAnnouncer source) {
         super.merge(source);
-        this.name = merge(this.name, source.name);
+        setName(merge(this.getName(), source.getName()));
         this.webhook = merge(this.webhook, source.webhook);
-        this.message = merge(this.message, source.message);
-        this.messageTemplate = merge(this.messageTemplate, source.messageTemplate);
         this.messageProperty = merge(this.messageProperty, source.messageProperty);
-    }
-
-    public String getResolvedMessage(JReleaserContext context) {
-        Map<String, Object> props = context.fullProps();
-        applyTemplates(props, getResolvedExtraProperties());
-        return resolveTemplate(message, props);
-    }
-
-    public String getResolvedMessageTemplate(JReleaserContext context, Map<String, Object> extraProps) {
-        Map<String, Object> props = context.fullProps();
-        applyTemplates(props, getResolvedExtraProperties());
-        props.put(KEY_TAG_NAME, context.getModel().getRelease().getReleaser()
-            .getEffectiveTagName(context.getModel()));
-        props.putAll(extraProps);
-
-        Path templatePath = context.getBasedir().resolve(messageTemplate);
-        try {
-            Reader reader = java.nio.file.Files.newBufferedReader(templatePath);
-            return applyTemplate(reader, props);
-        } catch (IOException e) {
-            throw new JReleaserException(RB.$("ERROR_unexpected_error_reading_template",
-                context.relativizeToBasedir(templatePath)));
-        }
+        this.structuredMessage = merge(this.structuredMessage, source.structuredMessage);
     }
 
     @Override
     public String getPrefix() {
         return "webhook";
-    }
-
-    public void setName(String name) {
-        this.name = name;
     }
 
     public String getWebhook() {
@@ -177,14 +147,6 @@ public final class WebhookAnnouncer extends AbstractAnnouncer<WebhookAnnouncer, 
         this.webhook = webhook;
     }
 
-    public String getMessage() {
-        return message;
-    }
-
-    public void setMessage(String message) {
-        this.message = message;
-    }
-
     public String getMessageProperty() {
         return messageProperty;
     }
@@ -193,19 +155,19 @@ public final class WebhookAnnouncer extends AbstractAnnouncer<WebhookAnnouncer, 
         this.messageProperty = messageProperty;
     }
 
-    public String getMessageTemplate() {
-        return messageTemplate;
+    public boolean isStructuredMessage() {
+        return null != structuredMessage && structuredMessage;
     }
 
-    public void setMessageTemplate(String messageTemplate) {
-        this.messageTemplate = messageTemplate;
+    public void setStructuredMessage(Boolean structuredMessage) {
+        this.structuredMessage = structuredMessage;
     }
 
     @Override
     protected void asMap(boolean full, Map<String, Object> props) {
         props.put("webhook", isNotBlank(webhook) ? HIDE : UNSET);
-        props.put("message", message);
+        super.asMap(full, props);
         props.put("messageProperty", messageProperty);
-        props.put("messageTemplate", messageTemplate);
+        props.put("structuredMessage", isStructuredMessage());
     }
 }

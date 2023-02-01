@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -40,7 +40,6 @@ public interface Releaser extends Domain, EnabledAware, CommitAuthorAware, Owner
     String RELEASE_NAME = "RELEASE_NAME";
     String OVERWRITE = "OVERWRITE";
     String UPDATE = "UPDATE";
-    String PRERELEASE = "PRERELEASE";
     String DRAFT = "DRAFT";
     String SKIP_TAG = "SKIP_TAG";
     String SKIP_RELEASE = "SKIP_RELEASE";

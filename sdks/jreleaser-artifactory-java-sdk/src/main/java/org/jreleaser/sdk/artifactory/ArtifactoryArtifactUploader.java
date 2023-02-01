@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,6 +34,8 @@ import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 /**
  * @author Andres Almiray
@@ -84,8 +86,8 @@ public class ArtifactoryArtifactUploader extends AbstractArtifactUploader<org.jr
                     switch (uploader.resolveAuthorization()) {
                         case BASIC:
                             String auth = username + ":" + password;
-                            byte[] encodedAuth = Base64.getEncoder().encode(auth.getBytes());
-                            auth = new String(encodedAuth);
+                            byte[] encodedAuth = Base64.getEncoder().encode(auth.getBytes(UTF_8));
+                            auth = new String(encodedAuth, UTF_8);
                             headers.put("Authorization", "Basic " + auth);
                             break;
                         case BEARER:

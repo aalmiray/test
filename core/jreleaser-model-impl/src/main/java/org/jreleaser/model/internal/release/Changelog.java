@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -55,13 +55,16 @@ import static org.jreleaser.util.StringUtils.isNotBlank;
  * @since 0.1.0
  */
 public final class Changelog extends AbstractModelObject<Changelog> implements Domain, EnabledAware {
+    private static final long serialVersionUID = 4043071800577311864L;
+
     private final Set<String> includeLabels = new LinkedHashSet<>();
     private final Set<String> excludeLabels = new LinkedHashSet<>();
-    private final Set<Category> categories = new TreeSet<>(Category.ORDER);
+    private final Set<Category> categories = new TreeSet<>(Category.ORDER_COMPARATOR);
     private final List<Replacer> replacers = new ArrayList<>();
-    private final Set<Labeler> labelers = new TreeSet<>(Labeler.ORDER);
+    private final Set<Labeler> labelers = new TreeSet<>(Labeler.ORDER_COMPARATOR);
     private final Hide hide = new Hide();
     private final Contributors contributors = new Contributors();
+    private final Append append = new Append();
 
     private Boolean enabled;
     private Boolean links;
@@ -70,11 +73,15 @@ public final class Changelog extends AbstractModelObject<Changelog> implements D
     private String external;
     private Active formatted;
     private String format;
+    private String categoryTitleFormat;
+    private String contributorsTitleFormat;
     private String content;
     private String contentTemplate;
     private String preset;
 
     private final org.jreleaser.model.api.release.Changelog immutable = new org.jreleaser.model.api.release.Changelog() {
+        private static final long serialVersionUID = 796060231164279450L;
+
         private Set<? extends org.jreleaser.model.api.release.Changelog.Category> categories;
         private List<? extends org.jreleaser.model.api.release.Changelog.Replacer> replacers;
         private Set<? extends org.jreleaser.model.api.release.Changelog.Labeler> labelers;
@@ -150,6 +157,16 @@ public final class Changelog extends AbstractModelObject<Changelog> implements D
         }
 
         @Override
+        public String getCategoryTitleFormat() {
+            return categoryTitleFormat;
+        }
+
+        @Override
+        public String getContributorsTitleFormat() {
+            return contributorsTitleFormat;
+        }
+
+        @Override
         public String getContent() {
             return content;
         }
@@ -175,6 +192,11 @@ public final class Changelog extends AbstractModelObject<Changelog> implements D
         }
 
         @Override
+        public Append getAppend() {
+            return append.asImmutable();
+        }
+
+        @Override
         public Map<String, Object> asMap(boolean full) {
             return unmodifiableMap(Changelog.this.asMap(full));
         }
@@ -197,12 +219,15 @@ public final class Changelog extends AbstractModelObject<Changelog> implements D
             !labelers.isEmpty() ||
             hide.isSet() ||
             contributors.isSet() ||
+            append.isSet() ||
             null != links ||
             null != skipMergeCommits ||
             null != sort ||
             null != formatted ||
             isNotBlank(external) ||
             isNotBlank(format) ||
+            isNotBlank(categoryTitleFormat) ||
+            isNotBlank(contributorsTitleFormat) ||
             isNotBlank(content) ||
             isNotBlank(contentTemplate) ||
             isNotBlank(preset);
@@ -217,6 +242,8 @@ public final class Changelog extends AbstractModelObject<Changelog> implements D
         this.external = merge(this.external, source.external);
         this.formatted = merge(this.formatted, source.formatted);
         this.format = merge(this.format, source.format);
+        this.categoryTitleFormat = merge(this.categoryTitleFormat, source.categoryTitleFormat);
+        this.contributorsTitleFormat = merge(this.contributorsTitleFormat, source.contributorsTitleFormat);
         this.content = merge(this.content, source.content);
         this.contentTemplate = merge(this.contentTemplate, source.contentTemplate);
         this.preset = merge(this.preset, source.preset);
@@ -227,6 +254,7 @@ public final class Changelog extends AbstractModelObject<Changelog> implements D
         setLabelers(merge(this.labelers, source.labelers));
         setHide(source.hide);
         setContributors(source.contributors);
+        setAppend(source.append);
     }
 
     public boolean resolveFormatted(Project project) {
@@ -252,7 +280,7 @@ public final class Changelog extends AbstractModelObject<Changelog> implements D
 
     @Override
     public boolean isEnabled() {
-        return enabled != null && enabled;
+        return null != enabled && enabled;
     }
 
     @Override
@@ -262,11 +290,11 @@ public final class Changelog extends AbstractModelObject<Changelog> implements D
 
     @Override
     public boolean isEnabledSet() {
-        return enabled != null;
+        return null != enabled;
     }
 
     public boolean isLinks() {
-        return links != null && links;
+        return null != links && links;
     }
 
     public void setLinks(Boolean links) {
@@ -274,7 +302,7 @@ public final class Changelog extends AbstractModelObject<Changelog> implements D
     }
 
     public boolean isSkipMergeCommits() {
-        return skipMergeCommits != null && skipMergeCommits;
+        return null != skipMergeCommits && skipMergeCommits;
     }
 
     public void setSkipMergeCommits(Boolean skipMergeCommits) {
@@ -316,7 +344,7 @@ public final class Changelog extends AbstractModelObject<Changelog> implements D
     }
 
     public boolean isFormattedSet() {
-        return formatted != null;
+        return null != formatted;
     }
 
     public Set<String> getIncludeLabels() {
@@ -372,6 +400,22 @@ public final class Changelog extends AbstractModelObject<Changelog> implements D
         this.format = format;
     }
 
+    public String getCategoryTitleFormat() {
+        return categoryTitleFormat;
+    }
+
+    public void setCategoryTitleFormat(String categoryTitleFormat) {
+        this.categoryTitleFormat = categoryTitleFormat;
+    }
+
+    public String getContributorsTitleFormat() {
+        return contributorsTitleFormat;
+    }
+
+    public void setContributorsTitleFormat(String contributorsTitleFormat) {
+        this.contributorsTitleFormat = contributorsTitleFormat;
+    }
+
     public String getContent() {
         return content;
     }
@@ -412,6 +456,14 @@ public final class Changelog extends AbstractModelObject<Changelog> implements D
         this.contributors.merge(contributors);
     }
 
+    public Append getAppend() {
+        return append;
+    }
+
+    public void setAppend(Append append) {
+        this.append.merge(append);
+    }
+
     @Override
     public Map<String, Object> asMap(boolean full) {
         if (!full && !isEnabled()) return Collections.emptyMap();
@@ -419,12 +471,15 @@ public final class Changelog extends AbstractModelObject<Changelog> implements D
         Map<String, Object> map = new LinkedHashMap<>();
         map.put("enabled", isEnabled());
         map.put("external", external);
+        map.put("append", append.asMap(full));
         map.put("links", isLinks());
         map.put("skipMergeCommits", isSkipMergeCommits());
         map.put("sort", sort);
         map.put("formatted", formatted);
         map.put("preset", preset);
         map.put("format", format);
+        map.put("categoryTitleFormat", categoryTitleFormat);
+        map.put("contributorsTitleFormat", contributorsTitleFormat);
         map.put("content", content);
         map.put("contentTemplate", contentTemplate);
         map.put("includeLabels", includeLabels);
@@ -456,12 +511,144 @@ public final class Changelog extends AbstractModelObject<Changelog> implements D
         return map;
     }
 
+    public static final class Append extends AbstractModelObject<Append> implements Domain {
+        private static final long serialVersionUID = -7396820796498154377L;
+
+        private Boolean enabled;
+        private String title;
+        private String target;
+        private String content;
+        private String contentTemplate;
+
+        private final org.jreleaser.model.api.release.Changelog.Append immutable = new org.jreleaser.model.api.release.Changelog.Append() {
+            private static final long serialVersionUID = -5635998660542618226L;
+
+            @Override
+            public boolean isEnabled() {
+                return Append.this.isEnabled();
+            }
+
+            @Override
+            public String getTitle() {
+                return title;
+            }
+
+            @Override
+            public String getTarget() {
+                return target;
+            }
+
+            @Override
+            public String getContent() {
+                return content;
+            }
+
+            @Override
+            public String getContentTemplate() {
+                return contentTemplate;
+            }
+
+            @Override
+            public Map<String, Object> asMap(boolean full) {
+                return unmodifiableMap(Append.this.asMap(full));
+            }
+        };
+
+        public org.jreleaser.model.api.release.Changelog.Append asImmutable() {
+            return immutable;
+        }
+
+        @Override
+        public void merge(Append source) {
+            this.enabled = merge(this.enabled, source.enabled);
+            this.title = merge(this.title, source.title);
+            this.target = merge(this.target, source.target);
+            this.content = merge(this.content, source.content);
+            this.contentTemplate = merge(this.contentTemplate, source.contentTemplate);
+        }
+
+        public boolean isEnabled() {
+            return null != enabled && enabled;
+        }
+
+        public void setEnabled(Boolean enabled) {
+            this.enabled = enabled;
+        }
+
+        public String getTitle() {
+            return title;
+        }
+
+        public void setTitle(String title) {
+            this.title = title;
+        }
+
+        public String getTarget() {
+            return target;
+        }
+
+        public void setTarget(String target) {
+            this.target = target;
+        }
+
+        public String getContent() {
+            return content;
+        }
+
+        public void setContent(String content) {
+            this.content = content;
+        }
+
+        public String getContentTemplate() {
+            return contentTemplate;
+        }
+
+        public void setContentTemplate(String contentTemplate) {
+            this.contentTemplate = contentTemplate;
+        }
+
+        @Override
+        public Map<String, Object> asMap(boolean full) {
+            Map<String, Object> map = new LinkedHashMap<>();
+            map.put("enabled", isEnabled());
+            map.put("title", title);
+            map.put("target", target);
+            map.put("content", content);
+            map.put("contentTemplate", contentTemplate);
+            return map;
+        }
+
+        public boolean isSet() {
+            return isNotBlank(title) ||
+                isNotBlank(target) ||
+                isNotBlank(content) ||
+                isNotBlank(contentTemplate) ||
+                null != enabled;
+        }
+
+        public Reader getResolvedContentTemplate(JReleaserContext context) {
+            if (isNotBlank(content)) {
+                return new StringReader(content);
+            }
+
+            Path templatePath = context.getBasedir().resolve(contentTemplate);
+            try {
+                return java.nio.file.Files.newBufferedReader(templatePath);
+            } catch (IOException e) {
+                throw new JReleaserException(RB.$("ERROR_unexpected_error_reading_template",
+                    context.relativizeToBasedir(templatePath)));
+            }
+        }
+    }
+
     public static final class Category extends AbstractModelObject<Category> implements Domain {
-        public static final Comparator<Category> ORDER = (o1, o2) -> {
+        public static final Comparator<Category> ORDER_COMPARATOR = (o1, o2) -> {
             if (null == o1.getOrder()) return 1;
             if (null == o2.getOrder()) return -1;
             return o1.getOrder().compareTo(o2.getOrder());
         };
+
+        private static final long serialVersionUID = 8812582603331073781L;
 
         private final Set<String> labels = new LinkedHashSet<>();
 
@@ -471,6 +658,8 @@ public final class Changelog extends AbstractModelObject<Changelog> implements D
         private Integer order;
 
         private final org.jreleaser.model.api.release.Changelog.Category immutable = new org.jreleaser.model.api.release.Changelog.Category() {
+            private static final long serialVersionUID = -6331412945094114818L;
+
             @Override
             public String getFormat() {
                 return format;
@@ -563,6 +752,7 @@ public final class Changelog extends AbstractModelObject<Changelog> implements D
             this.order = order;
         }
 
+        @Override
         public Map<String, Object> asMap(boolean full) {
             Map<String, Object> map = new LinkedHashMap<>();
             map.put("key", key);
@@ -576,7 +766,7 @@ public final class Changelog extends AbstractModelObject<Changelog> implements D
         @Override
         public boolean equals(Object o) {
             if (this == o) return true;
-            if (o == null || getClass() != o.getClass()) return false;
+            if (null == o || getClass() != o.getClass()) return false;
             Category category = (Category) o;
             return key.equals(category.key);
         }
@@ -587,7 +777,7 @@ public final class Changelog extends AbstractModelObject<Changelog> implements D
         }
 
         public static Set<Category> sort(Set<Category> categories) {
-            TreeSet<Category> tmp = new TreeSet<>(ORDER);
+            TreeSet<Category> tmp = new TreeSet<>(ORDER_COMPARATOR);
             tmp.addAll(categories);
             return tmp;
         }
@@ -603,10 +793,14 @@ public final class Changelog extends AbstractModelObject<Changelog> implements D
     }
 
     public static final class Replacer extends AbstractModelObject<Replacer> implements Domain {
+        private static final long serialVersionUID = -3996062461946189421L;
+
         private String search;
         private String replace = "";
 
         private final org.jreleaser.model.api.release.Changelog.Replacer immutable = new org.jreleaser.model.api.release.Changelog.Replacer() {
+            private static final long serialVersionUID = -8515498818759834354L;
+
             @Override
             public String getSearch() {
                 return search;
@@ -659,11 +853,13 @@ public final class Changelog extends AbstractModelObject<Changelog> implements D
     }
 
     public static final class Labeler extends AbstractModelObject<Labeler> implements Domain {
-        public static final Comparator<Labeler> ORDER = (o1, o2) -> {
+        public static final Comparator<Labeler> ORDER_COMPARATOR = (o1, o2) -> {
             if (null == o1.getOrder()) return 1;
             if (null == o2.getOrder()) return -1;
             return o1.getOrder().compareTo(o2.getOrder());
         };
+
+        private static final long serialVersionUID = 1510091671085545316L;
 
         private String label;
         private String title;
@@ -671,6 +867,8 @@ public final class Changelog extends AbstractModelObject<Changelog> implements D
         private Integer order;
 
         private final org.jreleaser.model.api.release.Changelog.Labeler immutable = new org.jreleaser.model.api.release.Changelog.Labeler() {
+            private static final long serialVersionUID = -6780960364911032512L;
+
             @Override
             public String getLabel() {
                 return label;
@@ -744,7 +942,7 @@ public final class Changelog extends AbstractModelObject<Changelog> implements D
         @Override
         public boolean equals(Object o) {
             if (this == o) return true;
-            if (o == null || getClass() != o.getClass()) return false;
+            if (null == o || getClass() != o.getClass()) return false;
             Labeler labeler = (Labeler) o;
             return Objects.equals(title, labeler.title) &&
                 Objects.equals(body, labeler.body);
@@ -767,10 +965,14 @@ public final class Changelog extends AbstractModelObject<Changelog> implements D
     }
 
     public static final class Contributors extends AbstractModelObject<Contributors> implements Domain, EnabledAware {
+        private static final long serialVersionUID = 3162308397837135084L;
+
         private Boolean enabled;
         private String format;
 
         private final org.jreleaser.model.api.release.Changelog.Contributors immutable = new org.jreleaser.model.api.release.Changelog.Contributors() {
+            private static final long serialVersionUID = 1849581704581927871L;
+
             @Override
             public String getFormat() {
                 return format;
@@ -799,7 +1001,7 @@ public final class Changelog extends AbstractModelObject<Changelog> implements D
 
         @Override
         public boolean isEnabled() {
-            return enabled != null && enabled;
+            return null != enabled && enabled;
         }
 
         @Override
@@ -809,7 +1011,7 @@ public final class Changelog extends AbstractModelObject<Changelog> implements D
 
         @Override
         public boolean isEnabledSet() {
-            return enabled != null;
+            return null != enabled;
         }
 
         public String getFormat() {
@@ -835,11 +1037,15 @@ public final class Changelog extends AbstractModelObject<Changelog> implements D
     }
 
     public static final class Hide extends AbstractModelObject<Hide> implements Domain {
+        private static final long serialVersionUID = 314185207203186567L;
+
         private final Set<String> categories = new LinkedHashSet<>();
         private final Set<String> contributors = new LinkedHashSet<>();
         private Boolean uncategorized;
 
         private final org.jreleaser.model.api.release.Changelog.Hide immutable = new org.jreleaser.model.api.release.Changelog.Hide() {
+            private static final long serialVersionUID = 4820100134325634530L;
+
             @Override
             public boolean isUncategorized() {
                 return Hide.this.isUncategorized();
@@ -883,7 +1089,7 @@ public final class Changelog extends AbstractModelObject<Changelog> implements D
         }
 
         public boolean isUncategorized() {
-            return uncategorized != null && uncategorized;
+            return null != uncategorized && uncategorized;
         }
 
         public void setUncategorized(Boolean uncategorized) {

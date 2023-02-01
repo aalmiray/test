@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,21 +18,27 @@
 package org.jreleaser.model.internal.validation.upload;
 
 import org.jreleaser.bundle.RB;
-import org.jreleaser.model.Active;
 import org.jreleaser.model.api.JReleaserContext.Mode;
 import org.jreleaser.model.internal.JReleaserContext;
 import org.jreleaser.model.internal.upload.ArtifactoryUploader;
-import org.jreleaser.model.internal.validation.common.Validator;
-import org.jreleaser.util.Env;
 import org.jreleaser.util.Errors;
 
 import java.util.Map;
+
+import static org.jreleaser.model.internal.validation.common.Validator.checkProperty;
+import static org.jreleaser.model.internal.validation.common.Validator.resolveActivatable;
+import static org.jreleaser.model.internal.validation.common.Validator.validateTimeout;
+import static org.jreleaser.util.CollectionUtils.listOf;
 
 /**
  * @author Andres Almiray
  * @since 0.3.0
  */
-public abstract class ArtifactoryUploaderValidator extends Validator {
+public final class ArtifactoryUploaderValidator {
+    private ArtifactoryUploaderValidator() {
+        // noop
+    }
+
     public static void validateArtifactory(JReleaserContext context, Mode mode, Errors errors) {
         Map<String, ArtifactoryUploader> artifactory = context.getModel().getUpload().getArtifactory();
         if (!artifactory.isEmpty()) context.getLogger().debug("upload.artifactory");
@@ -40,18 +46,18 @@ public abstract class ArtifactoryUploaderValidator extends Validator {
         for (Map.Entry<String, ArtifactoryUploader> e : artifactory.entrySet()) {
             e.getValue().setName(e.getKey());
             if (mode.validateConfig()) {
-                validateArtifactory(context, mode, e.getValue(), errors);
+                validateArtifactory(context, e.getValue(), errors);
             }
         }
     }
 
-    private static void validateArtifactory(JReleaserContext context, Mode mode, ArtifactoryUploader artifactory, Errors errors) {
+    private static void validateArtifactory(JReleaserContext context, ArtifactoryUploader artifactory, Errors errors) {
         context.getLogger().debug("upload.artifactory.{}", artifactory.getName());
 
-        if (!artifactory.isActiveSet()) {
-            artifactory.setActive(Active.NEVER);
-        }
-        if (!artifactory.resolveEnabled(context.getModel().getProject())) {
+        resolveActivatable(context, artifactory,
+            listOf("upload.artifactory." + artifactory.getName(), "upload.artifactory"),
+            "NEVER");
+        if (!artifactory.resolveEnabledWithSnapshot(context.getModel().getProject())) {
             context.getLogger().debug(RB.$("validation.disabled"));
             return;
         }
@@ -70,10 +76,19 @@ public abstract class ArtifactoryUploaderValidator extends Validator {
             return;
         }
 
+        String baseKey1 = "upload.artifactory." + artifactory.getName();
+        String baseKey2 = "upload.artifactory";
+        String baseKey3 = "artifactory." + artifactory.getName();
+        String baseKey4 = "artifactory";
+
         artifactory.setHost(
             checkProperty(context,
-                "ARTIFACTORY_" + Env.toVar(artifactory.getName()) + "_HOST",
-                "artifactory.host",
+                listOf(
+                    baseKey1 + ".host",
+                    baseKey2 + ".host",
+                    baseKey3 + ".host",
+                    baseKey4 + ".host"),
+                baseKey1 + ".host",
                 artifactory.getHost(),
                 errors));
 
@@ -81,8 +96,12 @@ public abstract class ArtifactoryUploaderValidator extends Validator {
             case BEARER:
                 artifactory.setPassword(
                     checkProperty(context,
-                        "ARTIFACTORY_" + Env.toVar(artifactory.getName()) + "_PASSWORD",
-                        "artifactory.password",
+                        listOf(
+                            baseKey1 + ".password",
+                            baseKey2 + ".password",
+                            baseKey3 + ".password",
+                            baseKey4 + ".password"),
+                        baseKey1 + ".password",
                         artifactory.getPassword(),
                         errors,
                         context.isDryrun()));
@@ -90,22 +109,30 @@ public abstract class ArtifactoryUploaderValidator extends Validator {
             case BASIC:
                 artifactory.setUsername(
                     checkProperty(context,
-                        "ARTIFACTORY_" + Env.toVar(artifactory.getName()) + "_USERNAME",
-                        "artifactory.username",
+                        listOf(
+                            baseKey1 + ".username",
+                            baseKey2 + ".username",
+                            baseKey3 + ".username",
+                            baseKey4 + ".username"),
+                        baseKey1 + ".username",
                         artifactory.getUsername(),
                         errors,
                         context.isDryrun()));
 
                 artifactory.setPassword(
                     checkProperty(context,
-                        "ARTIFACTORY_" + Env.toVar(artifactory.getName()) + "_PASSWORD",
-                        "artifactory.password",
+                        listOf(
+                            baseKey1 + ".password",
+                            baseKey2 + ".password",
+                            baseKey3 + ".password",
+                            baseKey4 + ".password"),
+                        baseKey1 + ".password",
                         artifactory.getPassword(),
                         errors,
                         context.isDryrun()));
                 break;
             case NONE:
-                errors.configuration(RB.$("validation_value_cannot_be", "artifactory." + artifactory.getName() + ".authorization", "NONE"));
+                errors.configuration(RB.$("validation_value_cannot_be", baseKey1 + ".authorization", "NONE"));
                 context.getLogger().debug(RB.$("validation.disabled.error"));
                 artifactory.disable();
                 break;
@@ -114,14 +141,15 @@ public abstract class ArtifactoryUploaderValidator extends Validator {
         validateTimeout(artifactory);
 
         for (ArtifactoryUploader.ArtifactoryRepository repository : artifactory.getRepositories()) {
+            resolveActivatable(context, repository, baseKey1 + ".repository", "");
             if (!repository.isActiveSet()) {
                 repository.setActive(artifactory.getActive());
             }
-            repository.resolveEnabled(context.getModel().getProject());
+            repository.resolveEnabledWithSnapshot(context.getModel().getProject());
         }
 
         if (artifactory.getRepositories().stream().noneMatch(ArtifactoryUploader.ArtifactoryRepository::isEnabled)) {
-            errors.warning(RB.$("validation_artifactory_disabled_repositories", "artifactory." + artifactory.getName()));
+            errors.warning(RB.$("validation_artifactory_disabled_repositories", baseKey1));
             context.getLogger().debug(RB.$("validation.disabled.no.repositories"));
             artifactory.disable();
         }

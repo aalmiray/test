@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -50,6 +50,7 @@ public final class JReleaserSupport {
         set.add(org.jreleaser.model.api.announce.GitterAnnouncer.TYPE);
         set.add(org.jreleaser.model.api.announce.GoogleChatAnnouncer.TYPE);
         set.add(org.jreleaser.model.api.announce.HttpAnnouncers.TYPE);
+        set.add(org.jreleaser.model.api.announce.SmtpAnnouncer.TYPE_LEGACY);
         set.add(org.jreleaser.model.api.announce.SmtpAnnouncer.TYPE);
         set.add(org.jreleaser.model.api.announce.MastodonAnnouncer.TYPE);
         set.add(org.jreleaser.model.api.announce.MattermostAnnouncer.TYPE);
@@ -78,6 +79,7 @@ public final class JReleaserSupport {
         set.add(org.jreleaser.model.api.packagers.SdkmanPackager.TYPE);
         set.add(org.jreleaser.model.api.packagers.SnapPackager.TYPE);
         set.add(org.jreleaser.model.api.packagers.SpecPackager.TYPE);
+        set.add(org.jreleaser.model.api.packagers.WingetPackager.TYPE);
         return unmodifiableSet(set);
     }
 

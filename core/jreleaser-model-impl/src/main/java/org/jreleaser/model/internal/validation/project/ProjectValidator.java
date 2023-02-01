@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@
 package org.jreleaser.model.internal.validation.project;
 
 import org.jreleaser.bundle.RB;
+import org.jreleaser.model.Constants;
 import org.jreleaser.model.LicenseId;
 import org.jreleaser.model.VersionPattern;
 import org.jreleaser.model.api.JReleaserContext.Mode;
@@ -25,7 +26,6 @@ import org.jreleaser.model.internal.JReleaserContext;
 import org.jreleaser.model.internal.distributions.Distribution;
 import org.jreleaser.model.internal.project.Project;
 import org.jreleaser.model.internal.release.BaseReleaser;
-import org.jreleaser.model.internal.validation.common.Validator;
 import org.jreleaser.util.Errors;
 
 import static org.jreleaser.model.api.project.Project.DEFAULT_SNAPSHOT_LABEL;
@@ -36,15 +36,23 @@ import static org.jreleaser.model.api.project.Project.PROJECT_SNAPSHOT_LABEL;
 import static org.jreleaser.model.api.project.Project.PROJECT_SNAPSHOT_PATTERN;
 import static org.jreleaser.model.api.project.Project.PROJECT_VERSION;
 import static org.jreleaser.model.api.project.Project.PROJECT_VERSION_PATTERN;
+import static org.jreleaser.model.internal.validation.common.Validator.checkProperty;
+import static org.jreleaser.model.internal.validation.common.Validator.validateIcons;
+import static org.jreleaser.model.internal.validation.common.Validator.validateScreenshots;
 import static org.jreleaser.util.FileUtils.findLicenseFile;
 import static org.jreleaser.util.StringUtils.isBlank;
 import static org.jreleaser.util.StringUtils.isNotBlank;
+import static org.jreleaser.util.StringUtils.isTrue;
 
 /**
  * @author Andres Almiray
  * @since 0.1.0
  */
-public abstract class ProjectValidator extends Validator {
+public final class ProjectValidator {
+    private ProjectValidator() {
+        // noop
+    }
+
     public static void validateProject(JReleaserContext context, Mode mode, Errors errors) {
         context.getLogger().debug("project");
         Project project = context.getModel().getProject();
@@ -93,30 +101,33 @@ public abstract class ProjectValidator extends Validator {
                 project.getSnapshot().getFullChangelog(),
                 false));
 
-        if (project.versionPattern().getType() == org.jreleaser.model.VersionPattern.Type.CALVER) {
-            if (isBlank(project.versionPattern().getFormat())) {
-                errors.configuration(RB.$("validation_version_format_missing",
-                    "project.versionPattern", VersionPattern.Type.CALVER.toString()));
-            }
+        if (project.versionPattern().getType() == VersionPattern.Type.CALVER && isBlank(project.versionPattern().getFormat())) {
+            errors.configuration(RB.$("validation_version_format_missing",
+                "project.versionPattern", VersionPattern.Type.CALVER.toString()));
         }
 
+        // TODO: NATIVE_PACKAGE may not necessarily be related to Java
         boolean javaDistributions = context.getModel().getDistributions().values().stream()
             .map(Distribution::getType)
             .anyMatch(type -> type == org.jreleaser.model.Distribution.DistributionType.JAVA_BINARY ||
                 type == org.jreleaser.model.Distribution.DistributionType.SINGLE_JAR ||
-                type == org.jreleaser.model.Distribution.DistributionType.NATIVE_IMAGE ||
-                type == org.jreleaser.model.Distribution.DistributionType.NATIVE_PACKAGE);
+                type == org.jreleaser.model.Distribution.DistributionType.NATIVE_PACKAGE) ||
+            context.getModel().getDistributions().values().stream()
+                .anyMatch(distribution -> distribution.getType() == org.jreleaser.model.Distribution.DistributionType.BINARY &&
+                    isTrue(distribution.getExtraProperties().get(Constants.KEY_GRAALVM_NAGIVE_IMAGE)));
+
         boolean javaAssemblers = !context.getModel().getAssemble().getJlink().isEmpty() ||
             !context.getModel().getAssemble().getJpackage().isEmpty() ||
             !context.getModel().getAssemble().getNativeImage().isEmpty();
+
         boolean nexusDeployers = !context.getModel().getDeploy().getMaven().getNexus2().isEmpty();
 
         if (javaAssemblers || nexusDeployers || mode.validateConfig() && javaDistributions) {
             validateJava(context, project, errors);
         }
 
-        validateScreenshots(context, mode, project.getScreenshots(), errors, "project");
-        validateIcons(context, mode, project.getIcons(), errors, "project");
+        validateScreenshots(project.getScreenshots(), errors, "project");
+        validateIcons(project.getIcons(), errors, "project");
     }
 
     public static void postValidateProject(JReleaserContext context, Mode mode, Errors errors) {
@@ -130,18 +141,16 @@ public abstract class ProjectValidator extends Validator {
             context.nag("1.2.0", "Use project.inceptionYear instead of project.extraProperties.inceptionYear");
         }
 
-        if (isBlank(project.getLinks().getLicense())) {
-            if (isNotBlank(project.getLicense())) {
-                LicenseId.findByLiteral(project.getLicense()).ifPresent(licenseId ->
-                    project.getLinks().setLicense(licenseId.url()));
-            }
+        if (isBlank(project.getLinks().getLicense()) && isNotBlank(project.getLicense())) {
+            LicenseId.findByLiteral(project.getLicense()).ifPresent(licenseId ->
+                project.getLinks().setLicense(licenseId.url()));
         }
 
         // FIXME: extension
-        if (isBlank(project.getLinks().getLicense()) && context.getModel().getCommit() != null) {
+        if (isBlank(project.getLinks().getLicense()) && null != context.getModel().getCommit()) {
             findLicenseFile(context.getBasedir())
                 .ifPresent(path -> {
-                    BaseReleaser service = context.getModel().getRelease().getReleaser();
+                    BaseReleaser<?, ?> service = context.getModel().getRelease().getReleaser();
                     String srcUrl = service.getResolvedSrcUrl(context.getModel());
                     if (!srcUrl.endsWith("/")) srcUrl += "/";
                     srcUrl += path.getFileName().toString();
@@ -164,7 +173,7 @@ public abstract class ProjectValidator extends Validator {
             }
 
             if (isBlank(project.getCopyright())) {
-                if (project.getInceptionYear() != null &&
+                if (null != project.getInceptionYear() &&
                     !project.getAuthors().isEmpty()) {
                     project.setCopyright(
                         project.getInceptionYear() + " " +
@@ -184,7 +193,7 @@ public abstract class ProjectValidator extends Validator {
         }
 
         if (isBlank(project.getCopyright())) {
-            if (project.getInceptionYear() != null &&
+            if (null != project.getInceptionYear() &&
                 !project.getAuthors().isEmpty()) {
                 project.setCopyright(
                     project.getInceptionYear() + " " +

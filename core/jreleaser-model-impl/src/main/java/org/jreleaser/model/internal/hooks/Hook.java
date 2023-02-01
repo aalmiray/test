@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -46,10 +46,14 @@ public interface Hook extends Domain, Activatable {
     boolean isContinueOnErrorSet();
 
     class Filter extends AbstractModelObject<Filter> implements Domain {
+        private static final long serialVersionUID = 8811064830998012126L;
+
         private final Set<String> includes = new LinkedHashSet<>();
         private final Set<String> excludes = new LinkedHashSet<>();
 
         private final org.jreleaser.model.api.hooks.Hook.Filter immutable = new org.jreleaser.model.api.hooks.Hook.Filter() {
+            private static final long serialVersionUID = -6995455963355646704L;
+
             @Override
             public Set<String> getIncludes() {
                 return unmodifiableSet(includes);

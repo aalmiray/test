@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -51,7 +51,8 @@ public enum Algorithm {
     public static Algorithm of(String str) {
         if (isBlank(str)) return null;
 
-        String value = str.toUpperCase(Locale.ENGLISH).trim();
+        String value = str.toUpperCase(Locale.ENGLISH).trim()
+            .replace("-", "_");
 
         switch (value) {
             case "SHA1":
@@ -62,6 +63,8 @@ public enum Algorithm {
                 return SHA_384;
             case "SHA512":
                 return SHA_512;
+            default:
+                // noop
         }
 
         return Algorithm.valueOf(value);

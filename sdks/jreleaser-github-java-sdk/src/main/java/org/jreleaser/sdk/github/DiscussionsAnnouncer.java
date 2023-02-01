@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,16 +18,13 @@
 package org.jreleaser.sdk.github;
 
 import org.jreleaser.bundle.RB;
-import org.jreleaser.model.Constants;
 import org.jreleaser.model.internal.JReleaserContext;
 import org.jreleaser.model.internal.release.GithubReleaser;
 import org.jreleaser.model.spi.announce.AnnounceException;
 import org.jreleaser.model.spi.announce.Announcer;
-import org.jreleaser.mustache.MustacheUtils;
+import org.jreleaser.mustache.TemplateContext;
 
 import java.io.IOException;
-import java.util.LinkedHashMap;
-import java.util.Map;
 
 import static org.jreleaser.util.StringUtils.isNotBlank;
 
@@ -68,8 +65,8 @@ public class DiscussionsAnnouncer implements Announcer<org.jreleaser.model.api.a
         if (isNotBlank(discussions.getMessage())) {
             message = discussions.getResolvedMessage(context);
         } else {
-            Map<String, Object> props = new LinkedHashMap<>();
-            props.put(Constants.KEY_CHANGELOG, MustacheUtils.passThrough(context.getChangelog()));
+            TemplateContext props = new TemplateContext();
+            context.getChangelog().apply(props);
             context.getModel().getRelease().getReleaser().fillProps(props, context.getModel());
             message = discussions.getResolvedMessageTemplate(context, props);
         }
@@ -77,6 +74,8 @@ public class DiscussionsAnnouncer implements Announcer<org.jreleaser.model.api.a
         String title = discussions.getResolvedTitle(context);
         context.getLogger().info("title: {}", title);
         context.getLogger().debug("message: {}", message);
+
+        if (context.isDryrun()) return;
 
         try {
             Github api = new Github(context.getLogger(),

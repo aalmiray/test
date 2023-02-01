@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,6 +31,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.nio.file.StandardOpenOption.WRITE;
 import static org.jreleaser.util.StringUtils.isNotBlank;
 
@@ -91,7 +92,7 @@ public final class GpgCommandSigner {
 
         new CommandExecutor(logger)
             .executeCommandWithInput(cmd,
-                new ByteArrayInputStream(passphrase.getBytes()));
+                new ByteArrayInputStream(passphrase.getBytes(UTF_8)));
     }
 
     public boolean verify(Path signature, Path target) throws CommandException {

@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,7 +37,6 @@ import static org.jreleaser.model.Constants.UNSET;
 import static org.jreleaser.model.Distribution.DistributionType.BINARY;
 import static org.jreleaser.model.Distribution.DistributionType.JAVA_BINARY;
 import static org.jreleaser.model.Distribution.DistributionType.JLINK;
-import static org.jreleaser.model.Distribution.DistributionType.NATIVE_IMAGE;
 import static org.jreleaser.model.Distribution.DistributionType.NATIVE_PACKAGE;
 import static org.jreleaser.model.api.packagers.ChocolateyPackager.SKIP_CHOCOLATEY;
 import static org.jreleaser.model.api.packagers.ChocolateyPackager.TYPE;
@@ -55,14 +54,15 @@ import static org.jreleaser.util.StringUtils.isNotBlank;
  */
 public final class ChocolateyPackager extends AbstractRepositoryPackager<org.jreleaser.model.api.packagers.ChocolateyPackager, ChocolateyPackager> {
     private static final Map<org.jreleaser.model.Distribution.DistributionType, Set<String>> SUPPORTED = new LinkedHashMap<>();
+    private static final long serialVersionUID = -2548972697129361822L;
 
     static {
         Set<String> extensions = setOf(ZIP.extension());
         SUPPORTED.put(BINARY, extensions);
         SUPPORTED.put(JAVA_BINARY, extensions);
         SUPPORTED.put(JLINK, extensions);
-        SUPPORTED.put(NATIVE_IMAGE, extensions);
         SUPPORTED.put(NATIVE_PACKAGE, setOf(EXE.extension(), MSI.extension()));
+        // SUPPORTED.put(FLAT_BINARY, emptySet());
     }
 
     private final ChocolateyRepository repository = new ChocolateyRepository();
@@ -76,6 +76,8 @@ public final class ChocolateyPackager extends AbstractRepositoryPackager<org.jre
     private Boolean remoteBuild;
 
     private final org.jreleaser.model.api.packagers.ChocolateyPackager immutable = new org.jreleaser.model.api.packagers.ChocolateyPackager() {
+        private static final long serialVersionUID = 4573744832740015330L;
+
         @Override
         public String getPackageName() {
             return packageName;
@@ -128,27 +130,27 @@ public final class ChocolateyPackager extends AbstractRepositoryPackager<org.jre
 
         @Override
         public org.jreleaser.model.api.common.CommitAuthor getCommitAuthor() {
-            return commitAuthor.asImmutable();
+            return ChocolateyPackager.this.getCommitAuthor().asImmutable();
         }
 
         @Override
         public String getTemplateDirectory() {
-            return templateDirectory;
+            return ChocolateyPackager.this.getTemplateDirectory();
         }
 
         @Override
         public List<String> getSkipTemplates() {
-            return unmodifiableList(skipTemplates);
+            return unmodifiableList(ChocolateyPackager.this.getSkipTemplates());
         }
 
         @Override
         public String getType() {
-            return type;
+            return ChocolateyPackager.this.getType();
         }
 
         @Override
         public String getDownloadUrl() {
-            return downloadUrl;
+            return ChocolateyPackager.this.getDownloadUrl();
         }
 
         @Override
@@ -183,7 +185,7 @@ public final class ChocolateyPackager extends AbstractRepositoryPackager<org.jre
 
         @Override
         public Active getActive() {
-            return active;
+            return ChocolateyPackager.this.getActive();
         }
 
         @Override
@@ -203,7 +205,7 @@ public final class ChocolateyPackager extends AbstractRepositoryPackager<org.jre
 
         @Override
         public Map<String, Object> getExtraProperties() {
-            return unmodifiableMap(extraProperties);
+            return unmodifiableMap(ChocolateyPackager.this.getExtraProperties());
         }
     };
 
@@ -287,7 +289,7 @@ public final class ChocolateyPackager extends AbstractRepositoryPackager<org.jre
     }
 
     public boolean isRemoteBuild() {
-        return remoteBuild != null && remoteBuild;
+        return null != remoteBuild && remoteBuild;
     }
 
     public void setRemoteBuild(Boolean remoteBuild) {
@@ -295,7 +297,7 @@ public final class ChocolateyPackager extends AbstractRepositoryPackager<org.jre
     }
 
     public boolean isRemoteBuildSet() {
-        return remoteBuild != null;
+        return null != remoteBuild;
     }
 
     public ChocolateyRepository getBucket() {
@@ -326,7 +328,7 @@ public final class ChocolateyPackager extends AbstractRepositoryPackager<org.jre
     }
 
     public PackagerRepository getPackagerRepository() {
-        return repository;
+        return getBucket();
     }
 
     @Override
@@ -351,6 +353,8 @@ public final class ChocolateyPackager extends AbstractRepositoryPackager<org.jre
     }
 
     public static final class ChocolateyRepository extends PackagerRepository {
+        private static final long serialVersionUID = 3536191707611666696L;
+
         public ChocolateyRepository() {
             super("chocolatey", "chocolatey-bucket");
         }

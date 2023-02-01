@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,12 +22,14 @@ import org.jreleaser.model.internal.JReleaserContext;
 import org.jreleaser.workflow.Workflows;
 import picocli.CommandLine;
 
+import java.util.Set;
+
 /**
  * @author Andres Almiray
  * @since 1.1.0
  */
 @CommandLine.Command(name = "download")
-public class Download extends AbstractModelCommand {
+public class Download extends AbstractModelCommand<Main> {
     @CommandLine.Option(names = {"--dry-run"})
     Boolean dryrun;
 
@@ -44,19 +46,19 @@ public class Download extends AbstractModelCommand {
         Exclude exclude;
 
         String[] includedDownloaderTypes() {
-            return include != null ? include.includedDownloaderTypes : null;
+            return null != include ? include.includedDownloaderTypes : null;
         }
 
         String[] includedDownloaderNames() {
-            return include != null ? include.includedDownloaderNames : null;
+            return null != include ? include.includedDownloaderNames : null;
         }
 
         String[] excludedDownloaderTypes() {
-            return exclude != null ? exclude.excludedDownloaderTypes : null;
+            return null != exclude ? exclude.excludedDownloaderTypes : null;
         }
 
         String[] excludedDownloaderNames() {
-            return exclude != null ? exclude.excludedDownloaderNames : null;
+            return null != exclude ? exclude.excludedDownloaderNames : null;
         }
     }
 
@@ -78,6 +80,15 @@ public class Download extends AbstractModelCommand {
         @CommandLine.Option(names = {"-xdn", "--exclude-downloader-name"},
             paramLabel = "<name>")
         String[] excludedDownloaderNames;
+    }
+
+    @Override
+    protected void collectCandidateDeprecatedArgs(Set<AbstractCommand<Main>.DeprecatedArg> args) {
+        super.collectCandidateDeprecatedArgs(args);
+        args.add(new DeprecatedArg("-d", "--downloader", "1.5.0"));
+        args.add(new DeprecatedArg("-dn", "--downloader-name", "1.5.0"));
+        args.add(new DeprecatedArg("-xd", "--exclude-downloader", "1.5.0"));
+        args.add(new DeprecatedArg("-xdn", "--exclude-downloader-name", "1.5.0"));
     }
 
     @Override

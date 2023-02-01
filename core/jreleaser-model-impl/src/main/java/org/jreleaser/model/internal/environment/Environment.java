@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,6 +29,7 @@ import org.jreleaser.util.Env;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.Serializable;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -37,8 +38,16 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.ServiceLoader;
+import java.util.Set;
+import java.util.TreeSet;
 
 import static java.util.Collections.unmodifiableMap;
+import static org.jreleaser.model.Constants.DEFAULT_GIT_REMOTE;
+import static org.jreleaser.model.Constants.JRELEASER_USER_HOME;
+import static org.jreleaser.model.Constants.XDG_CONFIG_HOME;
+import static org.jreleaser.util.Env.JRELEASER_ENV_PREFIX;
+import static org.jreleaser.util.Env.JRELEASER_SYS_PREFIX;
+import static org.jreleaser.util.Env.envKey;
 import static org.jreleaser.util.StringUtils.getPropertyNameForLowerCaseHyphenSeparatedName;
 import static org.jreleaser.util.StringUtils.isBlank;
 import static org.jreleaser.util.StringUtils.isNotBlank;
@@ -48,6 +57,8 @@ import static org.jreleaser.util.StringUtils.isNotBlank;
  * @since 0.1.0
  */
 public final class Environment extends AbstractModelObject<Environment> implements Domain {
+    private static final long serialVersionUID = 4554098923129885325L;
+
     private final Map<String, Object> properties = new LinkedHashMap<>();
     @JsonIgnore
     private final Map<String, Object> sourcedProperties = new LinkedHashMap<>();
@@ -56,8 +67,12 @@ public final class Environment extends AbstractModelObject<Environment> implemen
     private String variables;
     @JsonIgnore
     private Properties vars;
+    @JsonIgnore
+    private Path propertiesFile;
 
     private final org.jreleaser.model.api.environment.Environment immutable = new org.jreleaser.model.api.environment.Environment() {
+        private static final long serialVersionUID = -7287090119869371299L;
+
         @Override
         public Properties getVars() {
             return vars;
@@ -79,9 +94,6 @@ public final class Environment extends AbstractModelObject<Environment> implemen
         }
     };
 
-    @JsonIgnore
-    private Path propertiesFile;
-
     public org.jreleaser.model.api.environment.Environment asImmutable() {
         return immutable;
     }
@@ -91,6 +103,26 @@ public final class Environment extends AbstractModelObject<Environment> implemen
         this.variables = merge(this.variables, source.variables);
         setProperties(merge(this.properties, source.properties));
         setPropertiesSource(merge(this.propertiesSource, source.propertiesSource));
+    }
+
+    public  String resolve(String key) {
+        return env(key, Env.sys(key, ""));
+    }
+
+    public  String resolve(String key, String value) {
+        return env(key, Env.sys(key, value));
+    }
+
+    public  String resolveOrDefault(String key, String value, String defaultValue) {
+        String result = env(key, Env.sys(key, value));
+        return isNotBlank(result) ? result : defaultValue;
+    }
+
+    private String env(String key, String value) {
+        if (isNotBlank(value)) {
+            return value;
+        }
+        return getVariable(envKey(key));
     }
 
     public Properties getVars() {
@@ -154,18 +186,64 @@ public final class Environment extends AbstractModelObject<Environment> implemen
         if (null == vars) {
             vars = new Properties();
 
-            String home = System.getenv("JRELEASER_USER_HOME");
-            if (isBlank(home)) {
-                home = System.getProperty("user.home") + File.separator + ".jreleaser";
+            Path configDirectory = null;
+
+            String home = System.getenv(XDG_CONFIG_HOME);
+            if (isNotBlank(home) && Files.exists(Paths.get(home).resolve("jreleaser"))) {
+                configDirectory = Paths.get(home).resolve("jreleaser");
             }
 
-            Path configDirectory = Paths.get(home);
+            if (null == configDirectory) {
+                home = System.getenv(JRELEASER_USER_HOME);
+                if (isBlank(home)) {
+                    home = System.getProperty("user.home") + File.separator + ".jreleaser";
+                }
+                configDirectory = Paths.get(home);
+            }
+
             loadVariables(context, resolveConfigFileAt(configDirectory)
                 .orElse(configDirectory.resolve("config.properties")));
 
             if (isNotBlank(variables)) {
                 loadVariables(context, context.getBasedir().resolve(variables.trim()));
             }
+
+            Path envFilePath = context.getBasedir().resolve(".env");
+            if (Files.exists(envFilePath)) {
+                loadVariables(context, envFilePath);
+            }
+
+            // env vars
+            Set<String> keyNames = new TreeSet<>();
+            Properties envVars = new Properties();
+            System.getenv().forEach((k, v) -> {
+                if (k.startsWith(JRELEASER_ENV_PREFIX)) keyNames.add(k);
+                if (k.startsWith(JRELEASER_ENV_PREFIX)) envVars.put(k, v);
+            });
+            if (System.getenv().containsKey(envKey(DEFAULT_GIT_REMOTE))) {
+                keyNames.add(envKey(DEFAULT_GIT_REMOTE));
+            }
+            if (!keyNames.isEmpty()) {
+                context.getLogger().debug(RB.$("environment.variables.env"));
+                keyNames.forEach(message -> context.getLogger().debug("  " + message));
+            }
+
+            // system props
+            keyNames.clear();
+            System.getProperties().stringPropertyNames().forEach(k -> {
+                if (k.startsWith(JRELEASER_SYS_PREFIX)) keyNames.add(k);
+            });
+            if (!keyNames.isEmpty()) {
+                context.getLogger().debug(RB.$("environment.system.properties"));
+                keyNames.forEach(message -> context.getLogger().debug("  " + message));
+            }
+
+            // merge keyNames
+            Properties merged = new Properties();
+            merged.putAll(envVars);
+            merged.putAll(this.vars);
+            this.vars.clear();
+            this.vars.putAll(merged);
 
             if (null != propertiesSource) {
                 sourcedProperties.putAll(propertiesSource.getProperties());
@@ -174,20 +252,29 @@ public final class Environment extends AbstractModelObject<Environment> implemen
     }
 
     private void loadVariables(JReleaserContext context, Path file) {
-        System.getenv().forEach((k, v) -> {
-            if (k.startsWith("JRELEASER_")) vars.put(k, v);
-        });
-
         propertiesFile = file;
         context.getLogger().info(RB.$("environment.load.variables"), file.toAbsolutePath());
         if (Files.exists(file)) {
             try {
-                if (file.getFileName().toString().endsWith(".properties")) {
+                Properties p = new Properties();
+                if (file.getFileName().toString().endsWith(".properties") ||
+                    file.getFileName().toString().equals(".env")) {
                     try (FileInputStream in = new FileInputStream(file.toFile())) {
-                        vars.load(in);
+                        p.load(in);
                     }
                 } else {
-                    vars.putAll(JReleaserConfigLoader.loadProperties(file));
+                    p.putAll(JReleaserConfigLoader.loadProperties(file));
+                }
+                vars.putAll(p);
+
+                Set<String> keyNames = new TreeSet<>();
+                p.stringPropertyNames().stream()
+                    .filter(k -> k.startsWith(JRELEASER_ENV_PREFIX)).
+                    forEach(keyNames::add);
+
+                if (!keyNames.isEmpty()) {
+                    context.getLogger().debug(RB.$("environment.variables.file", file.getFileName().toString()));
+                    keyNames.forEach(message -> context.getLogger().debug("  " + message));
                 }
             } catch (IOException e) {
                 context.getLogger().debug(RB.$("environment.variables.load.error"), file.toAbsolutePath(), e);
@@ -217,11 +304,13 @@ public final class Environment extends AbstractModelObject<Environment> implemen
         return keyInProperties || keyInSourcedProperties;
     }
 
-    public interface PropertiesSource {
+    public interface PropertiesSource extends Serializable {
         Map<String, String> getProperties();
     }
 
-    public static abstract class AbstractPropertiesSource implements PropertiesSource {
+    public abstract static class AbstractPropertiesSource implements PropertiesSource {
+        private static final long serialVersionUID = 9102569253517657171L;
+
         @Override
         public Map<String, String> getProperties() {
             Map<String, String> props = doGetProperties();
@@ -241,6 +330,8 @@ public final class Environment extends AbstractModelObject<Environment> implemen
     }
 
     public static class PropertiesPropertiesSource extends AbstractPropertiesSource {
+        private static final long serialVersionUID = 7747477120107034027L;
+
         private final Properties properties;
 
         public PropertiesPropertiesSource(Properties properties) {
@@ -256,6 +347,8 @@ public final class Environment extends AbstractModelObject<Environment> implemen
     }
 
     public static class MapPropertiesSource extends AbstractPropertiesSource {
+        private static final long serialVersionUID = 6643212572356054605L;
+
         private final Map<String, ?> properties;
 
         public MapPropertiesSource(Map<String, ?> properties) {

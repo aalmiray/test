@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,14 +18,12 @@
 package org.jreleaser.model.internal.validation.assemble;
 
 import org.jreleaser.bundle.RB;
-import org.jreleaser.model.Active;
 import org.jreleaser.model.api.JReleaserContext.Mode;
 import org.jreleaser.model.internal.JReleaserContext;
 import org.jreleaser.model.internal.assemble.JlinkAssembler;
 import org.jreleaser.model.internal.common.Artifact;
 import org.jreleaser.model.internal.common.FileSet;
 import org.jreleaser.model.internal.project.Project;
-import org.jreleaser.model.internal.validation.common.Validator;
 import org.jreleaser.util.Errors;
 import org.jreleaser.util.PlatformUtils;
 
@@ -35,6 +33,10 @@ import java.util.Optional;
 
 import static java.util.stream.Collectors.groupingBy;
 import static org.jreleaser.model.internal.validation.common.TemplateValidator.validateTemplate;
+import static org.jreleaser.model.internal.validation.common.Validator.resolveActivatable;
+import static org.jreleaser.model.internal.validation.common.Validator.validateFileSet;
+import static org.jreleaser.model.internal.validation.common.Validator.validateGlobs;
+import static org.jreleaser.util.CollectionUtils.listOf;
 import static org.jreleaser.util.StringUtils.isBlank;
 import static org.jreleaser.util.StringUtils.isNotBlank;
 
@@ -42,7 +44,11 @@ import static org.jreleaser.util.StringUtils.isNotBlank;
  * @author Andres Almiray
  * @since 0.2.0
  */
-public abstract class JlinkAssemblerValidator extends Validator {
+public final class JlinkAssemblerValidator {
+    private JlinkAssemblerValidator() {
+        // noop
+    }
+
     public static void validateJlink(JReleaserContext context, Mode mode, Errors errors) {
         Map<String, JlinkAssembler> jlink = context.getModel().getAssemble().getJlink();
         if (!jlink.isEmpty()) context.getLogger().debug("assemble.jlink");
@@ -58,9 +64,9 @@ public abstract class JlinkAssemblerValidator extends Validator {
     private static void validateJlink(JReleaserContext context, Mode mode, JlinkAssembler jlink, Errors errors) {
         context.getLogger().debug("assemble.jlink.{}", jlink.getName());
 
-        if (!jlink.isActiveSet()) {
-            jlink.setActive(Active.NEVER);
-        }
+        resolveActivatable(context, jlink,
+            listOf("assemble.jlink." + jlink.getName(), "assemble.jlink"),
+            "NEVER");
         if (!jlink.resolveEnabled(context.getModel().getProject())) {
             context.getLogger().debug(RB.$("validation.disabled"));
             return;
@@ -162,12 +168,12 @@ public abstract class JlinkAssemblerValidator extends Validator {
             errors.configuration(RB.$("validation_must_not_be_null", "jlink." + jlink.getName() + ".mainJar.path"));
         }
 
-        validateGlobs(context,
+        validateGlobs(
             jlink.getJars(),
             "jlink." + jlink.getName() + ".jars",
             errors);
 
-        validateGlobs(context,
+        validateGlobs(
             jlink.getFiles(),
             "jlink." + jlink.getName() + ".files",
             errors);
@@ -179,7 +185,7 @@ public abstract class JlinkAssemblerValidator extends Validator {
         if (!jlink.getFileSets().isEmpty()) {
             i = 0;
             for (FileSet fileSet : jlink.getFileSets()) {
-                validateFileSet(context, mode, jlink, fileSet, i++, errors);
+                validateFileSet(mode, jlink, fileSet, i++, errors);
             }
         }
 
@@ -206,7 +212,7 @@ public abstract class JlinkAssemblerValidator extends Validator {
             jlink.getJava().setEnabled(jlink.getJava().isSet());
         }
 
-        if (!jlink.getJava().isEnabled()) return true;
+        if (!jlink.getJava().isEnabled()) return false;
 
         if (isBlank(jlink.getJava().getArtifactId())) {
             jlink.getJava().setArtifactId(project.getJava().getArtifactId());
