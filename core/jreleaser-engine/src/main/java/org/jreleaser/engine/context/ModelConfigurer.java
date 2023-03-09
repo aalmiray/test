@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -39,13 +39,19 @@ import static org.jreleaser.util.StringUtils.isBlank;
  * @author Andres Almiray
  * @since 0.2.0
  */
-public class ModelConfigurer {
+public final class ModelConfigurer {
+    private ModelConfigurer() {
+        // noop
+    }
+
     public static void configure(JReleaserContext context) {
         try {
             Commit head = GitSdk.of(context).head();
             context.getModel().setCommit(new JReleaserModel.Commit(head.getShortHash(),
                 head.getFullHash(),
-                head.getRefName()));
+                head.getRefName(),
+                head.getCommitTime(),
+                head.getTimestamp()));
         } catch (Exception e) {
             if (context.getMode() == Mode.ASSEMBLE ||
                 context.getMode() == Mode.DEPLOY ||
@@ -82,9 +88,9 @@ public class ModelConfigurer {
     }
 
     private static void autoConfigureGithub(JReleaserContext context, Repository repository) {
-        BaseReleaser service = context.getModel().getRelease().getReleaser();
+        BaseReleaser<?, ?> service = context.getModel().getRelease().getReleaser();
 
-        if (service != null) {
+        if (null != service) {
             if (!(service instanceof GithubReleaser)) {
                 context.getModel().getRelease().getReleaser().setMatch(false);
                 context.getModel().getRelease().getReleaser().setSkipTag(true);
@@ -99,9 +105,9 @@ public class ModelConfigurer {
     }
 
     private static void autoConfigureGitlab(JReleaserContext context, Repository repository) {
-        BaseReleaser service = context.getModel().getRelease().getReleaser();
+        BaseReleaser<?, ?> service = context.getModel().getRelease().getReleaser();
 
-        if (service != null) {
+        if (null != service) {
             if (!(service instanceof GitlabReleaser)) {
                 context.getModel().getRelease().getReleaser().setMatch(false);
                 context.getModel().getRelease().getReleaser().setSkipTag(true);
@@ -116,9 +122,9 @@ public class ModelConfigurer {
     }
 
     private static void autoConfigureCodeberg(JReleaserContext context, Repository repository) {
-        BaseReleaser service = context.getModel().getRelease().getReleaser();
+        BaseReleaser<?, ?> service = context.getModel().getRelease().getReleaser();
 
-        if (service != null) {
+        if (null != service) {
             if (!(service instanceof CodebergReleaser)) {
                 context.getModel().getRelease().getReleaser().setMatch(false);
                 context.getModel().getRelease().getReleaser().setSkipTag(true);
@@ -133,14 +139,14 @@ public class ModelConfigurer {
     }
 
     private static void autoConfigureOther(JReleaserContext context, Repository repository) {
-        BaseReleaser service = context.getModel().getRelease().getReleaser();
+        BaseReleaser<?, ?> service = context.getModel().getRelease().getReleaser();
 
-        if (service != null) {
+        if (null != service) {
             fillGitProperties(context.getLogger(), service, repository, context.getModel().getCommit());
         }
     }
 
-    private static void fillGitProperties(JReleaserLogger logger, BaseReleaser service, Repository repository, JReleaserModel.Commit head) {
+    private static void fillGitProperties(JReleaserLogger logger, BaseReleaser<?, ?> service, Repository repository, JReleaserModel.Commit head) {
         if (isBlank(service.getOwner())) {
             service.setOwner(repository.getOwner());
         }

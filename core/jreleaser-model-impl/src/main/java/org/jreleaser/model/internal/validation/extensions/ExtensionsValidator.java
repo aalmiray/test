@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,13 +18,12 @@
 package org.jreleaser.model.internal.validation.extensions;
 
 import org.jreleaser.bundle.RB;
-import org.jreleaser.model.api.JReleaserContext.Mode;
 import org.jreleaser.model.internal.JReleaserContext;
 import org.jreleaser.model.internal.extensions.Extension;
-import org.jreleaser.model.internal.validation.common.Validator;
 import org.jreleaser.util.Errors;
 
 import java.nio.file.Files;
+import java.util.Locale;
 import java.util.Map;
 
 import static org.jreleaser.util.StringUtils.isBlank;
@@ -34,8 +33,12 @@ import static org.jreleaser.util.StringUtils.isNotBlank;
  * @author Andres Almiray
  * @since 1.3.0
  */
-public abstract class ExtensionsValidator extends Validator {
-    public static void validateExtensions(JReleaserContext context, Mode mode, Errors errors) {
+public final class ExtensionsValidator {
+    private ExtensionsValidator() {
+        // noop
+    }
+
+    public static void validateExtensions(JReleaserContext context, Errors errors) {
         Map<String, Extension> extensions = context.getModel().getExtensions();
         if (!extensions.isEmpty()) context.getLogger().debug("extensions");
 
@@ -44,13 +47,18 @@ public abstract class ExtensionsValidator extends Validator {
             if (isBlank(extension.getName())) {
                 extension.setName(e.getKey());
             }
-            validateExtension(context, mode, extension, errors);
+            validateExtension(context, extension, errors);
         }
     }
 
-    private static void validateExtension(JReleaserContext context, Mode mode, Extension extension, Errors errors) {
+    private static void validateExtension(JReleaserContext context, Extension extension, Errors errors) {
         context.getLogger().debug("extension.{}", extension.getName());
 
+        String value = context.getModel().getEnvironment()
+            .resolve("extension." + extension.getName() + ".enabled", "");
+        if (isNotBlank(value)) {
+            extension.setEnabled(Boolean.parseBoolean(value.toLowerCase(Locale.ENGLISH)));
+        }
         if (!extension.isEnabledSet()) {
             extension.setEnabled(true);
         }
@@ -70,11 +78,11 @@ public abstract class ExtensionsValidator extends Validator {
         }
 
         for (int i = 0; i < extension.getProviders().size(); i++) {
-            validateExtensionProvider(context, mode, extension, extension.getProviders().get(i), i, errors);
+            validateExtensionProvider(context, extension, extension.getProviders().get(i), i, errors);
         }
     }
 
-    private static void validateExtensionProvider(JReleaserContext context, Mode mode, Extension extension, Extension.Provider provider, int index, Errors errors) {
+    private static void validateExtensionProvider(JReleaserContext context, Extension extension, Extension.Provider provider, int index, Errors errors) {
         if (isBlank(provider.getType())) {
             errors.configuration(RB.$("validation_must_not_be_blank", "extensions.{}.providers[{}]", extension.getName(), index));
             context.getLogger().debug(RB.$("validation.disabled.error"));

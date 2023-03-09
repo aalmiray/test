@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -71,5 +71,37 @@ interface DockerConfiguration extends Activatable, ExtraProperties {
 
     void registries(Action<? super NamedDomainObjectContainer<? extends Registry>> action)
 
+    void buildx(Action<? super Buildx> action)
+
     void registries(@DelegatesTo(strategy = Closure.DELEGATE_FIRST, value = NamedDomainObjectContainer) Closure<Void> action)
+
+    void buildx(@DelegatesTo(strategy = Closure.DELEGATE_FIRST, value = Buildx) Closure<Void> action)
+
+    @CompileStatic
+    interface Registry {
+        Property<String> getServer()
+
+        Property<String> getRepositoryName()
+
+        Property<String> getUsername()
+
+        Property<String> getPassword()
+
+        Property<Boolean> getExternalLogin()
+    }
+
+    @CompileStatic
+    interface Buildx {
+        Property<Boolean> getEnabled()
+
+        Property<Boolean> getCreateBuilder()
+
+        ListProperty<String> getCreateBuilderFlags()
+
+        ListProperty<String> getPlatforms()
+
+        void createBuilderFlag(String createBuilderFlag)
+
+        void platform(String platform)
+    }
 }

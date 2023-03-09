@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,7 +31,7 @@ import org.jreleaser.workflow.Workflows;
  * @since 0.3.0
  */
 @Mojo(name = "upload")
-public class JReleaserUploadMojo extends AbstractPlatformAwareJReleaserMojo {
+public class JReleaserUploadMojo extends AbstractPlatformAwareMojo {
     /**
      * Include an uploader by type.
      */
@@ -69,19 +69,25 @@ public class JReleaserUploadMojo extends AbstractPlatformAwareJReleaserMojo {
     private String[] excludedDistributions;
 
     /**
+     * Include an cataloger.
+     */
+    @Parameter(property = "jreleaser.catalogers")
+    private String[] includedCatalogers;
+
+    /**
+     * Exclude an cataloger.
+     */
+    @Parameter(property = "jreleaser.excluded.catalogers")
+    private String[] excludedCatalogers;
+
+    /**
      * Skip execution.
      */
     @Parameter(property = "jreleaser.upload.skip")
     private boolean skip;
 
     @Override
-    public void execute() throws MojoExecutionException, MojoFailureException {
-        Banner.display(project, getLog());
-        if (skip) {
-            getLog().info("Execution has been explicitly skipped.");
-            return;
-        }
-
+    protected void doExecute() throws MojoExecutionException, MojoFailureException {
         JReleaserContext context = createContext();
         context.setIncludedUploaderTypes(collectEntries(includedUploaders, true));
         context.setIncludedUploaderNames(collectEntries(includedUploaderNames));
@@ -89,6 +95,13 @@ public class JReleaserUploadMojo extends AbstractPlatformAwareJReleaserMojo {
         context.setExcludedUploaderTypes(collectEntries(excludedUploaders, true));
         context.setExcludedUploaderNames(collectEntries(excludedUploaderNames));
         context.setExcludedDistributions(collectEntries(excludedDistributions));
+        context.setIncludedCatalogers(collectEntries(includedCatalogers, true));
+        context.setExcludedCatalogers(collectEntries(excludedCatalogers, true));
         Workflows.upload(context).execute();
+    }
+
+    @Override
+    protected boolean isSkip() {
+        return skip;
     }
 }

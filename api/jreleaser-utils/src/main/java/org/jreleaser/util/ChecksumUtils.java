@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,6 +34,13 @@ public class ChecksumUtils {
     }
 
     public static String checksum(Algorithm algorithm, byte[] data) throws IOException {
+        if (null == algorithm) {
+            throw new IOException(RB.$("ERROR_unsupported_algorithm", algorithm));
+        }
+        if (null == data || data.length == 0) {
+            throw new IOException(RB.$("ERROR_empty_data", algorithm));
+        }
+
         switch (algorithm) {
             case MD2:
                 return DigestUtils.md2Hex(data);

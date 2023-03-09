@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -64,14 +64,14 @@ class TelegramAnnouncerImpl extends AbstractAnnouncer implements TelegramAnnounc
     }
 
     org.jreleaser.model.internal.announce.TelegramAnnouncer toModel() {
-        org.jreleaser.model.internal.announce.TelegramAnnouncer telegram = new org.jreleaser.model.internal.announce.TelegramAnnouncer()
-        fillProperties(telegram)
-        if (token.present) telegram.token = token.get()
-        if (chatId.present) telegram.chatId = token.get()
-        if (message.present) telegram.message = message.get()
+        org.jreleaser.model.internal.announce.TelegramAnnouncer announcer = new org.jreleaser.model.internal.announce.TelegramAnnouncer()
+        fillProperties(announcer)
+        if (token.present) announcer.token = token.get()
+        if (chatId.present) announcer.chatId = token.get()
+        if (message.present) announcer.message = message.get()
         if (messageTemplate.present) {
-            telegram.messageTemplate = messageTemplate.asFile.get().absolutePath
+            announcer.messageTemplate = messageTemplate.asFile.get().absolutePath
         }
-        telegram
+        announcer
     }
 }

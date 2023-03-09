@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,16 +17,20 @@
  */
 package org.jreleaser.model.internal.assemble;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.jreleaser.model.Active;
+import org.jreleaser.model.Archive;
 import org.jreleaser.model.Distribution;
 import org.jreleaser.model.Stereotype;
 import org.jreleaser.model.internal.JReleaserContext;
 import org.jreleaser.model.internal.common.AbstractModelObject;
+import org.jreleaser.model.internal.common.ArchiveOptions;
 import org.jreleaser.model.internal.common.Artifact;
 import org.jreleaser.model.internal.common.Domain;
 import org.jreleaser.model.internal.common.EnabledAware;
 import org.jreleaser.model.internal.common.FileSet;
 import org.jreleaser.model.internal.common.Glob;
+import org.jreleaser.mustache.TemplateContext;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -49,18 +53,26 @@ import static org.jreleaser.util.StringUtils.isBlank;
  * @since 0.2.0
  */
 public final class JlinkAssembler extends AbstractJavaAssembler<JlinkAssembler, org.jreleaser.model.api.assemble.JlinkAssembler> {
+
+
     private final Set<Artifact> targetJdks = new LinkedHashSet<>();
     private final Set<String> moduleNames = new LinkedHashSet<>();
     private final Set<String> additionalModuleNames = new LinkedHashSet<>();
     private final List<String> args = new ArrayList<>();
     private final Artifact jdk = new Artifact();
     private final Jdeps jdeps = new Jdeps();
+    private final ArchiveOptions options = new ArchiveOptions();
 
     private String imageName;
     private String imageNameTransform;
+    private Archive.Format archiveFormat;
     private Boolean copyJars;
 
+    @JsonIgnore
     private final org.jreleaser.model.api.assemble.JlinkAssembler immutable = new org.jreleaser.model.api.assemble.JlinkAssembler() {
+
+
+        private Set<? extends org.jreleaser.model.api.common.Artifact> artifacts;
         private List<? extends org.jreleaser.model.api.common.FileSet> fileSets;
         private Set<? extends org.jreleaser.model.api.common.Artifact> outputs;
         private List<? extends org.jreleaser.model.api.common.Glob> jars;
@@ -85,6 +97,16 @@ public final class JlinkAssembler extends AbstractJavaAssembler<JlinkAssembler, 
         @Override
         public String getImageNameTransform() {
             return imageNameTransform;
+        }
+
+        @Override
+        public Archive.Format getArchiveFormat() {
+            return archiveFormat;
+        }
+
+        @Override
+        public org.jreleaser.model.api.common.ArchiveOptions getOptions() {
+            return options.asImmutable();
         }
 
         @Override
@@ -114,28 +136,33 @@ public final class JlinkAssembler extends AbstractJavaAssembler<JlinkAssembler, 
 
         @Override
         public String getExecutable() {
-            return executable;
+            return JlinkAssembler.this.getExecutable();
         }
 
         @Override
         public String getTemplateDirectory() {
-            return templateDirectory;
+            return JlinkAssembler.this.getTemplateDirectory();
+        }
+
+        @Override
+        public Set<String> getSkipTemplates() {
+            return unmodifiableSet(JlinkAssembler.this.getSkipTemplates());
         }
 
         @Override
         public org.jreleaser.model.api.common.Java getJava() {
-            return java.asImmutable();
+            return JlinkAssembler.this.getJava().asImmutable();
         }
 
         @Override
         public org.jreleaser.model.api.common.Artifact getMainJar() {
-            return mainJar.asImmutable();
+            return JlinkAssembler.this.getMainJar().asImmutable();
         }
 
         @Override
         public List<? extends org.jreleaser.model.api.common.Glob> getJars() {
             if (null == jars) {
-                jars = JlinkAssembler.this.jars.stream()
+                jars = JlinkAssembler.this.getJars().stream()
                     .map(Glob::asImmutable)
                     .collect(toList());
             }
@@ -143,9 +170,19 @@ public final class JlinkAssembler extends AbstractJavaAssembler<JlinkAssembler, 
         }
 
         @Override
+        public Set<? extends org.jreleaser.model.api.common.Artifact> getArtifacts() {
+            if (null == artifacts) {
+                artifacts = JlinkAssembler.this.getArtifacts().stream()
+                    .map(Artifact::asImmutable)
+                    .collect(toSet());
+            }
+            return artifacts;
+        }
+
+        @Override
         public List<? extends org.jreleaser.model.api.common.Glob> getFiles() {
             if (null == files) {
-                files = JlinkAssembler.this.files.stream()
+                files = JlinkAssembler.this.getFiles().stream()
                     .map(Glob::asImmutable)
                     .collect(toList());
             }
@@ -154,7 +191,7 @@ public final class JlinkAssembler extends AbstractJavaAssembler<JlinkAssembler, 
 
         @Override
         public org.jreleaser.model.api.platform.Platform getPlatform() {
-            return platform.asImmutable();
+            return JlinkAssembler.this.getPlatform().asImmutable();
         }
 
         @Override
@@ -164,7 +201,7 @@ public final class JlinkAssembler extends AbstractJavaAssembler<JlinkAssembler, 
 
         @Override
         public String getType() {
-            return type;
+            return JlinkAssembler.this.getType();
         }
 
         @Override
@@ -174,18 +211,18 @@ public final class JlinkAssembler extends AbstractJavaAssembler<JlinkAssembler, 
 
         @Override
         public boolean isExported() {
-            return isExported();
+            return JlinkAssembler.this.isExported();
         }
 
         @Override
         public String getName() {
-            return name;
+            return JlinkAssembler.this.getName();
         }
 
         @Override
         public List<? extends org.jreleaser.model.api.common.FileSet> getFileSets() {
             if (null == fileSets) {
-                fileSets = JlinkAssembler.this.fileSets.stream()
+                fileSets = JlinkAssembler.this.getFileSets().stream()
                     .map(FileSet::asImmutable)
                     .collect(toList());
             }
@@ -195,7 +232,7 @@ public final class JlinkAssembler extends AbstractJavaAssembler<JlinkAssembler, 
         @Override
         public Set<? extends org.jreleaser.model.api.common.Artifact> getOutputs() {
             if (null == outputs) {
-                outputs = JlinkAssembler.this.outputs.stream()
+                outputs = JlinkAssembler.this.getOutputs().stream()
                     .map(Artifact::asImmutable)
                     .collect(toSet());
             }
@@ -204,12 +241,12 @@ public final class JlinkAssembler extends AbstractJavaAssembler<JlinkAssembler, 
 
         @Override
         public Active getActive() {
-            return active;
+            return JlinkAssembler.this.getActive();
         }
 
         @Override
         public boolean isEnabled() {
-            return isEnabled();
+            return JlinkAssembler.this.isEnabled();
         }
 
         @Override
@@ -219,12 +256,12 @@ public final class JlinkAssembler extends AbstractJavaAssembler<JlinkAssembler, 
 
         @Override
         public String getPrefix() {
-            return JlinkAssembler.this.getPrefix();
+            return JlinkAssembler.this.prefix();
         }
 
         @Override
         public Map<String, Object> getExtraProperties() {
-            return unmodifiableMap(extraProperties);
+            return unmodifiableMap(JlinkAssembler.this.getExtraProperties());
         }
     };
 
@@ -247,7 +284,9 @@ public final class JlinkAssembler extends AbstractJavaAssembler<JlinkAssembler, 
         super.merge(source);
         this.imageName = merge(this.imageName, source.imageName);
         this.imageNameTransform = merge(this.imageNameTransform, source.imageNameTransform);
+        this.archiveFormat = merge(this.archiveFormat, source.archiveFormat);
         this.copyJars = merge(this.copyJars, source.copyJars);
+        setOptions(source.options);
         setJdeps(source.jdeps);
         setJdk(source.jdk);
         setTargetJdks(merge(this.targetJdks, source.targetJdks));
@@ -257,15 +296,15 @@ public final class JlinkAssembler extends AbstractJavaAssembler<JlinkAssembler, 
     }
 
     public String getResolvedImageName(JReleaserContext context) {
-        Map<String, Object> props = context.getModel().props();
-        props.putAll(props());
+        TemplateContext props = context.getModel().props();
+        props.setAll(props());
         return resolveTemplate(imageName, props);
     }
 
     public String getResolvedImageNameTransform(JReleaserContext context) {
         if (isBlank(imageNameTransform)) return null;
-        Map<String, Object> props = context.getModel().props();
-        props.putAll(props());
+        TemplateContext props = context.getModel().props();
+        props.setAll(props());
         return resolveTemplate(imageNameTransform, props);
     }
 
@@ -299,6 +338,26 @@ public final class JlinkAssembler extends AbstractJavaAssembler<JlinkAssembler, 
 
     public void setImageNameTransform(String imageNameTransform) {
         this.imageNameTransform = imageNameTransform;
+    }
+
+    public Archive.Format getArchiveFormat() {
+        return archiveFormat;
+    }
+
+    public void setArchiveFormat(Archive.Format archiveFormat) {
+        this.archiveFormat = archiveFormat;
+    }
+
+    public void setArchiveFormat(String archiveFormat) {
+        this.archiveFormat = Archive.Format.of(archiveFormat);
+    }
+
+    public ArchiveOptions getOptions() {
+        return options;
+    }
+
+    public void setOptions(ArchiveOptions options) {
+        this.options.merge(options);
     }
 
     public Set<Artifact> getTargetJdks() {
@@ -344,7 +403,7 @@ public final class JlinkAssembler extends AbstractJavaAssembler<JlinkAssembler, 
     }
 
     public boolean isCopyJars() {
-        return copyJars == null || copyJars;
+        return null == copyJars || copyJars;
     }
 
     public void setCopyJars(Boolean copyJars) {
@@ -352,7 +411,7 @@ public final class JlinkAssembler extends AbstractJavaAssembler<JlinkAssembler, 
     }
 
     public boolean isCopyJarsSet() {
-        return copyJars != null;
+        return null != copyJars;
     }
 
     @Override
@@ -360,6 +419,8 @@ public final class JlinkAssembler extends AbstractJavaAssembler<JlinkAssembler, 
         super.asMap(full, props);
         props.put("imageName", imageName);
         props.put("imageNameTransform", imageNameTransform);
+        props.put("archiveFormat", archiveFormat);
+        props.put("options", options.asMap(full));
         props.put("moduleNames", moduleNames);
         props.put("additionalModuleNames", additionalModuleNames);
         props.put("args", args);
@@ -375,13 +436,18 @@ public final class JlinkAssembler extends AbstractJavaAssembler<JlinkAssembler, 
     }
 
     public static final class Jdeps extends AbstractModelObject<Jdeps> implements Domain, EnabledAware {
+        private static final long serialVersionUID = 2752412877591717403L;
+
         private final Set<String> targets = new LinkedHashSet<>();
         private String multiRelease;
         private Boolean ignoreMissingDeps;
         private Boolean useWildcardInPath;
         private Boolean enabled;
 
+        @JsonIgnore
         private final org.jreleaser.model.api.assemble.JlinkAssembler.Jdeps immutable = new org.jreleaser.model.api.assemble.JlinkAssembler.Jdeps() {
+            private static final long serialVersionUID = -6727485936574423582L;
+
             @Override
             public String getMultiRelease() {
                 return multiRelease;
@@ -435,7 +501,7 @@ public final class JlinkAssembler extends AbstractJavaAssembler<JlinkAssembler, 
         }
 
         public boolean isIgnoreMissingDeps() {
-            return ignoreMissingDeps != null && ignoreMissingDeps;
+            return null != ignoreMissingDeps && ignoreMissingDeps;
         }
 
         public void setIgnoreMissingDeps(Boolean ignoreMissingDeps) {
@@ -443,11 +509,11 @@ public final class JlinkAssembler extends AbstractJavaAssembler<JlinkAssembler, 
         }
 
         public boolean isIgnoreMissingDepsSet() {
-            return ignoreMissingDeps != null;
+            return null != ignoreMissingDeps;
         }
 
         public boolean isUseWildcardInPath() {
-            return useWildcardInPath == null || useWildcardInPath;
+            return null == useWildcardInPath || useWildcardInPath;
         }
 
         public void setUseWildcardInPath(Boolean useWildcardInPath) {
@@ -455,7 +521,7 @@ public final class JlinkAssembler extends AbstractJavaAssembler<JlinkAssembler, 
         }
 
         public boolean isUseWildcardInPathSet() {
-            return useWildcardInPath != null;
+            return null != useWildcardInPath;
         }
 
         public Set<String> getTargets() {
@@ -469,7 +535,7 @@ public final class JlinkAssembler extends AbstractJavaAssembler<JlinkAssembler, 
 
         @Override
         public boolean isEnabled() {
-            return enabled != null && enabled;
+            return null != enabled && enabled;
         }
 
         @Override
@@ -479,7 +545,7 @@ public final class JlinkAssembler extends AbstractJavaAssembler<JlinkAssembler, 
 
         @Override
         public boolean isEnabledSet() {
-            return enabled != null;
+            return null != enabled;
         }
 
         @Override

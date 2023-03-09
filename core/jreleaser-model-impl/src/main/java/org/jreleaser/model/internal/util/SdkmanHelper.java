@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -64,11 +64,18 @@ public final class SdkmanHelper {
                 continue;
             }
 
+            if (artifact.isOptional(context) && !artifact.resolvedPathExists()) {
+                context.getLogger().debug(RB.$("sdkman.artifact.optional"),
+                    artifact.getEffectivePath(context, distribution).getFileName());
+                continue;
+            }
+
             String platform = mapPlatform(artifact.getPlatform());
             if (isBlank(platform)) {
                 context.getLogger().warn(RB.$("sdkman.platform.unsupported"), artifact.getPlatform());
                 continue;
             }
+
             String url = artifactUrl(context, distribution, artifact);
             if (platforms.containsKey(platform)) {
                 context.getLogger().warn(RB.$("sdkman.platform.replacement"), platform, url, platforms.get(platform));

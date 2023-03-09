@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,7 +27,11 @@ import static java.util.Collections.singletonList;
  * @author Andres Almiray
  * @since 0.1.0
  */
-public class Workflows {
+public final class Workflows {
+    private Workflows() {
+        // noop
+    }
+
     public static Workflow download(JReleaserContext context) {
         context.setCommand(JReleaserCommand.DOWNLOAD);
         return new WorkflowImpl(context, singletonList(
@@ -49,9 +53,17 @@ public class Workflows {
         ));
     }
 
+    public static Workflow catalog(JReleaserContext context) {
+        context.setCommand(JReleaserCommand.CATALOG);
+        return new WorkflowImpl(context, singletonList(
+            new CatalogWorkflowItem()
+        ));
+    }
+
     public static Workflow checksum(JReleaserContext context) {
         context.setCommand(JReleaserCommand.CHECKSUM);
-        return new WorkflowImpl(context, singletonList(
+        return new WorkflowImpl(context, asList(
+            new CatalogWorkflowItem(),
             new ChecksumWorkflowItem()
         ));
     }
@@ -59,6 +71,7 @@ public class Workflows {
     public static Workflow sign(JReleaserContext context) {
         context.setCommand(JReleaserCommand.SIGN);
         return new WorkflowImpl(context, asList(
+            new CatalogWorkflowItem(),
             new ChecksumWorkflowItem(),
             new SignWorkflowItem()
         ));
@@ -66,7 +79,7 @@ public class Workflows {
 
     public static Workflow deploy(JReleaserContext context) {
         context.setCommand(JReleaserCommand.DEPLOY);
-        return new WorkflowImpl(context, asList(
+        return new WorkflowImpl(context, singletonList(
             new DeployWorkflowItem()
         ));
     }
@@ -74,6 +87,7 @@ public class Workflows {
     public static Workflow upload(JReleaserContext context) {
         context.setCommand(JReleaserCommand.UPLOAD);
         return new WorkflowImpl(context, asList(
+            new CatalogWorkflowItem(),
             new ChecksumWorkflowItem(),
             new SignWorkflowItem(),
             new UploadWorkflowItem()
@@ -84,6 +98,7 @@ public class Workflows {
         context.setCommand(JReleaserCommand.RELEASE);
         return new WorkflowImpl(context, asList(
             new ChangelogWorkflowItem(),
+            new CatalogWorkflowItem(),
             new ChecksumWorkflowItem(),
             new SignWorkflowItem(),
             new DeployWorkflowItem(),
@@ -131,6 +146,7 @@ public class Workflows {
         context.setCommand(JReleaserCommand.FULL_RELEASE);
         return new WorkflowImpl(context, asList(
             new ChangelogWorkflowItem(),
+            new CatalogWorkflowItem(),
             new ChecksumWorkflowItem(),
             new SignWorkflowItem(),
             new DeployWorkflowItem(),

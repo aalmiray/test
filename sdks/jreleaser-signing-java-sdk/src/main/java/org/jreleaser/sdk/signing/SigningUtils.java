@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ package org.jreleaser.sdk.signing;
 
 import org.bouncycastle.bcpg.ArmoredOutputStream;
 import org.bouncycastle.bcpg.BCPGOutputStream;
+import org.bouncycastle.bcpg.HashAlgorithmTags;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.openpgp.PGPCompressedData;
 import org.bouncycastle.openpgp.PGPCompressedDataGenerator;
@@ -43,6 +44,7 @@ import org.jreleaser.sdk.command.CommandException;
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -58,13 +60,17 @@ import static org.bouncycastle.bcpg.CompressionAlgorithmTags.UNCOMPRESSED;
  * @author Andres Almiray
  * @since 0.1.0
  */
-public class SigningUtils {
+public final class SigningUtils {
     static {
         // replace BC provider with our version
         Provider bcProvider = Security.getProvider("BC");
         Security.removeProvider("BC");
         Security.setProperty("crypto.policy", "unlimited");
-        Security.addProvider(bcProvider != null ? bcProvider : new BouncyCastleProvider());
+        Security.addProvider(null != bcProvider ? bcProvider : new BouncyCastleProvider());
+    }
+
+    private SigningUtils() {
+        // noop
     }
 
     public static void sign(JReleaserContext context, Path file) throws SigningException {
@@ -83,7 +89,11 @@ public class SigningUtils {
         }
 
         sign(context, pair);
-        verify(context, pair);
+        if (context.getModel().getSigning().isVerify()) {
+            verify(context, pair);
+        } else {
+            context.getLogger().debug(RB.$("signing.verify.disabled"));
+        }
     }
 
     private static void bcSign(JReleaserContext context, Path input) throws SigningException {
@@ -96,7 +106,11 @@ public class SigningUtils {
         }
 
         sign(context, keyring, pair);
-        verify(context, keyring, pair);
+        if (context.getModel().getSigning().isVerify()) {
+            verify(context, keyring, pair);
+        } else {
+            context.getLogger().debug(RB.$("signing.verify.disabled"));
+        }
     }
 
     private static FilePair checkInput(JReleaserContext context, Path input) {
@@ -117,13 +131,12 @@ public class SigningUtils {
     public static boolean verify(JReleaserContext context, Keyring keyring, FilePair filePair) throws SigningException {
         context.getLogger().setPrefix("verify");
 
-        try {
-            context.getLogger().debug("{}",
-                context.relativizeToBasedir(filePair.signatureFile));
+        context.getLogger().debug("{}",
+            context.relativizeToBasedir(filePair.signatureFile));
 
-            InputStream sigInputStream = PGPUtil.getDecoderStream(
-                new BufferedInputStream(
-                    new FileInputStream(filePair.signatureFile.toFile())));
+        try (InputStream sigInputStream = PGPUtil.getDecoderStream(
+            new BufferedInputStream(
+                new FileInputStream(filePair.signatureFile.toFile())))) {
 
             PGPObjectFactory pgpObjFactory = new PGPObjectFactory(sigInputStream, keyring.getKeyFingerPrintCalculator());
             Iterable<?> pgpSigList = null;
@@ -137,19 +150,17 @@ public class SigningUtils {
                 pgpSigList = (Iterable<?>) obj;
             }
 
-            InputStream fileInputStream = new BufferedInputStream(new FileInputStream(filePair.inputFile.toFile()));
             PGPSignature sig = (PGPSignature) pgpSigList.iterator().next();
-            PGPPublicKey pubKey = keyring.readPublicKey();
-            sig.init(new JcaPGPContentVerifierBuilderProvider()
-                .setProvider(BouncyCastleProvider.PROVIDER_NAME), pubKey);
+            try (InputStream fileInputStream = new BufferedInputStream(new FileInputStream(filePair.inputFile.toFile()))) {
+                PGPPublicKey pubKey = keyring.readPublicKey();
+                sig.init(new JcaPGPContentVerifierBuilderProvider()
+                    .setProvider(BouncyCastleProvider.PROVIDER_NAME), pubKey);
 
-            int ch;
-            while ((ch = fileInputStream.read()) >= 0) {
-                sig.update((byte) ch);
+                int ch;
+                while ((ch = fileInputStream.read()) >= 0) {
+                    sig.update((byte) ch);
+                }
             }
-
-            fileInputStream.close();
-            sigInputStream.close();
 
             return sig.verify();
         } catch (IOException | PGPException e) {
@@ -214,7 +225,7 @@ public class SigningUtils {
 
     public static PGPSignatureGenerator initSignatureGenerator(Signing signing, Keyring keyring) throws SigningException {
         try {
-            PGPSecretKey pgpSecretKey = keyring.getSecretKey();
+            PGPSecretKey pgpSecretKey = keyring.readSecretKey();
 
             PGPPrivateKey pgpPrivKey = pgpSecretKey.extractPrivateKey(
                 new JcePBESecretKeyDecryptorBuilder()
@@ -222,7 +233,7 @@ public class SigningUtils {
                     .build(signing.getPassphrase().toCharArray()));
 
             PGPSignatureGenerator signatureGenerator = new PGPSignatureGenerator(
-                new JcaPGPContentSignerBuilder(pgpSecretKey.getPublicKey().getAlgorithm(), PGPUtil.SHA1)
+                new JcaPGPContentSignerBuilder(pgpSecretKey.getPublicKey().getAlgorithm(), HashAlgorithmTags.SHA1)
                     .setProvider(BouncyCastleProvider.PROVIDER_NAME));
 
             signatureGenerator.init(PGPSignature.BINARY_DOCUMENT, pgpPrivKey);
@@ -234,18 +245,12 @@ public class SigningUtils {
     }
 
     public static void sign(JReleaserContext context, PGPSignatureGenerator signatureGenerator, Path input, Path output) throws SigningException {
-        try {
-            context.getLogger().info("{}", context.relativizeToBasedir(input));
+        context.getLogger().info("{}", context.relativizeToBasedir(input));
 
-            OutputStream out = new BufferedOutputStream(new FileOutputStream(output.toFile()));
-            if (context.getModel().getSigning().isArmored()) {
-                out = new ArmoredOutputStream(out);
-            }
-
-            PGPCompressedDataGenerator compressionStreamGenerator = new PGPCompressedDataGenerator(UNCOMPRESSED);
-            BCPGOutputStream bOut = new BCPGOutputStream(compressionStreamGenerator.open(out));
-
-            FileInputStream in = new FileInputStream(input.toFile());
+        PGPCompressedDataGenerator compressionStreamGenerator = new PGPCompressedDataGenerator(UNCOMPRESSED);
+        try (OutputStream out = createOutputStream(context, output);
+             BCPGOutputStream bOut = new BCPGOutputStream(compressionStreamGenerator.open(out));
+             FileInputStream in = new FileInputStream(input.toFile())) {
 
             byte[] buffer = new byte[8192];
             int length = 0;
@@ -254,15 +259,18 @@ public class SigningUtils {
             }
 
             signatureGenerator.generate().encode(bOut);
-
             compressionStreamGenerator.close();
-
-            in.close();
-            out.flush();
-            out.close();
         } catch (IOException | PGPException e) {
             throw new SigningException(RB.$("ERROR_unexpected_error_signing", input.toAbsolutePath()), e);
         }
+    }
+
+    private static OutputStream createOutputStream(JReleaserContext context, Path output) throws FileNotFoundException {
+        OutputStream out = new BufferedOutputStream(new FileOutputStream(output.toFile()));
+        if (context.getModel().getSigning().isArmored()) {
+            out = new ArmoredOutputStream(out);
+        }
+        return out;
     }
 
     public static boolean isValid(JReleaserContext context, FilePair pair) {
@@ -280,7 +288,12 @@ public class SigningUtils {
         }
 
         try {
-            return verify(context, pair);
+            if (context.getModel().getSigning().isVerify()) {
+                return verify(context, pair);
+            } else {
+                // force signing as we can't verify
+                return false;
+            }
         } catch (SigningException e) {
             return false;
         }
@@ -305,7 +318,12 @@ public class SigningUtils {
         }
 
         try {
-            return verify(context, keyring, pair);
+            if (context.getModel().getSigning().isVerify()) {
+                return verify(context, keyring, pair);
+            } else {
+                // force signing as we can't verify
+                return false;
+            }
         } catch (SigningException e) {
             return false;
         }

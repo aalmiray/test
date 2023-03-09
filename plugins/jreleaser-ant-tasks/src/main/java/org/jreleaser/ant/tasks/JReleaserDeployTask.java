@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -78,8 +78,8 @@ public class JReleaserDeployTask extends AbstractJReleaserTask {
 
     @Override
     protected void doExecute(JReleaserContext context) {
-        context.setIncludedDeployerTypes(deployerTypes);
-        context.setExcludedDeployerTypes(excludedDeployerTypes);
+        context.setIncludedDeployerTypes(collectEntries(deployerTypes, true));
+        context.setExcludedDeployerTypes(collectEntries(excludedDeployerTypes, true));
         context.setIncludedDeployerNames(deployerNames);
         context.setExcludedDeployerNames(excludedDeployerNames);
         Workflows.deploy(context).execute();

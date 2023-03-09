@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,7 +22,6 @@ import org.jreleaser.model.JReleaserException;
 import org.jreleaser.model.internal.JReleaserContext;
 import org.jreleaser.model.internal.assemble.JpackageAssembler;
 import org.jreleaser.model.internal.common.Artifact;
-import org.jreleaser.model.internal.validation.common.Validator;
 import org.jreleaser.util.Errors;
 
 import java.io.IOException;
@@ -36,7 +35,11 @@ import static org.jreleaser.util.FileUtils.listFilesAndProcess;
  * @author Andres Almiray
  * @since 0.10.0
  */
-public abstract class JpackageAssemblerResolver extends Validator {
+public final class JpackageAssemblerResolver {
+    private JpackageAssemblerResolver() {
+        // noop
+    }
+
     public static void resolveJpackageOutputs(JReleaserContext context, Errors errors) {
         List<JpackageAssembler> activeJpackages = context.getModel().getAssemble().getActiveJpackages();
         if (!activeJpackages.isEmpty()) context.getLogger().debug("assemble.jpackage");
@@ -46,15 +49,15 @@ public abstract class JpackageAssemblerResolver extends Validator {
         }
     }
 
-    private static void resolveJpackageOutputs(JReleaserContext context, JpackageAssembler jpackage, Errors errors) {
+    private static void resolveJpackageOutputs(JReleaserContext context, JpackageAssembler assembler, Errors errors) {
         Path baseOutputDirectory = context.getAssembleDirectory()
-            .resolve(jpackage.getName())
-            .resolve(jpackage.getType());
+            .resolve(assembler.getName())
+            .resolve(assembler.getType());
 
-        Artifact jdk = jpackage.getResolvedPlatformPackager().getJdk();
+        Artifact jdk = assembler.getResolvedPlatformPackager().getJdk();
         if (!context.isPlatformSelected(jdk)) return;
 
-        JpackageAssembler.PlatformPackager packager = jpackage.getResolvedPlatformPackager();
+        JpackageAssembler.PlatformPackager packager = assembler.getResolvedPlatformPackager();
         String platform = jdk.getPlatform();
 
         for (String type : packager.getTypes()) {
@@ -65,12 +68,12 @@ public abstract class JpackageAssemblerResolver extends Validator {
 
                 if (!file.isPresent()) {
                     errors.assembly(RB.$("validation_missing_assembly",
-                        jpackage.getType(), jpackage.getName(), jpackage.getName()));
+                        assembler.getType(), assembler.getName(), assembler.getName()));
                 } else {
                     Artifact artifact = Artifact.of(file.get(), platform);
-                    artifact.setExtraProperties(jpackage.getExtraProperties());
+                    artifact.setExtraProperties(assembler.getExtraProperties());
                     artifact.activate();
-                    jpackage.addOutput(artifact);
+                    assembler.addOutput(artifact);
                 }
             } catch (IOException e) {
                 throw new JReleaserException(RB.$("ERROR_unexpected_error"), e);

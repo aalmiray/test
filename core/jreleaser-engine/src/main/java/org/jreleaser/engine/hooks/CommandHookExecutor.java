@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,6 +26,7 @@ import org.jreleaser.model.internal.hooks.CommandHooks;
 import org.jreleaser.sdk.command.Command;
 import org.jreleaser.sdk.command.CommandException;
 import org.jreleaser.sdk.command.CommandExecutor;
+import org.jreleaser.util.PlatformUtils;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -77,7 +78,7 @@ public final class CommandHookExecutor {
                 break;
         }
 
-        if (hooks.size() > 0) {
+        if (!hooks.isEmpty()) {
             context.getLogger().info(RB.$("hooks.execution"), event.getType().name().toLowerCase(Locale.ENGLISH), hooks.size());
         }
 
@@ -103,7 +104,7 @@ public final class CommandHookExecutor {
                     if (!hook.isContinueOnError()) {
                         throw new JReleaserException(RB.$("ERROR_command_hook_unexpected_error"), e);
                     } else {
-                        if (e.getCause() != null) {
+                        if (null != e.getCause()) {
                             context.getLogger().warn(e.getCause().getMessage());
                         } else {
                             context.getLogger().warn(e.getMessage());
@@ -125,10 +126,10 @@ public final class CommandHookExecutor {
             if (!hook.isEnabled()) continue;
 
             if (!hook.getFilter().getResolvedIncludes().isEmpty()) {
-                if (hook.getFilter().getResolvedIncludes().contains(event.getName())) {
+                if (hook.getFilter().getResolvedIncludes().contains(event.getName()) && filterByPlatform(hook)) {
                     tmp.add(hook);
                 }
-            } else {
+            } else if (filterByPlatform(hook)) {
                 tmp.add(hook);
             }
 
@@ -138,6 +139,23 @@ public final class CommandHookExecutor {
         }
 
         return tmp;
+    }
+
+    private boolean filterByPlatform(CommandHook hook) {
+        if (hook.getPlatforms().isEmpty()) return true;
+
+        boolean success = true;
+        for (String platform : hook.getPlatforms()) {
+            boolean exclude = false;
+            if (platform.startsWith("!")) {
+                exclude = true;
+                platform = platform.substring(1);
+            }
+
+            success &= exclude != PlatformUtils.isCompatible(PlatformUtils.getCurrentFull(), platform);
+        }
+
+        return success;
     }
 
     private void executeCommand(Path directory, Command command) throws CommandException {

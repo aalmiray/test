@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,12 +20,15 @@ package org.jreleaser.model.internal.validation.announce;
 import org.jreleaser.bundle.RB;
 import org.jreleaser.model.internal.JReleaserContext;
 import org.jreleaser.model.internal.announce.DiscordAnnouncer;
-import org.jreleaser.model.internal.validation.common.Validator;
 import org.jreleaser.util.Errors;
 
 import java.nio.file.Files;
 
 import static org.jreleaser.model.api.announce.DiscordAnnouncer.DISCORD_WEBHOOK;
+import static org.jreleaser.model.internal.validation.common.Validator.checkProperty;
+import static org.jreleaser.model.internal.validation.common.Validator.resolveActivatable;
+import static org.jreleaser.model.internal.validation.common.Validator.validateTimeout;
+import static org.jreleaser.util.CollectionUtils.listOf;
 import static org.jreleaser.util.StringUtils.isBlank;
 import static org.jreleaser.util.StringUtils.isNotBlank;
 
@@ -33,37 +36,44 @@ import static org.jreleaser.util.StringUtils.isNotBlank;
  * @author Andres Almiray
  * @since 0.2.0
  */
-public abstract class DiscordAnnouncerValidator extends Validator {
+public final class DiscordAnnouncerValidator {
     private static final String DEFAULT_DISCORD_TPL = "src/jreleaser/templates/discord.tpl";
 
-    public static void validateDiscord(JReleaserContext context, DiscordAnnouncer discord, Errors errors) {
+    private DiscordAnnouncerValidator() {
+        // noop
+    }
+
+    public static void validateDiscord(JReleaserContext context, DiscordAnnouncer announcer, Errors errors) {
         context.getLogger().debug("announce.discord");
-        if (!discord.resolveEnabled(context.getModel().getProject())) {
+        resolveActivatable(context, announcer, "announce.discord", "NEVER");
+        if (!announcer.resolveEnabledWithSnapshot(context.getModel().getProject())) {
             context.getLogger().debug(RB.$("validation.disabled"));
             return;
         }
 
-        discord.setWebhook(
+        announcer.setWebhook(
             checkProperty(context,
-                DISCORD_WEBHOOK,
-                "discord.webhook",
-                discord.getWebhook(),
+                listOf(
+                    "announce.discord.webhook",
+                    DISCORD_WEBHOOK),
+                "announce.discord.webhook",
+                announcer.getWebhook(),
                 errors,
                 context.isDryrun()));
 
-        if (isBlank(discord.getMessage()) && isBlank(discord.getMessageTemplate())) {
+        if (isBlank(announcer.getMessage()) && isBlank(announcer.getMessageTemplate())) {
             if (Files.exists(context.getBasedir().resolve(DEFAULT_DISCORD_TPL))) {
-                discord.setMessageTemplate(DEFAULT_DISCORD_TPL);
+                announcer.setMessageTemplate(DEFAULT_DISCORD_TPL);
             } else {
-                discord.setMessage(RB.$("default.release.message"));
+                announcer.setMessage(RB.$("default.release.message"));
             }
         }
 
-        if (isNotBlank(discord.getMessageTemplate()) &&
-            !Files.exists(context.getBasedir().resolve(discord.getMessageTemplate().trim()))) {
-            errors.configuration(RB.$("validation_directory_not_exist", "discord.messageTemplate", discord.getMessageTemplate()));
+        if (isNotBlank(announcer.getMessageTemplate()) &&
+            !Files.exists(context.getBasedir().resolve(announcer.getMessageTemplate().trim()))) {
+            errors.configuration(RB.$("validation_directory_not_exist", "discord.messageTemplate", announcer.getMessageTemplate()));
         }
 
-        validateTimeout(discord);
+        validateTimeout(announcer);
     }
 }

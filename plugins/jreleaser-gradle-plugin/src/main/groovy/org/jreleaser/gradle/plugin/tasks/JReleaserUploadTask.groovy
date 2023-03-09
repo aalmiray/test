@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,6 +36,8 @@ import javax.inject.Inject
  */
 @CompileStatic
 abstract class JReleaserUploadTask extends AbstractJReleaserDistributionTask {
+    static final String NAME = 'jreleaserUpload'
+
     @Input
     @Optional
     final ListProperty<String> uploaderTypes
@@ -52,6 +54,14 @@ abstract class JReleaserUploadTask extends AbstractJReleaserDistributionTask {
     @Optional
     final ListProperty<String> excludedUploaderNames
 
+    @Input
+    @Optional
+    final ListProperty<String> catalogers
+
+    @Input
+    @Optional
+    final ListProperty<String> excludedCatalogers
+
     @Inject
     JReleaserUploadTask(ObjectFactory objects) {
         super(objects)
@@ -59,6 +69,8 @@ abstract class JReleaserUploadTask extends AbstractJReleaserDistributionTask {
         excludedUploaderTypes = objects.listProperty(String).convention([])
         uploaderNames = objects.listProperty(String).convention([])
         excludedUploaderNames = objects.listProperty(String).convention([])
+        catalogers = objects.listProperty(String).convention([])
+        excludedCatalogers = objects.listProperty(String).convention([])
     }
 
     @Option(option = 'uploader', description = 'Include an uploader by type (OPTIONAL).')
@@ -81,6 +93,16 @@ abstract class JReleaserUploadTask extends AbstractJReleaserDistributionTask {
         this.excludedUploaderNames.set(excludedUploaderNames)
     }
 
+    @Option(option = 'cataloger', description = 'Include a cataloger (OPTIONAL).')
+    void setCataloger(List<String> cataloges) {
+        this.catalogers.set(cataloges)
+    }
+
+    @Option(option = 'exclude-cataloger', description = 'Exclude a cataloger (OPTIONAL).')
+    void setExcludeCataloger(List<String> excludedCatalogers) {
+        this.excludedCatalogers.set(excludedCatalogers)
+    }
+
     @TaskAction
     void performAction() {
         JReleaserContext ctx = setupContext()
@@ -88,6 +110,8 @@ abstract class JReleaserUploadTask extends AbstractJReleaserDistributionTask {
         ctx.excludedUploaderTypes = excludedUploaderTypes.orNull
         ctx.includedUploaderNames = uploaderNames.orNull
         ctx.excludedUploaderNames = excludedUploaderNames.orNull
+        ctx.includedCatalogers = catalogers.orNull
+        ctx.excludedCatalogers = excludedCatalogers.orNull
         Workflows.upload(ctx).execute()
     }
 }

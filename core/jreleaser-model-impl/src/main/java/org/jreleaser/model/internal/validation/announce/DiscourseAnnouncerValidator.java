@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,7 +20,6 @@ package org.jreleaser.model.internal.validation.announce;
 import org.jreleaser.bundle.RB;
 import org.jreleaser.model.internal.JReleaserContext;
 import org.jreleaser.model.internal.announce.DiscourseAnnouncer;
-import org.jreleaser.model.internal.validation.common.Validator;
 import org.jreleaser.util.Errors;
 
 import java.nio.file.Files;
@@ -28,6 +27,10 @@ import java.nio.file.Files;
 import static org.jreleaser.model.api.announce.DiscourseAnnouncer.DISCOURSE_API_KEY;
 import static org.jreleaser.model.api.announce.DiscourseAnnouncer.DISCOURSE_CATEGORY_NAME;
 import static org.jreleaser.model.api.announce.DiscourseAnnouncer.DISCOURSE_USERNAME;
+import static org.jreleaser.model.internal.validation.common.Validator.checkProperty;
+import static org.jreleaser.model.internal.validation.common.Validator.resolveActivatable;
+import static org.jreleaser.model.internal.validation.common.Validator.validateTimeout;
+import static org.jreleaser.util.CollectionUtils.listOf;
 import static org.jreleaser.util.StringUtils.isBlank;
 import static org.jreleaser.util.StringUtils.isNotBlank;
 
@@ -35,65 +38,72 @@ import static org.jreleaser.util.StringUtils.isNotBlank;
  * @author shblue21
  * @since 1.3.0
  */
-public abstract class DiscourseAnnouncerValidator extends Validator {
+public final class DiscourseAnnouncerValidator {
     private static final String DEFAULT_DISCOURSE_TPL = "src/jreleaser/templates/discourse.tpl";
 
-    public static void validateDiscourse(JReleaserContext context, DiscourseAnnouncer discourse, Errors errors) {
+    private DiscourseAnnouncerValidator() {
+        // noop
+    }
+
+    public static void validateDiscourse(JReleaserContext context, DiscourseAnnouncer announcer, Errors errors) {
         context.getLogger().debug("announce.discourse");
-        if (!discourse.resolveEnabled(context.getModel().getProject())) {
+        resolveActivatable(context, announcer, "announce.discourse", "NEVER");
+        if (!announcer.resolveEnabledWithSnapshot(context.getModel().getProject())) {
             context.getLogger().debug(RB.$("validation.disabled"));
             return;
         }
 
-        if (isBlank(discourse.getHost())) {
+        if (isBlank(announcer.getHost())) {
             errors.configuration(RB.$("validation_must_not_be_blank", "discourse.host"));
         }
 
-        discourse.setUsername(
+        announcer.setUsername(
             checkProperty(context,
-                DISCOURSE_USERNAME,
-                "discourse.username",
-                discourse.getUsername(),
+                listOf(
+                    "announce.discourse.username",
+                    DISCOURSE_USERNAME),
+                "announce.discourse.username",
+                announcer.getUsername(),
                 errors,
                 context.isDryrun()));
 
-        discourse.setApiKey(
+        announcer.setApiKey(
             checkProperty(context,
-                DISCOURSE_API_KEY,
-                "discourse.apiKey",
-                discourse.getApiKey(),
+                listOf(
+                    "announce.discourse.api.key",
+                    DISCOURSE_API_KEY),
+                "announce.discourse.apiKey",
+                announcer.getApiKey(),
                 errors,
                 context.isDryrun()));
 
-        discourse.setCategoryName(
+        announcer.setCategoryName(
             checkProperty(context,
-                DISCOURSE_CATEGORY_NAME,
-                "discourse.category",
-                discourse.getCategoryName(),
+                listOf(
+                    "announce.discourse.category",
+                    DISCOURSE_CATEGORY_NAME),
+                "announce.discourse.category",
+                announcer.getCategoryName(),
                 errors,
                 context.isDryrun()));
 
-        if (isBlank(discourse.getTitle())) {
-            discourse.setTitle(RB.$("default.discussion.title"));
+        if (isBlank(announcer.getTitle())) {
+            announcer.setTitle(RB.$("default.discussion.title"));
         }
 
-        if (isBlank(discourse.getMessage()) && isBlank(discourse.getMessageTemplate())) {
-            discourse.setMessageTemplate(DEFAULT_DISCOURSE_TPL);
-        }
-
-        if (isBlank(discourse.getMessage()) && isBlank(discourse.getMessageTemplate())) {
+        if (isBlank(announcer.getMessage()) && isBlank(announcer.getMessageTemplate())) {
             if (Files.exists(context.getBasedir().resolve(DEFAULT_DISCOURSE_TPL))) {
-                discourse.setMessageTemplate(DEFAULT_DISCOURSE_TPL);
+                announcer.setMessageTemplate(DEFAULT_DISCOURSE_TPL);
             } else {
-                discourse.setMessage(RB.$("default.release.message"));
+                announcer.setMessage(RB.$("default.release.message"));
             }
         }
 
-        if (isNotBlank(discourse.getMessageTemplate()) &&
-            !Files.exists(context.getBasedir().resolve(discourse.getMessageTemplate().trim()))) {
-            errors.configuration(RB.$("validation_directory_not_exist", "discourse.messageTemplate", discourse.getMessageTemplate()));
+        if (isNotBlank(announcer.getMessageTemplate()) &&
+            !Files.exists(context.getBasedir().resolve(announcer.getMessageTemplate().trim()))) {
+            errors.configuration(RB.$("validation_directory_not_exist", "discourse.messageTemplate", announcer.getMessageTemplate()));
         }
 
-        validateTimeout(discourse);
+        validateTimeout(announcer);
     }
 }

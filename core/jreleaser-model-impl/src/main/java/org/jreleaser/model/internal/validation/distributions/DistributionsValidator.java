@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,7 +25,6 @@ import org.jreleaser.model.internal.common.Artifact;
 import org.jreleaser.model.internal.distributions.Distribution;
 import org.jreleaser.model.internal.packagers.Packager;
 import org.jreleaser.model.internal.project.Project;
-import org.jreleaser.model.internal.validation.common.Validator;
 import org.jreleaser.util.Errors;
 import org.jreleaser.util.FileType;
 import org.jreleaser.util.PlatformUtils;
@@ -38,6 +37,7 @@ import java.util.stream.Collectors;
 
 import static java.util.stream.Collectors.groupingBy;
 import static org.jreleaser.model.api.release.Releaser.KEY_SKIP_RELEASE_SIGNATURES;
+import static org.jreleaser.model.internal.validation.common.Validator.resolveActivatable;
 import static org.jreleaser.model.internal.validation.packagers.AppImagePackagerValidator.validateAppImage;
 import static org.jreleaser.model.internal.validation.packagers.AsdfPackagerValidator.validateAsdf;
 import static org.jreleaser.model.internal.validation.packagers.BrewPackagerValidator.postValidateBrew;
@@ -55,6 +55,9 @@ import static org.jreleaser.model.internal.validation.packagers.SdkmanPackagerVa
 import static org.jreleaser.model.internal.validation.packagers.SdkmanPackagerValidator.validateSdkman;
 import static org.jreleaser.model.internal.validation.packagers.SnapPackagerValidator.validateSnap;
 import static org.jreleaser.model.internal.validation.packagers.SpecPackagerValidator.validateSpec;
+import static org.jreleaser.model.internal.validation.packagers.WingetPackagerValidator.postValidateWinget;
+import static org.jreleaser.model.internal.validation.packagers.WingetPackagerValidator.validateWinget;
+import static org.jreleaser.util.CollectionUtils.listOf;
 import static org.jreleaser.util.StringUtils.isBlank;
 import static org.jreleaser.util.StringUtils.isNotBlank;
 
@@ -62,7 +65,11 @@ import static org.jreleaser.util.StringUtils.isNotBlank;
  * @author Andres Almiray
  * @since 0.1.0
  */
-public abstract class DistributionsValidator extends Validator {
+public final class DistributionsValidator {
+    private DistributionsValidator() {
+        // noop
+    }
+
     public static void validateDistributions(JReleaserContext context, Mode mode, Errors errors) {
         Map<String, Distribution> distributions = context.getModel().getDistributions();
         if (!distributions.isEmpty()) context.getLogger().debug("distributions");
@@ -74,7 +81,7 @@ public abstract class DistributionsValidator extends Validator {
             }
             if (context.isDistributionIncluded(distribution)) {
                 if (mode.validateConfig()) {
-                    validateDistribution(context, mode, distribution, errors);
+                    validateDistribution(context, distribution, errors);
                 }
             } else {
                 distribution.setActive(Active.NEVER);
@@ -89,12 +96,12 @@ public abstract class DistributionsValidator extends Validator {
         }
     }
 
-    private static void validateDistribution(JReleaserContext context, Mode mode, Distribution distribution, Errors errors) {
+    private static void validateDistribution(JReleaserContext context, Distribution distribution, Errors errors) {
         context.getLogger().debug("distribution.{}", distribution.getName());
 
-        if (!distribution.isActiveSet()) {
-            distribution.setActive(Active.ALWAYS);
-        }
+        resolveActivatable(context, distribution,
+            listOf("distributions." + distribution.getName(), "distributions"),
+            "ALWAYS");
         if (!distribution.resolveEnabled(context.getModel().getProject())) {
             context.getLogger().debug(RB.$("validation.disabled"));
             return;
@@ -128,7 +135,8 @@ public abstract class DistributionsValidator extends Validator {
         if (isBlank(distribution.getExecutable().getWindowsExtension())) {
             switch (distribution.getType()) {
                 case BINARY:
-                case NATIVE_IMAGE:
+                case NATIVE_PACKAGE:
+                case FLAT_BINARY:
                     distribution.getExecutable().setWindowsExtension("exe");
                     break;
                 default:
@@ -194,12 +202,12 @@ public abstract class DistributionsValidator extends Validator {
                 });
         });
 
-        validateAppImage(context, mode, distribution, distribution.getAppImage(), errors);
+        validateAppImage(context, distribution, distribution.getAppImage(), errors);
         validateAsdf(context, distribution, distribution.getAsdf(), errors);
         validateBrew(context, distribution, distribution.getBrew(), errors);
         validateChocolatey(context, distribution, distribution.getChocolatey(), errors);
         validateDocker(context, distribution, distribution.getDocker(), errors);
-        validateFlatpak(context, mode, distribution, distribution.getFlatpak(), errors);
+        validateFlatpak(context, distribution, distribution.getFlatpak(), errors);
         validateGofish(context, distribution, distribution.getGofish(), errors);
         validateJbang(context, distribution, distribution.getJbang(), errors);
         validateMacports(context, distribution, distribution.getMacports(), errors);
@@ -207,6 +215,7 @@ public abstract class DistributionsValidator extends Validator {
         validateSdkman(context, distribution, distribution.getSdkman(), errors);
         validateSnap(context, distribution, distribution.getSnap(), errors);
         validateSpec(context, distribution, distribution.getSpec(), errors);
+        validateWinget(context, distribution, distribution.getWinget(), errors);
     }
 
     private static boolean selectArtifactsByPlatform(JReleaserContext context, Distribution distribution) {
@@ -252,7 +261,7 @@ public abstract class DistributionsValidator extends Validator {
             distribution.getJava().setMainClass(project.getJava().getMainClass());
         }
 
-        if (distribution.getType() == org.jreleaser.model.Distribution.DistributionType.NATIVE_IMAGE) {
+        if (distribution.getType() == org.jreleaser.model.Distribution.DistributionType.BINARY) {
             return true;
         }
 
@@ -291,12 +300,12 @@ public abstract class DistributionsValidator extends Validator {
         }
     }
 
-    public static void validateArtifactPlatforms(JReleaserContext context, Distribution distribution, Packager packager,
+    public static void validateArtifactPlatforms(Distribution distribution, Packager<?> packager,
                                                  List<Artifact> candidateArtifacts, Errors errors) {
         // validate distribution type
         if (distribution.getType() == org.jreleaser.model.Distribution.DistributionType.BINARY ||
+            distribution.getType() == org.jreleaser.model.Distribution.DistributionType.FLAT_BINARY ||
             distribution.getType() == org.jreleaser.model.Distribution.DistributionType.JLINK ||
-            distribution.getType() == org.jreleaser.model.Distribution.DistributionType.NATIVE_IMAGE ||
             distribution.getType() == org.jreleaser.model.Distribution.DistributionType.NATIVE_PACKAGE) {
             // ensure all artifacts define a platform
 
@@ -305,7 +314,8 @@ public abstract class DistributionsValidator extends Validator {
             String noPlatform = "<nil>";
             Map<String, List<Artifact>> byPlatform = candidateArtifacts.stream()
                 .peek(artifact -> {
-                    if (distribution.getType() == org.jreleaser.model.Distribution.DistributionType.BINARY &&
+                    if ((distribution.getType() == org.jreleaser.model.Distribution.DistributionType.BINARY ||
+                        distribution.getType() == org.jreleaser.model.Distribution.DistributionType.FLAT_BINARY) &&
                         artifact.extraPropertyIsTrue("universal")) {
                         universal.compareAndSet(false, true);
                     }
@@ -326,7 +336,7 @@ public abstract class DistributionsValidator extends Validator {
         }
     }
 
-    public static void postValidateDistributions(JReleaserContext context, Mode mode, Errors errors) {
+    public static void postValidateDistributions(JReleaserContext context, Errors errors) {
         context.getLogger().debug("distributions");
         Map<String, Distribution> distributions = context.getModel().getDistributions();
 
@@ -342,5 +352,6 @@ public abstract class DistributionsValidator extends Validator {
         context.getLogger().debug("distribution.{}", distribution.getName());
 
         postValidateChocolatey(context, distribution, distribution.getChocolatey(), errors);
+        postValidateWinget(context, distribution, distribution.getWinget(), errors);
     }
 }

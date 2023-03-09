@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -38,9 +38,9 @@ class ScpDownloaderImpl extends AbstractSshDownloader implements ScpDownloader {
     }
 
     org.jreleaser.model.internal.download.ScpDownloader toModel() {
-        org.jreleaser.model.internal.download.ScpDownloader scp = new org.jreleaser.model.internal.download.ScpDownloader()
-        scp.name = name
-        fillProperties(scp)
-        scp
+        org.jreleaser.model.internal.download.ScpDownloader downloader = new org.jreleaser.model.internal.download.ScpDownloader()
+        downloader.name = name
+        fillProperties(downloader)
+        downloader
     }
 }

@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,10 +24,11 @@ import org.jreleaser.model.internal.common.Artifact;
 import org.jreleaser.model.internal.common.Domain;
 import org.jreleaser.model.internal.common.ExtraProperties;
 import org.jreleaser.model.internal.common.FileSet;
+import org.jreleaser.model.internal.common.Glob;
 import org.jreleaser.model.internal.platform.Platform;
+import org.jreleaser.mustache.TemplateContext;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 /**
@@ -63,7 +64,27 @@ public interface Assembler<A extends org.jreleaser.model.api.assemble.Assembler>
 
     void addOutput(Artifact artifact);
 
-    Map<String, Object> props();
+    TemplateContext props();
+
+    String getTemplateDirectory();
+
+    void setTemplateDirectory(String templateDirectory);
+
+    Set<String> getSkipTemplates();
+
+    void setSkipTemplates(Set<String> skipTemplates);
+
+    void addSkipTemplates(Set<String> templates);
+
+    void addSkipTemplate(String template);
+
+    Set<? extends Artifact> getArtifacts();
+
+    void setArtifacts(Set<Artifact> artifacts);
+
+    void addArtifacts(Set<Artifact> artifacts);
+
+    void addArtifact(Artifact artifact);
 
     List<FileSet> getFileSets();
 
@@ -72,6 +93,14 @@ public interface Assembler<A extends org.jreleaser.model.api.assemble.Assembler>
     void addFileSets(List<FileSet> files);
 
     void addFileSet(FileSet file);
+
+    List<Glob> getFiles();
+
+    void setFiles(List<Glob> files);
+
+    void addFiles(List<Glob> files);
+
+    void addFile(Glob file);
 
     A asImmutable();
 }

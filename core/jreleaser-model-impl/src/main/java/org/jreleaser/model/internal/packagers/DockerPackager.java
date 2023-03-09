@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,6 +26,7 @@ import org.jreleaser.model.internal.common.CommitAuthor;
 import org.jreleaser.model.internal.common.CommitAuthorAware;
 import org.jreleaser.model.internal.common.Domain;
 import org.jreleaser.model.internal.distributions.Distribution;
+import org.jreleaser.model.internal.project.Project;
 import org.jreleaser.util.FileType;
 import org.jreleaser.util.PlatformUtils;
 
@@ -48,6 +49,7 @@ import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toSet;
 import static org.jreleaser.model.Distribution.DistributionType.BINARY;
+import static org.jreleaser.model.Distribution.DistributionType.FLAT_BINARY;
 import static org.jreleaser.model.Distribution.DistributionType.JAVA_BINARY;
 import static org.jreleaser.model.Distribution.DistributionType.JLINK;
 import static org.jreleaser.model.Distribution.DistributionType.NATIVE_IMAGE;
@@ -65,14 +67,16 @@ import static org.jreleaser.util.StringUtils.isFalse;
  */
 public final class DockerPackager extends AbstractDockerConfiguration<DockerPackager> implements RepositoryPackager<org.jreleaser.model.api.packagers.DockerPackager>, CommitAuthorAware {
     private static final Map<org.jreleaser.model.Distribution.DistributionType, Set<String>> SUPPORTED = new LinkedHashMap<>();
+    private static final long serialVersionUID = 8245232605884798697L;
 
     static {
         Set<String> extensions = setOf(ZIP.extension());
+        SUPPORTED.put(NATIVE_IMAGE, extensions);
         SUPPORTED.put(BINARY, extensions);
         SUPPORTED.put(JAVA_BINARY, extensions);
         SUPPORTED.put(JLINK, extensions);
-        SUPPORTED.put(NATIVE_IMAGE, extensions);
         SUPPORTED.put(SINGLE_JAR, setOf(JAR.extension()));
+        SUPPORTED.put(FLAT_BINARY, emptySet());
     }
 
     private final Map<String, DockerSpec> specs = new LinkedHashMap<>();
@@ -82,8 +86,11 @@ public final class DockerPackager extends AbstractDockerConfiguration<DockerPack
     private Boolean continueOnError;
     private String downloadUrl;
 
+    @JsonIgnore
     private final org.jreleaser.model.api.packagers.DockerPackager immutable = new org.jreleaser.model.api.packagers.DockerPackager() {
-        private Set<? extends org.jreleaser.model.api.packagers.DockerPackager.Registry> registries;
+        private static final long serialVersionUID = -8249625838795141546L;
+
+        private Set<? extends org.jreleaser.model.api.packagers.DockerConfiguration.Registry> registries;
         private Map<String, ? extends org.jreleaser.model.api.packagers.DockerSpec> specs;
 
         @Override
@@ -108,48 +115,48 @@ public final class DockerPackager extends AbstractDockerConfiguration<DockerPack
 
         @Override
         public String getTemplateDirectory() {
-            return templateDirectory;
+            return DockerPackager.this.getTemplateDirectory();
         }
 
         @Override
         public List<String> getSkipTemplates() {
-            return unmodifiableList(skipTemplates);
+            return unmodifiableList(DockerPackager.this.getSkipTemplates());
         }
 
         @Override
         public String getBaseImage() {
-            return baseImage;
+            return DockerPackager.this.getBaseImage();
         }
 
         @Override
         public Map<String, String> getLabels() {
-            return unmodifiableMap(labels);
+            return unmodifiableMap(DockerPackager.this.getLabels());
         }
 
         @Override
         public Set<String> getImageNames() {
-            return unmodifiableSet(imageNames);
+            return unmodifiableSet(DockerPackager.this.getImageNames());
         }
 
         @Override
         public List<String> getBuildArgs() {
-            return unmodifiableList(buildArgs);
+            return unmodifiableList(DockerPackager.this.getBuildArgs());
         }
 
         @Override
         public List<String> getPreCommands() {
-            return unmodifiableList(preCommands);
+            return unmodifiableList(DockerPackager.this.getPreCommands());
         }
 
         @Override
         public List<String> getPostCommands() {
-            return unmodifiableList(postCommands);
+            return unmodifiableList(DockerPackager.this.getPostCommands());
         }
 
         @Override
-        public Set<? extends org.jreleaser.model.api.packagers.DockerPackager.Registry> getRegistries() {
+        public Set<? extends org.jreleaser.model.api.packagers.DockerConfiguration.Registry> getRegistries() {
             if (null == registries) {
-                registries = DockerPackager.this.registries.stream()
+                registries = DockerPackager.this.getRegistries().stream()
                     .map(DockerConfiguration.Registry::asImmutable)
                     .collect(toSet());
             }
@@ -208,7 +215,7 @@ public final class DockerPackager extends AbstractDockerConfiguration<DockerPack
 
         @Override
         public Active getActive() {
-            return active;
+            return DockerPackager.this.getActive();
         }
 
         @Override
@@ -223,14 +230,20 @@ public final class DockerPackager extends AbstractDockerConfiguration<DockerPack
 
         @Override
         public String getPrefix() {
-            return DockerPackager.this.getPrefix();
+            return DockerPackager.this.prefix();
+        }
+
+        @Override
+        public Buildx getBuildx() {
+            return DockerPackager.this.getBuildx().asImmutable();
         }
 
         @Override
         public Map<String, Object> getExtraProperties() {
-            return unmodifiableMap(extraProperties);
+            return unmodifiableMap(DockerPackager.this.getExtraProperties());
         }
     };
+
     @JsonIgnore
     private boolean failed;
 
@@ -251,6 +264,15 @@ public final class DockerPackager extends AbstractDockerConfiguration<DockerPack
     }
 
     @Override
+    public boolean resolveEnabled(Project project, Distribution distribution) {
+        resolveEnabled(project);
+        if (!supportsDistribution(distribution.getType())) {
+            disable();
+        }
+        return isEnabled();
+    }
+
+    @Override
     public void fail() {
         this.failed = true;
     }
@@ -262,7 +284,7 @@ public final class DockerPackager extends AbstractDockerConfiguration<DockerPack
 
     @Override
     public boolean isContinueOnError() {
-        return continueOnError != null && continueOnError;
+        return null != continueOnError && continueOnError;
     }
 
     @Override
@@ -272,7 +294,7 @@ public final class DockerPackager extends AbstractDockerConfiguration<DockerPack
 
     @Override
     public boolean isContinueOnErrorSet() {
-        return continueOnError != null;
+        return null != continueOnError;
     }
 
     @Override
@@ -307,6 +329,15 @@ public final class DockerPackager extends AbstractDockerConfiguration<DockerPack
 
     @Override
     public List<Artifact> resolveCandidateArtifacts(JReleaserContext context, Distribution distribution) {
+        if (distribution.getType() == FLAT_BINARY && supportsDistribution(distribution.getType())) {
+            return distribution.getArtifacts().stream()
+                .filter(Artifact::isActive)
+                .filter(artifact -> supportsPlatform(artifact.getPlatform()))
+                .filter(this::isNotSkipped)
+                .sorted(Artifact.comparatorByPlatform())
+                .collect(toList());
+        }
+
         List<String> fileExtensions = new ArrayList<>(getSupportedFileExtensions(distribution.getType()));
         fileExtensions.sort(naturalOrder());
 
@@ -322,7 +353,14 @@ public final class DockerPackager extends AbstractDockerConfiguration<DockerPack
             .collect(toList());
     }
 
-    protected boolean isNotSkipped(Artifact artifact) {
+    @Override
+    public List<Artifact> resolveNonOptionalArtifacts(JReleaserContext context, Distribution distribution) {
+        return resolveCandidateArtifacts(context, distribution).stream()
+            .filter(artifact -> artifact.resolvedPathExists() && !artifact.isOptional(context))
+            .collect(toList());
+    }
+
+    private boolean isNotSkipped(Artifact artifact) {
         return isFalse(artifact.getExtraProperties().get(SKIP_DOCKER));
     }
 
@@ -406,9 +444,14 @@ public final class DockerPackager extends AbstractDockerConfiguration<DockerPack
     }
 
     public static final class DockerRepository extends AbstractRepositoryTap<DockerRepository> implements Domain {
+        private static final long serialVersionUID = -3428854203388975153L;
+
         private Boolean versionedSubfolders;
 
+        @JsonIgnore
         private final org.jreleaser.model.api.packagers.DockerPackager.DockerRepository immutable = new org.jreleaser.model.api.packagers.DockerPackager.DockerRepository() {
+            private static final long serialVersionUID = 7279929782283595739L;
+
             @Override
             public boolean isVersionedSubfolders() {
                 return DockerRepository.this.isVersionedSubfolders();
@@ -416,7 +459,7 @@ public final class DockerPackager extends AbstractDockerConfiguration<DockerPack
 
             @Override
             public String getBasename() {
-                return basename;
+                return DockerRepository.this.getBasename();
             }
 
             @Override
@@ -426,37 +469,42 @@ public final class DockerPackager extends AbstractDockerConfiguration<DockerPack
 
             @Override
             public String getName() {
-                return name;
+                return DockerRepository.this.getName();
             }
 
             @Override
             public String getTagName() {
-                return tagName;
+                return DockerRepository.this.getTagName();
             }
 
             @Override
             public String getBranch() {
-                return branch;
+                return DockerRepository.this.getBranch();
+            }
+
+            @Override
+            public String getBranchPush() {
+                return DockerRepository.this.getBranchPush();
             }
 
             @Override
             public String getUsername() {
-                return username;
+                return DockerRepository.this.getUsername();
             }
 
             @Override
             public String getToken() {
-                return token;
+                return DockerRepository.this.getToken();
             }
 
             @Override
             public String getCommitMessage() {
-                return commitMessage;
+                return DockerRepository.this.getCommitMessage();
             }
 
             @Override
             public Active getActive() {
-                return active;
+                return DockerRepository.this.getActive();
             }
 
             @Override
@@ -471,7 +519,7 @@ public final class DockerPackager extends AbstractDockerConfiguration<DockerPack
 
             @Override
             public String getOwner() {
-                return owner;
+                return DockerRepository.this.getOwner();
             }
         };
 
@@ -490,7 +538,7 @@ public final class DockerPackager extends AbstractDockerConfiguration<DockerPack
         }
 
         public boolean isVersionedSubfolders() {
-            return versionedSubfolders != null && versionedSubfolders;
+            return null != versionedSubfolders && versionedSubfolders;
         }
 
         public void setVersionedSubfolders(Boolean versionedSubfolders) {
@@ -498,7 +546,7 @@ public final class DockerPackager extends AbstractDockerConfiguration<DockerPack
         }
 
         public boolean isVersionedSubfoldersSet() {
-            return versionedSubfolders != null;
+            return null != versionedSubfolders;
         }
 
         @Override

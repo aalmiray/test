@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,10 +17,13 @@
  */
 package org.jreleaser.model.internal.announce;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.jreleaser.bundle.RB;
 import org.jreleaser.model.Active;
+import org.jreleaser.model.Constants;
 import org.jreleaser.model.JReleaserException;
 import org.jreleaser.model.internal.JReleaserContext;
+import org.jreleaser.mustache.TemplateContext;
 
 import java.io.IOException;
 import java.io.Reader;
@@ -31,6 +34,7 @@ import static java.util.Collections.unmodifiableMap;
 import static org.jreleaser.model.Constants.HIDE;
 import static org.jreleaser.model.Constants.KEY_TAG_NAME;
 import static org.jreleaser.model.Constants.UNSET;
+import static org.jreleaser.model.JReleaserOutput.nag;
 import static org.jreleaser.model.api.announce.GoogleChatAnnouncer.TYPE;
 import static org.jreleaser.mustache.MustacheUtils.applyTemplate;
 import static org.jreleaser.mustache.MustacheUtils.applyTemplates;
@@ -41,12 +45,18 @@ import static org.jreleaser.util.StringUtils.isNotBlank;
  * @author Anyul Rivas
  * @since 0.5.0
  */
+@Deprecated
 public final class GoogleChatAnnouncer extends AbstractAnnouncer<GoogleChatAnnouncer, org.jreleaser.model.api.announce.GoogleChatAnnouncer> {
+    private static final long serialVersionUID = -3299515972880177372L;
+
     private String webhook;
     private String message;
     private String messageTemplate;
 
+    @JsonIgnore
     private final org.jreleaser.model.api.announce.GoogleChatAnnouncer immutable = new org.jreleaser.model.api.announce.GoogleChatAnnouncer() {
+        private static final long serialVersionUID = 6073740451816678256L;
+
         @Override
         public String getType() {
             return org.jreleaser.model.api.announce.GoogleChatAnnouncer.TYPE;
@@ -69,7 +79,7 @@ public final class GoogleChatAnnouncer extends AbstractAnnouncer<GoogleChatAnnou
 
         @Override
         public String getName() {
-            return name;
+            return GoogleChatAnnouncer.this.getName();
         }
 
         @Override
@@ -79,7 +89,7 @@ public final class GoogleChatAnnouncer extends AbstractAnnouncer<GoogleChatAnnou
 
         @Override
         public Active getActive() {
-            return active;
+            return GoogleChatAnnouncer.this.getActive();
         }
 
         @Override
@@ -94,22 +104,22 @@ public final class GoogleChatAnnouncer extends AbstractAnnouncer<GoogleChatAnnou
 
         @Override
         public String getPrefix() {
-            return GoogleChatAnnouncer.this.getPrefix();
+            return GoogleChatAnnouncer.this.prefix();
         }
 
         @Override
         public Map<String, Object> getExtraProperties() {
-            return unmodifiableMap(extraProperties);
+            return unmodifiableMap(GoogleChatAnnouncer.this.getExtraProperties());
         }
 
         @Override
         public Integer getConnectTimeout() {
-            return connectTimeout;
+            return GoogleChatAnnouncer.this.getConnectTimeout();
         }
 
         @Override
         public Integer getReadTimeout() {
-            return readTimeout;
+            return GoogleChatAnnouncer.this.getReadTimeout();
         }
     };
 
@@ -128,25 +138,40 @@ public final class GoogleChatAnnouncer extends AbstractAnnouncer<GoogleChatAnnou
         this.webhook = merge(this.webhook, source.webhook);
         this.message = merge(this.message, source.message);
         this.messageTemplate = merge(this.messageTemplate, source.messageTemplate);
+
+        if (isSet()) {
+            nag("announce." + getName() + " is deprecated since 1.4.0 and will be removed in 2.0.0. Use announce.webhooks instead");
+        }
     }
 
     @Override
-    public String getPrefix() {
+    protected boolean isSet() {
+        return super.isSet() ||
+            isNotBlank(webhook) ||
+            isNotBlank(message) ||
+            isNotBlank(messageTemplate);
+    }
+
+    @Override
+    public String prefix() {
         return "googleChat";
     }
 
     public String getResolvedMessage(JReleaserContext context) {
-        Map<String, Object> props = context.fullProps();
-        applyTemplates(props, getResolvedExtraProperties());
+        TemplateContext props = context.fullProps();
+        applyTemplates(props, resolvedExtraProperties());
         return resolveTemplate(message, props);
     }
 
-    public String getResolvedMessageTemplate(JReleaserContext context, Map<String, Object> extraProps) {
-        Map<String, Object> props = context.fullProps();
-        applyTemplates(props, getResolvedExtraProperties());
-        props.put(KEY_TAG_NAME, context.getModel().getRelease().getReleaser()
+    public String getResolvedMessageTemplate(JReleaserContext context, TemplateContext extraProps) {
+        TemplateContext props = context.fullProps();
+        applyTemplates(props, resolvedExtraProperties());
+        props.set(KEY_TAG_NAME, context.getModel().getRelease().getReleaser()
             .getEffectiveTagName(context.getModel()));
-        props.putAll(extraProps);
+        props.set(Constants.KEY_PREVIOUS_TAG_NAME,
+            context.getModel().getRelease().getReleaser()
+                .getResolvedPreviousTagName(context.getModel()));
+        props.setAll(extraProps);
 
         Path templatePath = context.getBasedir().resolve(messageTemplate);
         try {
@@ -187,5 +212,19 @@ public final class GoogleChatAnnouncer extends AbstractAnnouncer<GoogleChatAnnou
         props.put("webhook", isNotBlank(webhook) ? HIDE : UNSET);
         props.put("message", message);
         props.put("messageTemplate", messageTemplate);
+    }
+
+    public WebhookAnnouncer asWebhookAnnouncer() {
+        WebhookAnnouncer announcer = new WebhookAnnouncer();
+        announcer.setName(getName());
+        announcer.setWebhook(webhook);
+        announcer.setMessage(message);
+        announcer.setMessageTemplate(messageTemplate);
+        announcer.setStructuredMessage(true);
+        announcer.setMessageProperty("text");
+        announcer.setConnectTimeout(getConnectTimeout());
+        announcer.setReadTimeout(getReadTimeout());
+        announcer.setExtraProperties(getExtraProperties());
+        return announcer;
     }
 }

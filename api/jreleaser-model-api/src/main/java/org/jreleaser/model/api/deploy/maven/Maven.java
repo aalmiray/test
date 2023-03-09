@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,7 +27,11 @@ import java.util.Map;
  * @since 1.3.0
  */
 public interface Maven extends Domain, Activatable {
+    Pomchecker getPomchecker();
+
     Map<String, ? extends ArtifactoryMavenDeployer> getArtifactory();
+
+    Map<String, ? extends AzureMavenDeployer> getAzure();
 
     Map<String, ? extends GiteaMavenDeployer> getGitea();
 
@@ -36,4 +40,8 @@ public interface Maven extends Domain, Activatable {
     Map<String, ? extends GitlabMavenDeployer> getGitlab();
 
     Map<String, ? extends Nexus2MavenDeployer> getNexus2();
+
+    interface Pomchecker extends Domain {
+        String getVersion();
+    }
 }

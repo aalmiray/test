@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,11 +28,14 @@ import org.gradle.api.provider.Property
 import org.gradle.api.provider.SetProperty
 import org.gradle.api.tasks.Internal
 import org.jreleaser.gradle.plugin.dsl.assemble.JlinkAssembler
+import org.jreleaser.gradle.plugin.dsl.common.ArchiveOptions
 import org.jreleaser.gradle.plugin.dsl.common.Artifact
+import org.jreleaser.gradle.plugin.internal.dsl.common.ArchiveOptionsImpl
 import org.jreleaser.gradle.plugin.internal.dsl.common.ArtifactImpl
 import org.jreleaser.gradle.plugin.internal.dsl.common.JavaImpl
 import org.jreleaser.gradle.plugin.internal.dsl.platform.PlatformImpl
 import org.jreleaser.model.Active
+import org.jreleaser.model.Archive
 import org.kordamp.gradle.util.ConfigureUtil
 
 import javax.inject.Inject
@@ -49,12 +52,14 @@ class JlinkAssemblerImpl extends AbstractJavaAssembler implements JlinkAssembler
     String name
     final Property<String> imageName
     final Property<String> imageNameTransform
+    final Property<Archive.Format> archiveFormat
     final Property<Boolean> copyJars
     final ListProperty<String> args
     final SetProperty<String> moduleNames
     final SetProperty<String> additionalModuleNames
     final JavaImpl java
     final PlatformImpl platform
+    final ArchiveOptionsImpl options
 
     private final JdepsImpl jdeps
     private final ArtifactImpl jdk
@@ -66,6 +71,7 @@ class JlinkAssemblerImpl extends AbstractJavaAssembler implements JlinkAssembler
 
         imageName = objects.property(String).convention(Providers.<String> notDefined())
         imageNameTransform = objects.property(String).convention(Providers.<String> notDefined())
+        archiveFormat = objects.property(Archive.Format).convention(Archive.Format.ZIP)
         copyJars = objects.property(Boolean).convention(Providers.<Boolean> notDefined())
         args = objects.listProperty(String).convention(Providers.<List<String>> notDefined())
         moduleNames = objects.setProperty(String).convention(Providers.<Set<String>> notDefined())
@@ -75,6 +81,7 @@ class JlinkAssemblerImpl extends AbstractJavaAssembler implements JlinkAssembler
         jdeps = objects.newInstance(JdepsImpl, objects)
         jdk = objects.newInstance(ArtifactImpl, objects)
         jdk.setName('jdk')
+        options = objects.newInstance(ArchiveOptionsImpl, objects)
 
         targetJdks = objects.domainObjectContainer(ArtifactImpl, new NamedDomainObjectFactory<ArtifactImpl>() {
             @Override
@@ -84,6 +91,13 @@ class JlinkAssemblerImpl extends AbstractJavaAssembler implements JlinkAssembler
                 artifact
             }
         })
+    }
+
+    @Override
+    void setArchiveFormat(String str) {
+        if (isNotBlank(str)) {
+            this.archiveFormat.set(Archive.Format.of(str.trim()))
+        }
     }
 
     @Internal
@@ -99,7 +113,8 @@ class JlinkAssemblerImpl extends AbstractJavaAssembler implements JlinkAssembler
             moduleNames.present ||
             additionalModuleNames.present ||
             !targetJdks.isEmpty() ||
-            platform.isSet()
+            platform.isSet() ||
+            options.isSet()
     }
 
     @Override
@@ -125,6 +140,11 @@ class JlinkAssemblerImpl extends AbstractJavaAssembler implements JlinkAssembler
     }
 
     @Override
+    void options(Action<? super ArchiveOptions> action) {
+        action.execute(options)
+    }
+
+    @Override
     void setActive(String str) {
         if (isNotBlank(str)) {
             active.set(Active.of(str.trim()))
@@ -146,24 +166,31 @@ class JlinkAssemblerImpl extends AbstractJavaAssembler implements JlinkAssembler
         ConfigureUtil.configure(action, targetJdks.maybeCreate("targetJdk-${targetJdks.size()}".toString()))
     }
 
+    @Override
+    void options(@DelegatesTo(strategy = Closure.DELEGATE_FIRST, value = ArchiveOptions) Closure<Void> action) {
+        ConfigureUtil.configure(action, options)
+    }
+
     org.jreleaser.model.internal.assemble.JlinkAssembler toModel() {
-        org.jreleaser.model.internal.assemble.JlinkAssembler jlink = new org.jreleaser.model.internal.assemble.JlinkAssembler()
-        jlink.name = name
-        fillProperties(jlink)
-        jlink.args = (List<String>) args.getOrElse([])
-        if (jdeps.isSet()) jlink.jdeps = jdeps.toModel()
-        if (jdk.isSet()) jlink.jdk = jdk.toModel()
-        jlink.java = java.toModel()
-        jlink.platform = platform.toModel()
-        if (imageName.present) jlink.imageName = imageName.get()
-        if (imageNameTransform.present) jlink.imageNameTransform = imageNameTransform.get()
-        if (copyJars.present) jlink.copyJars = copyJars.get()
-        jlink.moduleNames = (Set<String>) moduleNames.getOrElse([] as Set)
-        jlink.additionalModuleNames = (Set<String>) additionalModuleNames.getOrElse([] as Set)
+        org.jreleaser.model.internal.assemble.JlinkAssembler assembler = new org.jreleaser.model.internal.assemble.JlinkAssembler()
+        assembler.name = name
+        fillProperties(assembler)
+        assembler.args = (List<String>) args.getOrElse([])
+        if (jdeps.isSet()) assembler.jdeps = jdeps.toModel()
+        if (jdk.isSet()) assembler.jdk = jdk.toModel()
+        assembler.archiveFormat = archiveFormat.get()
+        assembler.java = java.toModel()
+        assembler.platform = platform.toModel()
+        if (imageName.present) assembler.imageName = imageName.get()
+        if (imageNameTransform.present) assembler.imageNameTransform = imageNameTransform.get()
+        if (copyJars.present) assembler.copyJars = copyJars.get()
+        assembler.moduleNames = (Set<String>) moduleNames.getOrElse([] as Set)
+        assembler.additionalModuleNames = (Set<String>) additionalModuleNames.getOrElse([] as Set)
         for (ArtifactImpl artifact : targetJdks) {
-            jlink.addTargetJdk(artifact.toModel())
+            assembler.addTargetJdk(artifact.toModel())
         }
-        jlink
+        if (options.isSet()) assembler.options = options.toModel()
+        assembler
     }
 
     @CompileStatic

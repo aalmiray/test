@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,23 +18,28 @@
 package org.jreleaser.model.internal.validation.upload;
 
 import org.jreleaser.bundle.RB;
-import org.jreleaser.model.Active;
 import org.jreleaser.model.api.JReleaserContext.Mode;
 import org.jreleaser.model.internal.JReleaserContext;
 import org.jreleaser.model.internal.upload.SftpUploader;
-import org.jreleaser.model.internal.validation.common.Validator;
 import org.jreleaser.util.Errors;
 
 import java.util.Map;
 
 import static org.jreleaser.model.internal.validation.common.SshValidator.validateSsh;
+import static org.jreleaser.model.internal.validation.common.Validator.resolveActivatable;
+import static org.jreleaser.model.internal.validation.common.Validator.validateTimeout;
+import static org.jreleaser.util.CollectionUtils.listOf;
 import static org.jreleaser.util.StringUtils.isBlank;
 
 /**
  * @author Andres Almiray
  * @since 1.1.0
  */
-public abstract class SftpUploaderValidator extends Validator {
+public final class SftpUploaderValidator {
+    private SftpUploaderValidator() {
+        // noop
+    }
+
     public static void validateSftpUploader(JReleaserContext context, Mode mode, Errors errors) {
         Map<String, SftpUploader> sftp = context.getModel().getUpload().getSftp();
         if (!sftp.isEmpty()) context.getLogger().debug("upload.sftp");
@@ -42,33 +47,33 @@ public abstract class SftpUploaderValidator extends Validator {
         for (Map.Entry<String, SftpUploader> e : sftp.entrySet()) {
             e.getValue().setName(e.getKey());
             if (mode.validateConfig()) {
-                validateSftpUploader(context, mode, e.getValue(), errors);
+                validateSftpUploader(context, e.getValue(), errors);
             }
         }
     }
 
-    private static void validateSftpUploader(JReleaserContext context, Mode mode, SftpUploader sftp, Errors errors) {
-        context.getLogger().debug("upload.sftp.{}", sftp.getName());
+    private static void validateSftpUploader(JReleaserContext context, SftpUploader uploader, Errors errors) {
+        context.getLogger().debug("upload.sftp.{}", uploader.getName());
 
-        if (!sftp.isActiveSet()) {
-            sftp.setActive(Active.NEVER);
-        }
-        if (!sftp.resolveEnabled(context.getModel().getProject())) {
+        resolveActivatable(context, uploader,
+            listOf("upload.sftp." + uploader.getName(), "upload.sftp"),
+            "NEVER");
+        if (!uploader.resolveEnabledWithSnapshot(context.getModel().getProject())) {
             context.getLogger().debug(RB.$("validation.disabled"));
             return;
         }
 
-        if (!sftp.isArtifacts() && !sftp.isFiles() && !sftp.isSignatures()) {
-            errors.warning(RB.$("WARNING.validation.uploader.no.artifacts", sftp.getType(), sftp.getName()));
+        if (!uploader.isArtifacts() && !uploader.isFiles() && !uploader.isSignatures()) {
+            errors.warning(RB.$("WARNING.validation.uploader.no.artifacts", uploader.getType(), uploader.getName()));
             context.getLogger().debug(RB.$("validation.disabled.no.artifacts"));
-            sftp.disable();
+            uploader.disable();
             return;
         }
 
-        validateSsh(context, sftp, sftp.getName(), "SFTP", sftp.getType(), errors);
-        if (isBlank(sftp.getPath())) {
-            errors.configuration(RB.$("validation_must_not_be_blank", "sftp." + sftp.getName() + ".path"));
+        validateSsh(context, uploader, uploader.getType(), uploader.getName(), "upload.", errors);
+        if (isBlank(uploader.getPath())) {
+            errors.configuration(RB.$("validation_must_not_be_blank", "upload.sftp." + uploader.getName() + ".path"));
         }
-        validateTimeout(sftp);
+        validateTimeout(uploader);
     }
 }

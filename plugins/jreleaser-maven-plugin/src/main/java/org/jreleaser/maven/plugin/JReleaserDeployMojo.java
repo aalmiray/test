@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -66,13 +66,7 @@ public class JReleaserDeployMojo extends AbstractJReleaserMojo {
     private boolean skip;
 
     @Override
-    public void execute() throws MojoExecutionException, MojoFailureException {
-        Banner.display(project, getLog());
-        if (skip) {
-            getLog().info("Execution has been explicitly skipped.");
-            return;
-        }
-
+    protected void doExecute() throws MojoExecutionException, MojoFailureException {
         JReleaserContext context = createContext();
         context.setIncludedDeployerTypes(collectEntries(includedDeployers, true));
         context.setIncludedDeployerNames(collectEntries(includedDeployerNames));
@@ -84,5 +78,10 @@ public class JReleaserDeployMojo extends AbstractJReleaserMojo {
     @Override
     protected Mode getMode() {
         return DEPLOY;
+    }
+
+    @Override
+    protected boolean isSkip() {
+        return skip;
     }
 }

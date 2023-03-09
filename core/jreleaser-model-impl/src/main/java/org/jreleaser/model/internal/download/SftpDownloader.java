@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
  */
 package org.jreleaser.model.internal.download;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.jreleaser.model.Active;
 
 import java.util.List;
@@ -31,24 +32,29 @@ import static org.jreleaser.model.api.download.SftpDownloader.TYPE;
  * @since 1.1.0
  */
 public final class SftpDownloader extends AbstractSshDownloader<org.jreleaser.model.api.download.SftpDownloader, SftpDownloader> {
+    private static final long serialVersionUID = -3303832713268446672L;
+
+    @JsonIgnore
     private final org.jreleaser.model.api.download.SftpDownloader immutable = new org.jreleaser.model.api.download.SftpDownloader() {
+        private static final long serialVersionUID = 8300210807291243549L;
+
         private List<? extends org.jreleaser.model.api.download.Downloader.Asset> assets;
 
         @Override
         public String getType() {
-            return type;
+            return SftpDownloader.this.getType();
         }
 
         @Override
         public String getName() {
-            return name;
+            return SftpDownloader.this.getName();
         }
 
         @Override
         public List<? extends org.jreleaser.model.api.download.Downloader.Asset> getAssets() {
             if (null == assets) {
-                assets = SftpDownloader.this.assets.stream()
-                    .map(AbstractDownloader.Asset::asImmutable)
+                assets = SftpDownloader.this.getAssets().stream()
+                    .map(Downloader.Asset::asImmutable)
                     .collect(toList());
             }
             return assets;
@@ -56,7 +62,7 @@ public final class SftpDownloader extends AbstractSshDownloader<org.jreleaser.mo
 
         @Override
         public Active getActive() {
-            return active;
+            return SftpDownloader.this.getActive();
         }
 
         @Override
@@ -71,67 +77,67 @@ public final class SftpDownloader extends AbstractSshDownloader<org.jreleaser.mo
 
         @Override
         public String getPrefix() {
-            return SftpDownloader.this.getPrefix();
+            return SftpDownloader.this.prefix();
         }
 
         @Override
         public Map<String, Object> getExtraProperties() {
-            return unmodifiableMap(extraProperties);
+            return unmodifiableMap(SftpDownloader.this.getExtraProperties());
         }
 
         @Override
         public String getUsername() {
-            return username;
+            return SftpDownloader.this.getUsername();
         }
 
         @Override
         public String getPassword() {
-            return password;
+            return SftpDownloader.this.getPassword();
         }
 
         @Override
         public String getHost() {
-            return host;
+            return SftpDownloader.this.getHost();
         }
 
         @Override
         public Integer getPort() {
-            return port;
+            return SftpDownloader.this.getPort();
         }
 
         @Override
         public String getKnownHostsFile() {
-            return knownHostsFile;
+            return SftpDownloader.this.getKnownHostsFile();
         }
 
         @Override
         public String getPublicKey() {
-            return publicKey;
+            return SftpDownloader.this.getPublicKey();
         }
 
         @Override
         public String getPrivateKey() {
-            return privateKey;
+            return SftpDownloader.this.getPrivateKey();
         }
 
         @Override
         public String getPassphrase() {
-            return passphrase;
+            return SftpDownloader.this.getPassphrase();
         }
 
         @Override
         public String getFingerprint() {
-            return fingerprint;
+            return SftpDownloader.this.getFingerprint();
         }
 
         @Override
         public Integer getConnectTimeout() {
-            return connectTimeout;
+            return SftpDownloader.this.getConnectTimeout();
         }
 
         @Override
         public Integer getReadTimeout() {
-            return readTimeout;
+            return SftpDownloader.this.getReadTimeout();
         }
     };
 

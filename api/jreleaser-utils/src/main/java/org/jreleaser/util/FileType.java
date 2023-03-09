@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,6 +31,8 @@ import static org.jreleaser.util.StringUtils.isBlank;
  */
 public enum FileType {
     ASC("asc"),
+    BAT("bat"),
+    CMD("cmd"),
     DEB("deb"),
     DMG("dmg"),
     EXE("exe"),
@@ -38,16 +40,20 @@ public enum FileType {
     MSI("msi"),
     NUGET("nuget"),
     PKG("pkg"),
+    PS1("ps1"),
     RPM("rpm"),
+    SH("sh"),
     SIG("sig"),
     TAR("tar", true),
     TAR_BZ2("tar.bz2", true),
     TAR_GZ("tar.gz", true),
     TAR_XZ("tar.xz", true),
+    TAR_ZST("tar.zst", true),
     TBZ2("tbz2", true),
     TGZ("tgz", true),
     TXZ("txz", true),
-    ZIP("zip", true);
+    ZIP("zip", true),
+    ZST("zst", true);
 
     private final String type;
     private final boolean archive;

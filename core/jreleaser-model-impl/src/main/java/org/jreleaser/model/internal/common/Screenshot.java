@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
  */
 package org.jreleaser.model.internal.common;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.github.mustachejava.TemplateFunction;
 
 import java.util.LinkedHashMap;
@@ -29,6 +30,8 @@ import static java.util.Collections.unmodifiableMap;
  * @since 1.2.0
  */
 public final class Screenshot extends AbstractModelObject<Screenshot> implements Domain, ExtraProperties {
+    private static final long serialVersionUID = 7278270297286736205L;
+
     private final Map<String, Object> extraProperties = new LinkedHashMap<>();
 
     private org.jreleaser.model.Screenshot.Type type = org.jreleaser.model.Screenshot.Type.SOURCE;
@@ -38,7 +41,10 @@ public final class Screenshot extends AbstractModelObject<Screenshot> implements
     private Integer width;
     private Integer height;
 
+    @JsonIgnore
     private final org.jreleaser.model.api.common.Screenshot immutable = new org.jreleaser.model.api.common.Screenshot() {
+        private static final long serialVersionUID = 3229726441750227017L;
+
         @Override
         public org.jreleaser.model.Screenshot.Type getType() {
             return type;
@@ -76,7 +82,7 @@ public final class Screenshot extends AbstractModelObject<Screenshot> implements
 
         @Override
         public String getPrefix() {
-            return Screenshot.this.getPrefix();
+            return Screenshot.this.prefix();
         }
 
         @Override
@@ -113,7 +119,7 @@ public final class Screenshot extends AbstractModelObject<Screenshot> implements
     }
 
     public boolean isPrimary() {
-        return primary != null && primary;
+        return null != primary && primary;
     }
 
     public void setPrimary(Boolean primary) {
@@ -153,7 +159,7 @@ public final class Screenshot extends AbstractModelObject<Screenshot> implements
     }
 
     @Override
-    public String getPrefix() {
+    public String prefix() {
         return "screenshot";
     }
 
@@ -182,7 +188,7 @@ public final class Screenshot extends AbstractModelObject<Screenshot> implements
         map.put("caption", caption);
         map.put("width", width);
         map.put("height", height);
-        map.put("extraProperties", getResolvedExtraProperties());
+        map.put("extraProperties", resolvedExtraProperties());
         return map;
     }
 

@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@ import org.jreleaser.model.JReleaserException;
 import org.jreleaser.model.JReleaserVersion;
 import org.jreleaser.model.internal.announce.Announce;
 import org.jreleaser.model.internal.assemble.Assemble;
+import org.jreleaser.model.internal.catalog.Catalog;
 import org.jreleaser.model.internal.checksum.Checksum;
 import org.jreleaser.model.internal.deploy.Deploy;
 import org.jreleaser.model.internal.distributions.Distribution;
@@ -41,17 +42,16 @@ import org.jreleaser.model.internal.release.Release;
 import org.jreleaser.model.internal.signing.Signing;
 import org.jreleaser.model.internal.upload.Upload;
 import org.jreleaser.mustache.MustacheUtils;
+import org.jreleaser.mustache.TemplateContext;
 import org.jreleaser.util.PlatformUtils;
 import org.jreleaser.version.SemanticVersion;
 
 import java.time.ZonedDateTime;
-import java.time.format.DateTimeFormatterBuilder;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
-import static java.time.format.DateTimeFormatter.ISO_LOCAL_DATE_TIME;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
@@ -60,6 +60,7 @@ import static org.jreleaser.mustache.MustacheUtils.applyTemplates;
 import static org.jreleaser.util.StringUtils.getCapitalizedName;
 import static org.jreleaser.util.StringUtils.isBlank;
 import static org.jreleaser.util.StringUtils.isNotBlank;
+import static org.jreleaser.util.TimeUtils.TIMESTAMP_FORMATTER;
 
 /**
  * @author Andres Almiray
@@ -81,6 +82,7 @@ public class JReleaserModel {
     private final Checksum checksum = new Checksum();
     private final Signing signing = new Signing();
     private final Files files = new Files();
+    private final Catalog catalog = new Catalog();
     private final Map<String, Distribution> distributions = new LinkedHashMap<>();
     private final Map<String, Extension> extensions = new LinkedHashMap<>();
 
@@ -91,7 +93,11 @@ public class JReleaserModel {
     @JsonIgnore
     private org.jreleaser.model.api.JReleaserModel.Commit commit;
 
+
+    @JsonIgnore
     private final org.jreleaser.model.api.JReleaserModel immutable = new org.jreleaser.model.api.JReleaserModel() {
+        private static final long serialVersionUID = -571955827712138358L;
+
         private Map<String, ? extends org.jreleaser.model.api.distributions.Distribution> distributions;
         private Map<String, ? extends org.jreleaser.model.api.extensions.Extension> extensions;
 
@@ -181,6 +187,11 @@ public class JReleaserModel {
         }
 
         @Override
+        public org.jreleaser.model.api.catalog.Catalog getCatalog() {
+            return catalog.asImmutable();
+        }
+
+        @Override
         public Map<String, ? extends org.jreleaser.model.api.distributions.Distribution> getDistributions() {
             if (null == distributions) {
                 distributions = JReleaserModel.this.distributions.values().stream()
@@ -208,12 +219,7 @@ public class JReleaserModel {
 
     public JReleaserModel() {
         this.now = ZonedDateTime.now();
-        this.timestamp = now.format(new DateTimeFormatterBuilder()
-            .append(ISO_LOCAL_DATE_TIME)
-            .optionalStart()
-            .appendOffset("+HH:MM", "Z")
-            .optionalEnd()
-            .toFormatter());
+        this.timestamp = now.format(TIMESTAMP_FORMATTER);
     }
 
     public org.jreleaser.model.api.JReleaserModel asImmutable() {
@@ -348,6 +354,14 @@ public class JReleaserModel {
         this.files.merge(files);
     }
 
+    public Catalog getCatalog() {
+        return catalog;
+    }
+
+    public void setCatalog(Catalog catalog) {
+        this.catalog.merge(catalog);
+    }
+
     public List<Distribution> getActiveDistributions() {
         return distributions.values().stream()
             .filter(Distribution::isEnabled)
@@ -398,6 +412,11 @@ public class JReleaserModel {
         this.extensions.put(extension.getName(), extension);
     }
 
+    public ZonedDateTime resolveArchiveTimestamp() {
+        if (null != commit) return commit.getTimestamp();
+        return now;
+    }
+
     public Map<String, Object> asMap(boolean full) {
         Map<String, Object> map = new LinkedHashMap<>();
 
@@ -422,6 +441,7 @@ public class JReleaserModel {
         if (full || assemble.isEnabled()) map.put("assemble", assemble.asMap(full));
         if (full || deploy.isEnabled()) map.put("deploy", deploy.asMap(full));
         if (full || upload.isEnabled()) map.put("upload", upload.asMap(full));
+        if (full || catalog.isEnabled()) map.put("catalog", catalog.asMap(full));
 
         List<Map<String, Object>> distributions = this.distributions.values()
             .stream()
@@ -433,134 +453,157 @@ public class JReleaserModel {
         return map;
     }
 
-    public Map<String, Object> props() {
-        Map<String, Object> props = new LinkedHashMap<>();
+    public TemplateContext props() {
+        TemplateContext props = new TemplateContext();
 
         String jreleaserCreationStamp = String.format("Generated with JReleaser %s at %s",
             JReleaserVersion.getPlainVersion(), timestamp);
-        props.put("jreleaserCreationStamp", jreleaserCreationStamp);
+        props.set("jreleaserCreationStamp", jreleaserCreationStamp);
 
         fillProjectProperties(props, project);
         fillReleaserProperties(props, release);
 
         String osName = PlatformUtils.getDetectedOs();
         String osArch = PlatformUtils.getDetectedArch();
-        props.put(Constants.KEY_OS_NAME, osName);
-        props.put(Constants.KEY_OS_ARCH, osArch);
-        props.put(Constants.KEY_OS_VERSION, PlatformUtils.getDetectedVersion());
-        props.put(Constants.KEY_OS_PLATFORM, PlatformUtils.getCurrentFull());
-        props.put(Constants.KEY_OS_PLATFORM_REPLACED, getPlatform().applyReplacements(PlatformUtils.getCurrentFull()));
+        props.set(Constants.KEY_OS_NAME, osName);
+        props.set(Constants.KEY_OS_ARCH, osArch);
+        props.set(Constants.KEY_OS_VERSION, PlatformUtils.getDetectedVersion());
+        props.set(Constants.KEY_OS_PLATFORM, PlatformUtils.getCurrentFull());
+        props.set(Constants.KEY_OS_PLATFORM_REPLACED, getPlatform().applyReplacements(PlatformUtils.getCurrentFull()));
 
-        applyTemplates(props, project.getResolvedExtraProperties());
-        props.put(Constants.KEY_ZONED_DATE_TIME_NOW, now);
-        props.put(ReleaserDownloadUrl.NAME, new ReleaserDownloadUrl());
+        applyTemplates(props, project.resolvedExtraProperties());
+        props.set(Constants.KEY_ZONED_DATE_TIME_NOW, now);
+        props.set(ReleaserDownloadUrl.NAME, new ReleaserDownloadUrl());
 
         return props;
     }
 
-    private void fillProjectProperties(Map<String, Object> props, Project project) {
-        props.putAll(environment.getProperties());
-        props.putAll(environment.getSourcedProperties());
-        props.put(Constants.KEY_TIMESTAMP, timestamp);
-        if (commit != null) {
-            props.put(Constants.KEY_COMMIT_SHORT_HASH, commit.getShortHash());
-            props.put(Constants.KEY_COMMIT_FULL_HASH, commit.getFullHash());
+    private void fillProjectProperties(TemplateContext props, Project project) {
+        props.setAll(environment.getProperties());
+        props.setAll(environment.getSourcedProperties());
+        props.set(Constants.KEY_TIMESTAMP, timestamp);
+        if (null != commit) {
+            props.set(Constants.KEY_COMMIT_SHORT_HASH, commit.getShortHash());
+            props.set(Constants.KEY_COMMIT_FULL_HASH, commit.getFullHash());
         }
-        props.put(Constants.KEY_PROJECT_NAME, project.getName());
-        props.put(Constants.KEY_PROJECT_NAME_CAPITALIZED, getCapitalizedName(project.getName()));
-        props.put(Constants.KEY_PROJECT_VERSION, project.getVersion());
-        props.put(Constants.KEY_PROJECT_STEREOTYPE, project.getStereotype());
-        props.put(Constants.KEY_PROJECT_EFFECTIVE_VERSION, project.getEffectiveVersion());
-        props.put(Constants.KEY_PROJECT_SNAPSHOT, String.valueOf(project.isSnapshot()));
+        props.set(Constants.KEY_PROJECT_NAME, project.getName());
+        props.set(Constants.KEY_PROJECT_NAME_CAPITALIZED, getCapitalizedName(project.getName()));
+        props.set(Constants.KEY_PROJECT_VERSION, project.getVersion());
+        props.set(Constants.KEY_PROJECT_STEREOTYPE, project.getStereotype());
+        props.set(Constants.KEY_PROJECT_EFFECTIVE_VERSION, project.getEffectiveVersion());
+        props.set(Constants.KEY_PROJECT_SNAPSHOT, String.valueOf(project.isSnapshot()));
         if (isNotBlank(project.getDescription())) {
-            props.put(Constants.KEY_PROJECT_DESCRIPTION, MustacheUtils.passThrough(project.getDescription()));
+            props.set(Constants.KEY_PROJECT_DESCRIPTION, MustacheUtils.passThrough(project.getDescription()));
         }
         if (isNotBlank(project.getLongDescription())) {
-            props.put(Constants.KEY_PROJECT_LONG_DESCRIPTION, MustacheUtils.passThrough(project.getLongDescription()));
+            props.set(Constants.KEY_PROJECT_LONG_DESCRIPTION, MustacheUtils.passThrough(project.getLongDescription()));
         }
         if (isNotBlank(project.getLicense())) {
-            props.put(Constants.KEY_PROJECT_LICENSE, project.getLicense());
+            props.set(Constants.KEY_PROJECT_LICENSE, project.getLicense());
         }
         if (null != project.getInceptionYear()) {
-            props.put(Constants.KEY_PROJECT_INCEPTION_YEAR, project.getInceptionYear());
+            props.set(Constants.KEY_PROJECT_INCEPTION_YEAR, project.getInceptionYear());
         }
         if (isNotBlank(project.getCopyright())) {
-            props.put(Constants.KEY_PROJECT_COPYRIGHT, project.getCopyright());
+            props.set(Constants.KEY_PROJECT_COPYRIGHT, project.getCopyright());
         }
         if (isNotBlank(project.getVendor())) {
-            props.put(Constants.KEY_PROJECT_VENDOR, project.getVendor());
+            props.set(Constants.KEY_PROJECT_VENDOR, project.getVendor());
         }
         project.getLinks().fillProps(props);
-        props.put(Constants.KEY_PROJECT_AUTHORS_BY_SPACE, String.join(" ", project.getAuthors()));
-        props.put(Constants.KEY_PROJECT_AUTHORS_BY_COMMA, String.join(",", project.getAuthors()));
-        props.put(Constants.KEY_PROJECT_TAGS_BY_SPACE, String.join(" ", project.getTags()));
-        props.put(Constants.KEY_PROJECT_TAGS_BY_COMMA, String.join(",", project.getTags()));
+        props.set(Constants.KEY_PROJECT_AUTHORS_BY_SPACE, String.join(" ", project.getAuthors()));
+        props.set(Constants.KEY_PROJECT_AUTHORS_BY_COMMA, String.join(",", project.getAuthors()));
+        props.set(Constants.KEY_PROJECT_TAGS_BY_SPACE, String.join(" ", project.getTags()));
+        props.set(Constants.KEY_PROJECT_TAGS_BY_COMMA, String.join(",", project.getTags()));
 
         if (project.getJava().isEnabled()) {
-            props.putAll(project.getJava().getResolvedExtraProperties());
-            props.put(Constants.KEY_PROJECT_JAVA_GROUP_ID, project.getJava().getGroupId());
-            props.put(Constants.KEY_PROJECT_JAVA_ARTIFACT_ID, project.getJava().getArtifactId());
-            props.put(Constants.KEY_PROJECT_JAVA_VERSION, project.getJava().getVersion());
-            props.put(Constants.KEY_PROJECT_JAVA_MAIN_CLASS, project.getJava().getMainClass());
-            SemanticVersion jv = SemanticVersion.of(project.getJava().getVersion());
-            props.put(Constants.KEY_PROJECT_JAVA_VERSION_MAJOR, jv.getMajor());
-            if (jv.hasMinor()) props.put(Constants.KEY_PROJECT_JAVA_VERSION_MINOR, jv.getMinor());
-            if (jv.hasPatch()) props.put(Constants.KEY_PROJECT_JAVA_VERSION_PATCH, jv.getPatch());
-            if (jv.hasTag()) props.put(Constants.KEY_PROJECT_JAVA_VERSION_TAG, jv.getTag());
-            if (jv.hasBuild()) props.put(Constants.KEY_PROJECT_JAVA_VERSION_BUILD, jv.getBuild());
+            props.setAll(project.getJava().resolvedExtraProperties());
+            props.set(Constants.KEY_PROJECT_JAVA_GROUP_ID, project.getJava().getGroupId());
+            props.set(Constants.KEY_PROJECT_JAVA_ARTIFACT_ID, project.getJava().getArtifactId());
+            String javaVersion = project.getJava().getVersion();
+            props.set(Constants.KEY_PROJECT_JAVA_VERSION, javaVersion);
+            props.set(Constants.KEY_PROJECT_JAVA_MAIN_CLASS, project.getJava().getMainClass());
+            if (isNotBlank(javaVersion)) {
+                SemanticVersion jv = SemanticVersion.of(javaVersion);
+                props.set(Constants.KEY_PROJECT_JAVA_VERSION_MAJOR, jv.getMajor());
+                if (jv.hasMinor()) props.set(Constants.KEY_PROJECT_JAVA_VERSION_MINOR, jv.getMinor());
+                if (jv.hasPatch()) props.set(Constants.KEY_PROJECT_JAVA_VERSION_PATCH, jv.getPatch());
+                if (jv.hasTag()) props.set(Constants.KEY_PROJECT_JAVA_VERSION_TAG, jv.getTag());
+                if (jv.hasBuild()) props.set(Constants.KEY_PROJECT_JAVA_VERSION_BUILD, jv.getBuild());
+            }
         }
 
         project.parseVersion();
-        props.putAll(project.getResolvedExtraProperties());
+        props.setAll(project.resolvedExtraProperties());
     }
 
-    private void fillReleaserProperties(Map<String, Object> props, Release release) {
-        BaseReleaser service = release.getReleaser();
-        props.put(Constants.KEY_REPO_HOST, service.getHost());
-        props.put(Constants.KEY_REPO_OWNER, service.getOwner());
-        props.put(Constants.KEY_REPO_NAME, service.getName());
-        props.put(Constants.KEY_REPO_BRANCH, service.getBranch());
-        props.put(Constants.KEY_REVERSE_REPO_HOST, service.getReverseRepoHost());
-        props.put(Constants.KEY_CANONICAL_REPO_NAME, service.getCanonicalRepoName());
-        props.put(Constants.KEY_TAG_NAME, service.getEffectiveTagName(this));
-        props.put(Constants.KEY_RELEASE_NAME, service.getEffectiveReleaseName());
-        props.put(Constants.KEY_MILESTONE_NAME, service.getMilestone().getEffectiveName());
-        props.put(Constants.KEY_REPO_URL, service.getResolvedRepoUrl(this));
-        props.put(Constants.KEY_REPO_CLONE_URL, service.getResolvedRepoCloneUrl(this));
-        props.put(Constants.KEY_COMMIT_URL, service.getResolvedCommitUrl(this));
-        props.put(Constants.KEY_SRC_URL, service.getResolvedSrcUrl(this));
-        props.put(Constants.KEY_RELEASE_NOTES_URL, service.getResolvedReleaseNotesUrl(this));
-        props.put(Constants.KEY_LATEST_RELEASE_URL, service.getResolvedLatestReleaseUrl(this));
-        props.put(Constants.KEY_ISSUE_TRACKER_URL, service.getResolvedIssueTrackerUrl(this));
+    private void fillReleaserProperties(TemplateContext props, Release release) {
+        BaseReleaser<?, ?> service = release.getReleaser();
+        props.set(Constants.KEY_REPO_HOST, service.getHost());
+        props.set(Constants.KEY_REPO_OWNER, service.getOwner());
+        props.set(Constants.KEY_REPO_NAME, service.getName());
+        props.set(Constants.KEY_REPO_BRANCH, service.getBranch());
+        props.set(Constants.KEY_REVERSE_REPO_HOST, service.getReverseRepoHost());
+        props.set(Constants.KEY_CANONICAL_REPO_NAME, service.getCanonicalRepoName());
+        props.set(Constants.KEY_TAG_NAME, service.getEffectiveTagName(this));
+        props.set(Constants.KEY_PREVIOUS_TAG_NAME, service.getResolvedPreviousTagName(this));
+        props.set(Constants.KEY_RELEASE_NAME, service.getEffectiveReleaseName());
+        props.set(Constants.KEY_MILESTONE_NAME, service.getMilestone().getEffectiveName());
+        props.set(Constants.KEY_REPO_URL, service.getResolvedRepoUrl(this));
+        props.set(Constants.KEY_REPO_CLONE_URL, service.getResolvedRepoCloneUrl(this));
+        props.set(Constants.KEY_COMMIT_URL, service.getResolvedCommitUrl(this));
+        props.set(Constants.KEY_SRC_URL, service.getResolvedSrcUrl(this));
+        props.set(Constants.KEY_RELEASE_NOTES_URL, service.getResolvedReleaseNotesUrl(this));
+        props.set(Constants.KEY_LATEST_RELEASE_URL, service.getResolvedLatestReleaseUrl(this));
+        props.set(Constants.KEY_ISSUE_TRACKER_URL, service.getResolvedIssueTrackerUrl(this, false));
     }
 
     private final class ReleaserDownloadUrl implements TemplateFunction {
         private static final String NAME = "f_release_download_url";
+        private static final String MARKDOWN = "md";
+        private static final String ASCIIDOC = "adoc";
+        private static final String HTML = "html";
 
         @Override
         public String apply(String input) {
-            String format = "md";
+            String format = MARKDOWN;
             String artifactFile = "";
+            String linkName = "";
             String[] parts = input.split(":");
             if (parts.length == 1) {
                 artifactFile = parts[0];
+                linkName = artifactFile;
             } else if (parts.length == 2) {
-                format = parts[0];
+                linkName = parts[0];
                 artifactFile = parts[1];
+            } else if (parts.length == 3) {
+                format = parts[0];
+                linkName = parts[1];
+                artifactFile = parts[2];
             } else {
                 throw new JReleaserException(RB.$("ERROR_invalid_function_input", input, NAME));
             }
 
+            switch (linkName) {
+                case MARKDOWN:
+                case ASCIIDOC:
+                case HTML:
+                    format = linkName;
+                    linkName = artifactFile;
+            }
+
             switch (format.toLowerCase(Locale.ENGLISH)) {
-                case "md":
-                    return ("[{{artifactFile}}](" + getRelease().getReleaser().getDownloadUrl() + ")")
+                case MARKDOWN:
+                    return ("[" + linkName + "](" + getRelease().getReleaser().getDownloadUrl() + ")")
                         .replace("{{artifactFile}}", artifactFile);
-                case "adoc":
-                    return ("link:" + getRelease().getReleaser().getDownloadUrl() + "[{{artifactFile}}]")
+                case ASCIIDOC:
+                    return ("link:" + getRelease().getReleaser().getDownloadUrl() + "[" + linkName + "]")
                         .replace("{{artifactFile}}", artifactFile);
-                case "html":
-                    return ("<a href=\"" + getRelease().getReleaser().getDownloadUrl() + "\">{{artifactFile}}</a>")
+                case HTML:
+                    return ("<a href=\"" + getRelease().getReleaser().getDownloadUrl() + "\">" + linkName + "</a>")
                         .replace("{{artifactFile}}", artifactFile);
+                default:
+                    // noop
             }
 
             throw new JReleaserException(RB.$("ERROR_invalid_function_input", input, NAME));

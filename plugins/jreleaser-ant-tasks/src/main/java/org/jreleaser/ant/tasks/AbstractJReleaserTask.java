@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -49,6 +49,7 @@ import java.util.Set;
 
 import static java.util.stream.Collectors.toList;
 import static org.jreleaser.util.FileUtils.resolveOutputDirectory;
+import static org.jreleaser.util.IoUtils.newPrintWriter;
 import static org.jreleaser.util.StringUtils.isBlank;
 import static org.jreleaser.util.StringUtils.isNotBlank;
 
@@ -99,7 +100,7 @@ abstract class AbstractJReleaserTask extends Task {
 
     @Override
     public void execute() throws BuildException {
-        Banner.display(new PrintWriter(System.out, true));
+        Banner.display(newPrintWriter(System.err));
         if (skip) return;
 
         resolveConfigFile();
@@ -110,6 +111,7 @@ abstract class AbstractJReleaserTask extends Task {
         JReleaserVersion.banner(logger.getTracer());
         logger.info("Configuring with {}", actualConfigFile);
         logger.info(" - basedir set to {}", actualBasedir.toAbsolutePath());
+        logger.info(" - outputdir set to {}", getOutputDirectory().toAbsolutePath());
         doExecute(createContext());
     }
 
@@ -154,9 +156,8 @@ abstract class AbstractJReleaserTask extends Task {
     protected PrintWriter createTracer() {
         try {
             Files.createDirectories(getOutputDirectory());
-            return new PrintWriter(new FileOutputStream(
-                getOutputDirectory().resolve("trace.log").toFile()),
-                true);
+            return newPrintWriter(new FileOutputStream(
+                getOutputDirectory().resolve("trace.log").toFile()));
         } catch (IOException e) {
             throw new IllegalStateException("Could not initialize trace file", e);
         }
@@ -206,9 +207,10 @@ abstract class AbstractJReleaserTask extends Task {
                 return JReleaserContext.Configurer.CLI_TOML;
             case "json":
                 return JReleaserContext.Configurer.CLI_JSON;
+            default:
+                // should not happen!
+                throw new IllegalArgumentException("Invalid configuration format: " + configFile.getFileName());
         }
-        // should not happen!
-        throw new IllegalArgumentException("Invalid configuration format: " + configFile.getFileName());
     }
 
     private Set<String> getSupportedConfigFormats() {
@@ -236,16 +238,18 @@ abstract class AbstractJReleaserTask extends Task {
         return Collections.emptyList();
     }
 
-    protected List<String> collectEntries(String[] input) {
+    protected List<String> collectEntries(List<String> input) {
         return collectEntries(input, false);
     }
 
-    protected List<String> collectEntries(String[] input, boolean lowerCase) {
+    protected List<String> collectEntries(List<String> input, boolean lowerCase) {
         List<String> list = new ArrayList<>();
-        if (input != null && input.length > 0) {
+        if (null != input && !input.isEmpty()) {
             for (String s : input) {
                 if (isNotBlank(s)) {
-                    s = s.trim();
+                    if (!s.contains("-") && lowerCase) {
+                        s = StringUtils.getHyphenatedName(s);
+                    }
                     list.add(lowerCase ? s.toLowerCase(Locale.ENGLISH) : s);
                 }
             }

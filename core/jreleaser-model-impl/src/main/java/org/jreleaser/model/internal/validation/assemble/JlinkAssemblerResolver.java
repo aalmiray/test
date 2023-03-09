@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,20 +22,24 @@ import org.jreleaser.model.Archive;
 import org.jreleaser.model.internal.JReleaserContext;
 import org.jreleaser.model.internal.assemble.JlinkAssembler;
 import org.jreleaser.model.internal.common.Artifact;
-import org.jreleaser.model.internal.validation.common.Validator;
 import org.jreleaser.util.Errors;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 
+import static org.jreleaser.model.Constants.KEY_ARCHIVE_FORMAT;
 import static org.jreleaser.util.StringUtils.isNotBlank;
 
 /**
  * @author Andres Almiray
  * @since 0.2.0
  */
-public abstract class JlinkAssemblerResolver extends Validator {
+public final class JlinkAssemblerResolver {
+    private JlinkAssemblerResolver() {
+        // noop
+    }
+
     public static void resolveJlinkOutputs(JReleaserContext context, Errors errors) {
         List<JlinkAssembler> activeJlinks = context.getModel().getAssemble().getActiveJlinks();
         if (!activeJlinks.isEmpty()) context.getLogger().debug("assemble.jlink");
@@ -45,23 +49,23 @@ public abstract class JlinkAssemblerResolver extends Validator {
         }
     }
 
-    private static void resolveJlinkOutputs(JReleaserContext context, JlinkAssembler jlink, Errors errors) {
+    private static void resolveJlinkOutputs(JReleaserContext context, JlinkAssembler assembler, Errors errors) {
         Path baseOutputDirectory = context.getAssembleDirectory()
-            .resolve(jlink.getName())
-            .resolve(jlink.getType());
+            .resolve(assembler.getName())
+            .resolve(assembler.getType());
 
-        String imageName = jlink.getResolvedImageName(context);
-        if (isNotBlank(jlink.getImageNameTransform())) {
-            imageName = jlink.getResolvedImageNameTransform(context);
+        String imageName = assembler.getResolvedImageName(context);
+        if (isNotBlank(assembler.getImageNameTransform())) {
+            imageName = assembler.getResolvedImageNameTransform(context);
         }
 
-        for (Artifact targetJdk : jlink.getTargetJdks()) {
+        for (Artifact targetJdk : assembler.getTargetJdks()) {
             if (!context.isPlatformSelected(targetJdk)) continue;
 
             String platform = targetJdk.getPlatform();
-            String platformReplaced = jlink.getPlatform().applyReplacements(platform);
+            String platformReplaced = assembler.getPlatform().applyReplacements(platform);
             String str = targetJdk.getExtraProperties()
-                .getOrDefault("archiveFormat", "ZIP")
+                .getOrDefault(KEY_ARCHIVE_FORMAT, assembler.getArchiveFormat())
                 .toString();
             Archive.Format archiveFormat = Archive.Format.of(str);
 
@@ -71,12 +75,12 @@ public abstract class JlinkAssemblerResolver extends Validator {
 
             if (!Files.exists(image)) {
                 errors.assembly(RB.$("validation_missing_assembly",
-                    jlink.getType(), jlink.getName(), jlink.getName()));
+                    assembler.getType(), assembler.getName(), assembler.getName()));
             } else {
                 Artifact artifact = Artifact.of(image, platform);
-                artifact.setExtraProperties(jlink.getExtraProperties());
+                artifact.setExtraProperties(assembler.getExtraProperties());
                 artifact.activate();
-                jlink.addOutput(artifact);
+                assembler.addOutput(artifact);
             }
         }
     }

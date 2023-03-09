@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,10 @@
  */
 package org.jreleaser.util;
 
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatterBuilder;
+
+import static java.time.format.DateTimeFormatter.ISO_LOCAL_DATE_TIME;
 import static org.jreleaser.util.StringUtils.padLeft;
 
 /**
@@ -24,6 +28,13 @@ import static org.jreleaser.util.StringUtils.padLeft;
  * @since 0.3.0
  */
 public final class TimeUtils {
+    public static final DateTimeFormatter TIMESTAMP_FORMATTER = new DateTimeFormatterBuilder()
+        .append(ISO_LOCAL_DATE_TIME)
+        .optionalStart()
+        .appendOffset("+HH:MM", "Z")
+        .optionalEnd()
+        .toFormatter();
+
     private TimeUtils() {
         // noop
     }

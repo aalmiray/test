@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,10 +19,9 @@ package org.jreleaser.model;
 
 import org.jreleaser.model.internal.JReleaserModel;
 import org.jreleaser.model.internal.release.GithubReleaser;
+import org.jreleaser.mustache.TemplateContext;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
-
-import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -31,13 +30,13 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  * @since 1.2.0
  */
 @Disabled
-public class JReleaserModelTest {
+class JReleaserModelTest {
     @Test
     void shouldRenderProjectNameCapitalizedWithSpaces() {
         JReleaserModel model = new JReleaserModel();
         model.getProject().setName("quarkiverse-parent");
         model.getRelease().setGithub(new GithubReleaser());
-        Map<String, Object> props = model.props();
+        TemplateContext props = model.props();
         assertEquals("Quarkiverse Parent", props.get(Constants.KEY_PROJECT_NAME_CAPITALIZED));
     }
 }

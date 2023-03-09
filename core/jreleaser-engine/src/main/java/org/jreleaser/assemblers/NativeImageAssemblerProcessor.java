@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,12 +18,12 @@
 package org.jreleaser.assemblers;
 
 import org.jreleaser.bundle.RB;
+import org.jreleaser.model.Archive;
 import org.jreleaser.model.Constants;
 import org.jreleaser.model.internal.JReleaserContext;
 import org.jreleaser.model.internal.assemble.NativeImageAssembler;
-import org.jreleaser.model.internal.common.Artifact;
-import org.jreleaser.model.internal.project.Project;
 import org.jreleaser.model.spi.assemble.AssemblerProcessingException;
+import org.jreleaser.mustache.TemplateContext;
 import org.jreleaser.sdk.command.Command;
 import org.jreleaser.sdk.command.CommandException;
 import org.jreleaser.sdk.tool.ToolException;
@@ -34,24 +34,26 @@ import org.jreleaser.version.SemanticVersion;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 import static org.jreleaser.assemblers.AssemblerUtils.copyJars;
 import static org.jreleaser.assemblers.AssemblerUtils.readJavaVersion;
+import static org.jreleaser.model.Constants.KEY_ARCHIVE_FORMAT;
+import static org.jreleaser.util.FileType.EXE;
 import static org.jreleaser.util.StringUtils.isNotBlank;
 
 /**
  * @author Andres Almiray
  * @since 0.2.0
  */
-public class NativeImageAssemblerProcessor extends AbstractJavaAssemblerProcessor<org.jreleaser.model.api.assemble.NativeImageAssembler, NativeImageAssembler> {
+public class NativeImageAssemblerProcessor extends AbstractAssemblerProcessor<org.jreleaser.model.api.assemble.NativeImageAssembler, NativeImageAssembler> {
     private static final String KEY_GRAALVM_VERSION = "GRAALVM_VERSION";
 
     public NativeImageAssemblerProcessor(JReleaserContext context) {
@@ -59,7 +61,7 @@ public class NativeImageAssemblerProcessor extends AbstractJavaAssemblerProcesso
     }
 
     @Override
-    protected void doAssemble(Map<String, Object> props) throws AssemblerProcessingException {
+    protected void doAssemble(TemplateContext props) throws AssemblerProcessingException {
         // verify graal
         Path graalPath = assembler.getGraal().getEffectivePath(context, assembler);
         SemanticVersion javaVersion = SemanticVersion.of(readJavaVersion(graalPath));
@@ -69,9 +71,9 @@ public class NativeImageAssemblerProcessor extends AbstractJavaAssemblerProcesso
 
         String platform = assembler.getGraal().getPlatform();
         // copy jars to assembly
-        Path assembleDirectory = (Path) props.get(Constants.KEY_DISTRIBUTION_ASSEMBLE_DIRECTORY);
-        Path jarsDirectory = assembleDirectory.resolve("jars");
-        Path universalJarsDirectory = jarsDirectory.resolve("universal");
+        Path assembleDirectory = props.get(Constants.KEY_DISTRIBUTION_ASSEMBLE_DIRECTORY);
+        Path jarsDirectory = assembleDirectory.resolve(JARS_DIRECTORY);
+        Path universalJarsDirectory = jarsDirectory.resolve(UNIVERSAL_DIRECTORY);
         context.getLogger().debug(RB.$("assembler.copy.jars"), context.relativizeToBasedir(universalJarsDirectory));
         Set<Path> jars = copyJars(context, assembler, universalJarsDirectory, "");
         Path platformJarsDirectory = jarsDirectory.resolve(platform);
@@ -88,7 +90,7 @@ public class NativeImageAssemblerProcessor extends AbstractJavaAssemblerProcesso
             imageName = assembler.getResolvedImageNameTransform(context);
         }
 
-        nativeImage(assembleDirectory, graalPath, jars, imageName);
+        nativeImage(props, assembleDirectory, graalPath, jars, imageName);
     }
 
     private void installNativeImage(Path graalPath) throws AssemblerProcessingException {
@@ -99,7 +101,7 @@ public class NativeImageAssemblerProcessor extends AbstractJavaAssemblerProcesso
 
         if (!Files.exists(nativeImageExecutable)) {
             Path guExecutable = graalPath
-                .resolve("bin")
+                .resolve(BIN_DIRECTORY)
                 .resolve(PlatformUtils.isWindows() ? "gu.cmd" : "gu")
                 .toAbsolutePath();
 
@@ -115,7 +117,7 @@ public class NativeImageAssemblerProcessor extends AbstractJavaAssemblerProcesso
 
     private void installComponents(Path graalPath) throws AssemblerProcessingException {
         Path guExecutable = graalPath
-            .resolve("bin")
+            .resolve(BIN_DIRECTORY)
             .resolve(PlatformUtils.isWindows() ? "gu.cmd" : "gu")
             .toAbsolutePath();
 
@@ -130,14 +132,14 @@ public class NativeImageAssemblerProcessor extends AbstractJavaAssemblerProcesso
         }
     }
 
-    private Artifact nativeImage(Path assembleDirectory, Path graalPath, Set<Path> jars, String imageName) throws AssemblerProcessingException {
+    private void nativeImage(TemplateContext props, Path assembleDirectory, Path graalPath, Set<Path> jars, String imageName) throws AssemblerProcessingException {
         String platform = assembler.getGraal().getPlatform();
         String platformReplaced = assembler.getPlatform().applyReplacements(platform);
         String finalImageName = imageName + "-" + platformReplaced;
 
         String executable = assembler.getExecutable();
         if (PlatformUtils.isWindows()) {
-            executable += ".exe";
+            executable += EXE.extension();
         }
         context.getLogger().info("- {}", finalImageName);
 
@@ -189,39 +191,26 @@ public class NativeImageAssemblerProcessor extends AbstractJavaAssemblerProcesso
             Path tempDirectory = Files.createTempDirectory("jreleaser");
             Path distDirectory = tempDirectory.resolve(finalImageName);
             Files.createDirectories(distDirectory);
-            Path binDirectory = distDirectory.resolve("bin");
+            Path binDirectory = distDirectory.resolve(BIN_DIRECTORY);
             Files.createDirectories(binDirectory);
             Files.copy(image, binDirectory.resolve(image.getFileName()));
             FileUtils.copyFiles(context.getLogger(),
                 context.getBasedir(),
-                distDirectory, path -> path.getFileName().startsWith("LICENSE"));
+                distDirectory, path -> path.getFileName().startsWith(LICENSE));
+            copyTemplates(context, props, distDirectory);
+            copyArtifacts(context, distDirectory, platform, true);
             copyFiles(context, distDirectory);
             copyFileSets(context, distDirectory);
 
-            Path imageArchive = assembleDirectory.resolve(finalImageName + "." + assembler.getArchiveFormat().extension());
-            switch (assembler.getArchiveFormat()) {
-                case ZIP:
-                    FileUtils.zip(tempDirectory, imageArchive);
-                    break;
-                case TAR:
-                    FileUtils.tar(tempDirectory, imageArchive);
-                    break;
-                case TGZ:
-                case TAR_GZ:
-                    FileUtils.tgz(tempDirectory, imageArchive);
-                    break;
-                case TXZ:
-                case TAR_XZ:
-                    FileUtils.xz(tempDirectory, imageArchive);
-                    break;
-                case TBZ2:
-                case TAR_BZ2:
-                    FileUtils.bz2(tempDirectory, imageArchive);
-            }
+            String str = assembler.getGraal().getExtraProperties()
+                .getOrDefault(KEY_ARCHIVE_FORMAT, assembler.getArchiveFormat())
+                .toString();
+            Archive.Format archiveFormat = Archive.Format.of(str);
+
+            Path imageArchive = assembleDirectory.resolve(finalImageName + "." + archiveFormat.extension());
+            FileUtils.packArchive(tempDirectory, imageArchive, assembler.getOptions().toOptions());
 
             context.getLogger().debug("- {}", imageArchive.getFileName());
-
-            return Artifact.of(imageArchive, platform);
         } catch (IOException e) {
             throw new AssemblerProcessingException(RB.$("ERROR_unexpected_error"), e);
         }
@@ -255,9 +244,9 @@ public class NativeImageAssemblerProcessor extends AbstractJavaAssemblerProcesso
             throw new AssemblerProcessingException(RB.$("ERROR_assembler_invalid_graal_release", path.toAbsolutePath()));
         }
 
-        try {
+        try (InputStream in = Files.newInputStream(release)) {
             Properties props = new Properties();
-            props.load(Files.newInputStream(release));
+            props.load(in);
             if (props.containsKey(KEY_GRAALVM_VERSION)) {
                 String version = props.getProperty(KEY_GRAALVM_VERSION);
                 if (version.startsWith("\"") && version.endsWith("\"")) {
@@ -270,11 +259,5 @@ public class NativeImageAssemblerProcessor extends AbstractJavaAssemblerProcesso
         } catch (IOException e) {
             throw new AssemblerProcessingException(RB.$("ERROR_assembler_invalid_graal_release_file", release.toAbsolutePath()), e);
         }
-    }
-
-    @Override
-    protected void writeFile(Project project, String content, Map<String, Object> props, String fileName)
-        throws AssemblerProcessingException {
-        // noop
     }
 }

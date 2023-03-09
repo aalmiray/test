@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,11 +15,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+config {
+    licensing {
+        excludes = ['org/jreleaser/dependencies/os/*']
+    }
+}
+
 dependencies {
     api project(':jreleaser-logger-api')
     api project(':jreleaser-resource-bundle')
 
-    api("kr.motd.maven:os-maven-plugin:$osMvnPluginVersion") { transitive = false }
     api "com.fasterxml.jackson.core:jackson-core:$jacksonVersion"
     api "com.fasterxml.jackson.core:jackson-databind:$jacksonVersion"
     // checksum
@@ -27,14 +33,21 @@ dependencies {
     api "org.apache.commons:commons-compress:$commonsCompressVersion"
     api "org.bouncycastle:bcpg-jdk15on:$bouncyCastleVersion"
     api "org.slf4j:jcl-over-slf4j:$slf4jVersion"
-    api "com.github.veithen.cosmos.bootstrap:org.tukaani.xz:$xzVersion"
+    api "org.tukaani:xz:$xzVersion"
+    api "com.github.luben:zstd-jni:$zstdVersion"
 }
+
+// test {
+//     // Required for junit-pioneer in JDK17+
+//     jvmArgs '--add-opens java.base/java.lang=ALL-UNNAMED'
+// }
 
 processResources {
     filesMatching(['**/*.properties']) {
         expand(
             mvnVersion: mavenVersion,
-            pomcheckerVersion: pomcheckerVersion
+            pomcheckerVersion: pomcheckerVersion,
+            syftVersion: syftVersion
         )
     }
 }

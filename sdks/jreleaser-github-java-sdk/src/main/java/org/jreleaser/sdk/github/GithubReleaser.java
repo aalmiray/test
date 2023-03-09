@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,6 +31,7 @@ import org.jreleaser.model.spi.release.Release;
 import org.jreleaser.model.spi.release.ReleaseException;
 import org.jreleaser.model.spi.release.Repository;
 import org.jreleaser.model.spi.release.User;
+import org.jreleaser.mustache.TemplateContext;
 import org.jreleaser.sdk.commons.RestAPIException;
 import org.jreleaser.sdk.git.ChangelogGenerator;
 import org.jreleaser.sdk.git.ChangelogProvider;
@@ -58,6 +59,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.regex.Pattern;
 
 import static org.jreleaser.mustache.Templates.resolveTemplate;
@@ -72,10 +74,13 @@ import static org.jreleaser.util.StringUtils.uncapitalize;
  * @since 0.1.0
  */
 public class GithubReleaser extends AbstractReleaser<org.jreleaser.model.api.release.GithubReleaser> {
+    private static final long serialVersionUID = 1560414694353263225L;
+
+    private static final String NOREPLY_GITHUB_COM_EMAIL = "noreply@github.com";
 
     private final org.jreleaser.model.internal.release.GithubReleaser github;
 
-    public GithubReleaser(JReleaserContext context, List<Asset> assets) {
+    public GithubReleaser(JReleaserContext context, Set<Asset> assets) {
         super(context, assets);
         github = context.getModel().getRelease().getGithub();
     }
@@ -91,6 +96,7 @@ public class GithubReleaser extends AbstractReleaser<org.jreleaser.model.api.rel
             String content = generateReleaseNotesByAPI();
 
             if (github.getIssues().isEnabled()) {
+                context.getLogger().info(RB.$("issues.generator.extract"));
                 Set<Integer> issues = extractIssues(context, content);
                 storeIssues(context, issues);
             }
@@ -176,13 +182,15 @@ public class GithubReleaser extends AbstractReleaser<org.jreleaser.model.api.rel
                 github.getConnectTimeout(),
                 github.getReadTimeout());
 
-            String branch = github.getBranch();
-            Map<String, GHBranch> branches = api.listBranches(github.getOwner(), github.getName());
-            if (!branches.containsKey(branch)) {
-                throw new ReleaseException(RB.$("ERROR_git_release_branch_not_exists", branch, branches.keySet()));
+            if (!context.isDryrun()) {
+                String branch = github.getBranch();
+                Map<String, GHBranch> branches = api.listBranches(github.getOwner(), github.getName());
+                if (!branches.containsKey(branch)) {
+                    throw new ReleaseException(RB.$("ERROR_git_release_branch_not_exists", branch, branches.keySet()));
+                }
             }
 
-            String changelog = context.getChangelog();
+            String changelog = context.getChangelog().getResolvedChangelog();
 
             context.getLogger().debug(RB.$("git.releaser.release.lookup"), tagName, github.getCanonicalRepoName());
             GHRelease release = api.findReleaseByTag(github.getCanonicalRepoName(), tagName);
@@ -200,8 +208,12 @@ public class GithubReleaser extends AbstractReleaser<org.jreleaser.model.api.rel
                     context.getLogger().debug(RB.$("git.releaser.release.update"), tagName);
                     if (!context.isDryrun()) {
                         GHReleaseUpdater updater = release.update();
-                        updater.prerelease(github.getPrerelease().isEnabled());
-                        updater.draft(github.isDraft());
+                        if (github.getPrerelease().isEnabledSet()) {
+                            updater.prerelease(github.getPrerelease().isEnabled());
+                        }
+                        if (github.isDraftSet()) {
+                            updater.draft(github.isDraft());
+                        }
                         if (github.getUpdate().getSections().contains(UpdateSection.TITLE)) {
                             context.getLogger().info(RB.$("git.releaser.release.update.title"), github.getEffectiveReleaseName());
                             updater.name(github.getEffectiveReleaseName());
@@ -268,6 +280,8 @@ public class GithubReleaser extends AbstractReleaser<org.jreleaser.model.api.rel
 
     @Override
     public Optional<User> findUser(String email, String name) {
+        if (NOREPLY_GITHUB_COM_EMAIL.equals(email)) return Optional.empty();
+
         org.jreleaser.model.internal.release.GithubReleaser github = context.getModel().getRelease().getGithub();
 
         try {
@@ -277,7 +291,7 @@ public class GithubReleaser extends AbstractReleaser<org.jreleaser.model.api.rel
                 github.getConnectTimeout(),
                 github.getReadTimeout())
                 .findUser(email, name);
-        } catch (RestAPIException | IOException e) {
+        } catch (RestAPIException e) {
             context.getLogger().trace(e);
             context.getLogger().debug(RB.$("git.releaser.user.not.found"), email);
         }
@@ -389,7 +403,7 @@ public class GithubReleaser extends AbstractReleaser<org.jreleaser.model.api.rel
         String tagName = github.getEffectiveTagName(context.getModel());
         String labelName = github.getIssues().getLabel().getName();
         String labelColor = github.getIssues().getLabel().getColor();
-        Map<String, Object> props = github.props(context.getModel());
+        TemplateContext props = github.props(context.getModel());
         github.fillProps(props, context.getModel());
         String comment = resolveTemplate(github.getIssues().getComment(), props);
         if (labelColor.startsWith("#")) {
@@ -476,8 +490,8 @@ public class GithubReleaser extends AbstractReleaser<org.jreleaser.model.api.rel
     private void updateAssets(Github api, GHRelease release) throws IOException {
         org.jreleaser.model.internal.release.GithubReleaser github = context.getModel().getRelease().getGithub();
 
-        List<Asset> assetsToBeUpdated = new ArrayList<>();
-        List<Asset> assetsToBeUploaded = new ArrayList<>();
+        Set<Asset> assetsToBeUpdated = new TreeSet<>();
+        Set<Asset> assetsToBeUploaded = new TreeSet<>();
 
         Map<String, GHAsset> existingAssets = api.listAssets(github.getOwner(), github.getName(), release);
         Map<String, Asset> assetsToBePublished = new LinkedHashMap<>();
@@ -521,7 +535,7 @@ public class GithubReleaser extends AbstractReleaser<org.jreleaser.model.api.rel
                 tagName,
                 release.getId(),
                 ghRelease);
-        } catch (RestAPIException | IOException e) {
+        } catch (RestAPIException e) {
             context.getLogger().trace(e);
             context.getLogger().warn(RB.$("git.releaser.link.discussion.error"),
                 tagName, discussionCategoryName);

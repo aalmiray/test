@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,48 +25,63 @@ import org.jreleaser.util.Errors;
 
 import static org.jreleaser.model.api.release.Releaser.DRAFT;
 import static org.jreleaser.model.api.release.Releaser.PRERELEASE_PATTERN;
+import static org.jreleaser.model.internal.validation.common.Validator.checkProperty;
+import static org.jreleaser.model.internal.validation.release.BaseReleaserValidator.validateGitService;
 import static org.jreleaser.util.StringUtils.isBlank;
 
 /**
  * @author Andres Almiray
  * @since 0.1.0
  */
-public abstract class GiteaReleaserValidator extends BaseReleaserValidator {
-    public static boolean validateGitea(JReleaserContext context, Mode mode, GiteaReleaser gitea, Errors errors) {
-        if (null == gitea) return false;
+public final class GiteaReleaserValidator {
+    private GiteaReleaserValidator() {
+        // noop
+    }
+
+    public static boolean validateGitea(JReleaserContext context, Mode mode, GiteaReleaser service, Errors errors) {
+        if (null == service) return false;
         context.getLogger().debug("release.gitea");
 
-        validateGitService(context, mode, gitea, errors);
+        validateGitService(context, mode, service, errors);
 
-        if (isBlank(gitea.getApiEndpoint())) {
-            errors.configuration(RB.$("validation_must_not_be_blank", "gitea.internal.mutableEndpoint"));
+        if (isBlank(service.getApiEndpoint())) {
+            errors.configuration(RB.$("validation_must_not_be_blank", "gitea.apiEndpoint"));
         }
 
         if (context.getModel().getProject().isSnapshot()) {
-            gitea.getPrerelease().setEnabled(true);
+            service.getPrerelease().setEnabled(true);
         }
 
-        gitea.getPrerelease().setPattern(
+        service.getPrerelease().setPattern(
             checkProperty(context,
                 PRERELEASE_PATTERN,
                 "release.gitea.prerelease.pattern",
-                gitea.getPrerelease().getPattern(),
+                service.getPrerelease().getPattern(),
                 ""));
-        gitea.getPrerelease().isPrerelease(context.getModel().getProject().getResolvedVersion());
+        service.getPrerelease().isPrerelease(context.getModel().getProject().getResolvedVersion());
 
-        if (!gitea.isDraftSet()) {
-            gitea.setDraft(
+        if (!service.isDraftSet()) {
+            service.setDraft(
                 checkProperty(context,
                     DRAFT,
-                    "gitea.draft",
+                    "release.gitea.draft",
                     null,
                     false));
         }
 
-        if (gitea.isDraft()) {
-            gitea.getMilestone().setClose(false);
+        if (!service.getUpdate().isEnabled()) {
+            if (!service.getPrerelease().isEnabledSet()) {
+                service.getPrerelease().setEnabled(false);
+            }
+            if (!service.isDraftSet()) {
+                service.setDraft(false);
+            }
         }
 
-        return gitea.isEnabled();
+        if (service.isDraft()) {
+            service.getMilestone().setClose(false);
+        }
+
+        return service.isEnabled();
     }
 }

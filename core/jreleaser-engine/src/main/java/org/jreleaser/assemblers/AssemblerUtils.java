@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,6 +26,7 @@ import org.jreleaser.util.PlatformUtils;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -54,9 +55,9 @@ public final class AssemblerUtils {
             throw new AssemblerProcessingException(RB.$("ERROR_assembler_invalid_jdk_release", path.toAbsolutePath()));
         }
 
-        try {
+        try (InputStream in = Files.newInputStream(release)) {
             Properties props = new Properties();
-            props.load(Files.newInputStream(release));
+            props.load(in);
             if (props.containsKey(KEY_JAVA_VERSION)) {
                 String version = props.getProperty(KEY_JAVA_VERSION);
                 if (version.startsWith("\"") && version.endsWith("\"")) {
@@ -80,8 +81,9 @@ public final class AssemblerUtils {
         }
 
         for (Glob glob : assembler.getJars()) {
-            boolean platformIsBlank = isBlank(platform) && isBlank(glob.getPlatform());
-            boolean platformIsCompatible = isNotBlank(platform) && PlatformUtils.isCompatible(platform, glob.getPlatform());
+            String globPlatform = glob.getPlatform();
+            boolean platformIsBlank = isBlank(platform) && isBlank(globPlatform);
+            boolean platformIsCompatible = isNotBlank(platform) && isNotBlank(globPlatform) && PlatformUtils.isCompatible(platform, globPlatform);
             if (platformIsBlank || platformIsCompatible) {
                 glob.getResolvedArtifacts(context).stream()
                     .map(artifact -> artifact.getResolvedPath(context, assembler))

@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,14 +18,11 @@
 package org.jreleaser.model.internal.validation.assemble;
 
 import org.jreleaser.bundle.RB;
-import org.jreleaser.model.Active;
 import org.jreleaser.model.Archive;
 import org.jreleaser.model.api.JReleaserContext.Mode;
 import org.jreleaser.model.internal.JReleaserContext;
 import org.jreleaser.model.internal.assemble.NativeImageAssembler;
 import org.jreleaser.model.internal.common.Artifact;
-import org.jreleaser.model.internal.common.FileSet;
-import org.jreleaser.model.internal.validation.common.Validator;
 import org.jreleaser.util.Errors;
 import org.jreleaser.util.PlatformUtils;
 
@@ -34,7 +31,9 @@ import java.util.Map;
 import java.util.Optional;
 
 import static java.util.stream.Collectors.groupingBy;
-import static org.jreleaser.model.internal.validation.common.TemplateValidator.validateTemplate;
+import static org.jreleaser.model.internal.validation.assemble.AssemblersValidator.validateJavaAssembler;
+import static org.jreleaser.model.internal.validation.common.Validator.resolveActivatable;
+import static org.jreleaser.util.CollectionUtils.listOf;
 import static org.jreleaser.util.StringUtils.isBlank;
 import static org.jreleaser.util.StringUtils.isNotBlank;
 
@@ -42,7 +41,11 @@ import static org.jreleaser.util.StringUtils.isNotBlank;
  * @author Andres Almiray
  * @since 0.2.0
  */
-public abstract class NativeImageAssemblerValidator extends Validator {
+public final class NativeImageAssemblerValidator {
+    private NativeImageAssemblerValidator() {
+        // noop
+    }
+
     public static void validateNativeImage(JReleaserContext context, Mode mode, Errors errors) {
         Map<String, NativeImageAssembler> nativeImage = context.getModel().getAssemble().getNativeImage();
         if (!nativeImage.isEmpty()) context.getLogger().debug("assemble.nativeImage");
@@ -55,66 +58,66 @@ public abstract class NativeImageAssemblerValidator extends Validator {
         }
     }
 
-    private static void validateNativeImage(JReleaserContext context, Mode mode, NativeImageAssembler nativeImage, Errors errors) {
-        context.getLogger().debug("assemble.nativeImage.{}", nativeImage.getName());
+    private static void validateNativeImage(JReleaserContext context, Mode mode, NativeImageAssembler assembler, Errors errors) {
+        context.getLogger().debug("assemble.nativeImage.{}", assembler.getName());
 
-        if (!nativeImage.isActiveSet()) {
-            nativeImage.setActive(Active.NEVER);
-        }
-        if (!nativeImage.resolveEnabled(context.getModel().getProject())) {
+        resolveActivatable(context, assembler,
+            listOf("assemble.native.image." + assembler.getName(), "assemble.native.image"),
+            "NEVER");
+        if (!assembler.resolveEnabled(context.getModel().getProject())) {
             context.getLogger().debug(RB.$("validation.disabled"));
             return;
         }
 
-        if (null == nativeImage.getStereotype()) {
-            nativeImage.setStereotype(context.getModel().getProject().getStereotype());
+        if (null == assembler.getStereotype()) {
+            assembler.setStereotype(context.getModel().getProject().getStereotype());
         }
 
-        if (isBlank(nativeImage.getName())) {
+        if (isBlank(assembler.getName())) {
             errors.configuration(RB.$("validation_must_not_be_blank", "nativeImage.name"));
             context.getLogger().debug(RB.$("validation.disabled.error"));
-            nativeImage.disable();
+            assembler.disable();
             return;
         }
 
-        if (null == nativeImage.getMainJar()) {
-            errors.configuration(RB.$("validation_is_null", "nativeImage." + nativeImage.getName() + ".mainJar"));
+        if (null == assembler.getMainJar()) {
+            errors.configuration(RB.$("validation_is_null", "nativeImage." + assembler.getName() + ".mainJar"));
             context.getLogger().debug(RB.$("validation.disabled.error"));
             return;
         }
 
-        nativeImage.setPlatform(nativeImage.getPlatform().mergeValues(context.getModel().getPlatform()));
+        assembler.setPlatform(assembler.getPlatform().mergeValues(context.getModel().getPlatform()));
 
-        if (isBlank(nativeImage.getExecutable())) {
-            nativeImage.setExecutable(nativeImage.getName());
+        if (isBlank(assembler.getExecutable())) {
+            assembler.setExecutable(assembler.getName());
         }
-        if (isBlank(nativeImage.getImageName())) {
-            nativeImage.setImageName(nativeImage.getExecutable() + "-" +
+        if (isBlank(assembler.getImageName())) {
+            assembler.setImageName(assembler.getExecutable() + "-" +
                 context.getModel().getProject().getResolvedVersion());
         }
 
         int i = 0;
-        for (Artifact graalJdk : nativeImage.getGraalJdks()) {
-            validateJdk(context, mode, nativeImage, graalJdk, i++, errors);
+        for (Artifact graalJdk : assembler.getGraalJdks()) {
+            validateJdk(context, mode, assembler, graalJdk, i++, errors);
         }
 
         // validate jdks.platform is unique
-        Map<String, List<Artifact>> byPlatform = nativeImage.getGraalJdks().stream()
+        Map<String, List<Artifact>> byPlatform = assembler.getGraalJdks().stream()
             .collect(groupingBy(jdk -> isBlank(jdk.getPlatform()) ? "<nil>" : jdk.getPlatform()));
         if (byPlatform.containsKey("<nil>")) {
-            errors.configuration(RB.$("validation_nativeimage_jdk_platform", nativeImage.getName()));
+            errors.configuration(RB.$("validation_nativeimage_jdk_platform", assembler.getName()));
         }
         // check platforms
         byPlatform.forEach((p, jdks) -> {
             if (jdks.size() > 1) {
-                errors.configuration(RB.$("validation_nativeimage_jdk_multiple_platforms", nativeImage.getName(), p));
+                errors.configuration(RB.$("validation_nativeimage_jdk_multiple_platforms", assembler.getName(), p));
             }
         });
 
-        if (isBlank(nativeImage.getGraal().getPath())) {
+        if (isBlank(assembler.getGraal().getPath())) {
             String currentPlatform = PlatformUtils.getCurrentFull();
             String javaHome = System.getProperty("java.home");
-            if (nativeImage.getGraalJdks().isEmpty()) {
+            if (assembler.getGraalJdks().isEmpty()) {
                 if (isBlank(javaHome)) {
                     // Can only happen when running as native-image, fail for now
                     // TODO: native-image
@@ -122,16 +125,16 @@ public abstract class NativeImageAssemblerValidator extends Validator {
                     return;
                 }
                 // Use current
-                nativeImage.getGraal().setPath(javaHome);
-                nativeImage.getGraal().setPlatform(currentPlatform);
+                assembler.getGraal().setPath(javaHome);
+                assembler.getGraal().setPlatform(currentPlatform);
             } else {
                 // find a compatible JDK in targets
-                Optional<Artifact> jdk = nativeImage.getGraalJdks().stream()
+                Optional<Artifact> jdk = assembler.getGraalJdks().stream()
                     .filter(j -> PlatformUtils.isCompatible(currentPlatform, j.getPlatform()))
                     .findFirst();
 
                 if (jdk.isPresent()) {
-                    nativeImage.setGraal(jdk.get());
+                    assembler.setGraal(jdk.get());
                 } else {
                     if (isBlank(javaHome)) {
                         // Can only happen when running as native-image, fail for now
@@ -140,52 +143,32 @@ public abstract class NativeImageAssemblerValidator extends Validator {
                         return;
                     }
                     // Can't tell if the current JDK will work but might as well use it
-                    nativeImage.getGraal().setPath(javaHome);
-                    nativeImage.getGraal().setPlatform(currentPlatform);
+                    assembler.getGraal().setPath(javaHome);
+                    assembler.getGraal().setPlatform(currentPlatform);
                 }
             }
         }
 
-        if (isBlank(nativeImage.getMainJar().getPath())) {
-            errors.configuration(RB.$("validation_must_not_be_null", "nativeImage." + nativeImage.getName() + ".mainJar.path"));
-        }
-        if (null == nativeImage.getArchiveFormat()) {
-            nativeImage.setArchiveFormat(Archive.Format.ZIP);
+        if (null == assembler.getArchiveFormat()) {
+            assembler.setArchiveFormat(Archive.Format.ZIP);
         }
 
-        validateGlobs(context,
-            nativeImage.getJars(),
-            "nativeImage." + nativeImage.getName() + ".jars",
-            errors);
-
-        validateGlobs(context,
-            nativeImage.getFiles(),
-            "nativeImage." + nativeImage.getName() + ".files",
-            errors);
-
-        if (mode == Mode.ASSEMBLE) {
-            validateTemplate(context, nativeImage, errors);
+        if (null == assembler.getOptions().getTimestamp()) {
+            assembler.getOptions().setTimestamp(context.getModel().resolveArchiveTimestamp());
         }
 
-        if (!nativeImage.getFileSets().isEmpty()) {
-            i = 0;
-            for (FileSet fileSet : nativeImage.getFileSets()) {
-                validateFileSet(context, mode, nativeImage, fileSet, i++, errors);
-            }
-        }
+        validateJavaAssembler(context, mode, assembler, errors, true);
 
-        if (nativeImage.getComponents().contains("native-image")) {
-            nativeImage.getComponents().remove("native-image");
-        }
+        assembler.getComponents().remove("native-image");
 
-        NativeImageAssembler.Upx upx = nativeImage.getUpx();
-        if (!upx.isActiveSet()) {
-            upx.setActive(Active.NEVER);
-        }
+        NativeImageAssembler.Upx upx = assembler.getUpx();
+        resolveActivatable(context, upx,
+            listOf("assemble.native.image." + assembler.getName() + ".upx", "assemble.native.image.upx"),
+            "NEVER");
         if (!upx.resolveEnabled(context.getModel().getProject())) return;
 
         if (isBlank(upx.getVersion())) {
-            errors.configuration(RB.$("validation_is_missing", "nativeImage." + nativeImage.getName() + ".upx.version"));
+            errors.configuration(RB.$("validation_is_missing", "nativeImage." + assembler.getName() + ".upx.version"));
         }
     }
 

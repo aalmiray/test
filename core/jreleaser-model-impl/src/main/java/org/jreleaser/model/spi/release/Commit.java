@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
  */
 package org.jreleaser.model.spi.release;
 
+import java.time.ZonedDateTime;
 import java.util.Objects;
 
 /**
@@ -27,11 +28,15 @@ public class Commit {
     private final String shortHash;
     private final String fullHash;
     private final String refName;
+    private final int commitTime;
+    private final ZonedDateTime timestamp;
 
-    public Commit(String shortHash, String fullHash, String refName) {
+    public Commit(String shortHash, String fullHash, String refName, int commitTime, ZonedDateTime timestamp) {
         this.shortHash = shortHash;
         this.fullHash = fullHash;
         this.refName = refName;
+        this.commitTime = commitTime;
+        this.timestamp = timestamp;
     }
 
     public String getShortHash() {
@@ -46,27 +51,39 @@ public class Commit {
         return refName;
     }
 
+    public int getCommitTime() {
+        return commitTime;
+    }
+
+    public ZonedDateTime getTimestamp() {
+        return timestamp;
+    }
+
     @Override
     public String toString() {
         return "Commit[" +
             "shortHash='" + shortHash + '\'' +
             ", fullHash='" + fullHash + '\'' +
             ", refName='" + refName + '\'' +
+            ", commitTime='" + commitTime + '\'' +
+            ", timestamp='" + timestamp + '\'' +
             "]";
     }
 
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
+        if (null == o || getClass() != o.getClass()) return false;
         Commit that = (Commit) o;
         return shortHash.equals(that.shortHash) &&
             fullHash.equals(that.fullHash) &&
-            refName.equals(that.refName);
+            refName.equals(that.refName) &&
+            timestamp.equals(that.timestamp) &&
+            commitTime == that.commitTime;
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(shortHash, fullHash, refName);
+        return Objects.hash(shortHash, fullHash, refName, timestamp, commitTime);
     }
 }

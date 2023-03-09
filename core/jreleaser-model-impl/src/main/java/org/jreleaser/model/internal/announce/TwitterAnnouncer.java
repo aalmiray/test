@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,10 +17,13 @@
  */
 package org.jreleaser.model.internal.announce;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.jreleaser.bundle.RB;
 import org.jreleaser.model.Active;
+import org.jreleaser.model.Constants;
 import org.jreleaser.model.JReleaserException;
 import org.jreleaser.model.internal.JReleaserContext;
+import org.jreleaser.mustache.TemplateContext;
 
 import java.io.IOException;
 import java.io.Reader;
@@ -37,7 +40,6 @@ import static org.jreleaser.model.Constants.UNSET;
 import static org.jreleaser.model.api.announce.TwitterAnnouncer.TYPE;
 import static org.jreleaser.mustache.MustacheUtils.applyTemplate;
 import static org.jreleaser.mustache.MustacheUtils.applyTemplates;
-import static org.jreleaser.mustache.Templates.resolveTemplate;
 import static org.jreleaser.util.StringUtils.isNotBlank;
 
 /**
@@ -45,6 +47,8 @@ import static org.jreleaser.util.StringUtils.isNotBlank;
  * @since 0.1.0
  */
 public final class TwitterAnnouncer extends AbstractAnnouncer<TwitterAnnouncer, org.jreleaser.model.api.announce.TwitterAnnouncer> {
+    private static final long serialVersionUID = -5723247167488210082L;
+
     private final List<String> statuses = new ArrayList<>();
     private String consumerKey;
     private String consumerSecret;
@@ -53,7 +57,10 @@ public final class TwitterAnnouncer extends AbstractAnnouncer<TwitterAnnouncer, 
     private String status;
     private String statusTemplate;
 
+    @JsonIgnore
     private final org.jreleaser.model.api.announce.TwitterAnnouncer immutable = new org.jreleaser.model.api.announce.TwitterAnnouncer() {
+        private static final long serialVersionUID = -7092168952957318545L;
+
         @Override
         public String getType() {
             return org.jreleaser.model.api.announce.TwitterAnnouncer.TYPE;
@@ -96,7 +103,7 @@ public final class TwitterAnnouncer extends AbstractAnnouncer<TwitterAnnouncer, 
 
         @Override
         public String getName() {
-            return name;
+            return TwitterAnnouncer.this.getName();
         }
 
         @Override
@@ -106,7 +113,7 @@ public final class TwitterAnnouncer extends AbstractAnnouncer<TwitterAnnouncer, 
 
         @Override
         public Active getActive() {
-            return active;
+            return TwitterAnnouncer.this.getActive();
         }
 
         @Override
@@ -121,22 +128,22 @@ public final class TwitterAnnouncer extends AbstractAnnouncer<TwitterAnnouncer, 
 
         @Override
         public String getPrefix() {
-            return TwitterAnnouncer.this.getPrefix();
+            return TwitterAnnouncer.this.prefix();
         }
 
         @Override
         public Map<String, Object> getExtraProperties() {
-            return unmodifiableMap(extraProperties);
+            return unmodifiableMap(TwitterAnnouncer.this.getExtraProperties());
         }
 
         @Override
         public Integer getConnectTimeout() {
-            return connectTimeout;
+            return TwitterAnnouncer.this.getConnectTimeout();
         }
 
         @Override
         public Integer getReadTimeout() {
-            return readTimeout;
+            return TwitterAnnouncer.this.getReadTimeout();
         }
     };
 
@@ -161,19 +168,15 @@ public final class TwitterAnnouncer extends AbstractAnnouncer<TwitterAnnouncer, 
         this.statusTemplate = merge(this.statusTemplate, source.statusTemplate);
     }
 
-    public String getResolvedStatus(JReleaserContext context) {
-        Map<String, Object> props = context.fullProps();
-        applyTemplates(props, getResolvedExtraProperties());
-        context.getModel().getRelease().getReleaser().fillProps(props, context.getModel());
-        return resolveTemplate(status, props);
-    }
-
-    public String getResolvedStatusTemplate(JReleaserContext context, Map<String, Object> extraProps) {
-        Map<String, Object> props = context.fullProps();
-        applyTemplates(props, getResolvedExtraProperties());
-        props.put(KEY_TAG_NAME, context.getModel().getRelease().getReleaser()
+    public String getResolvedStatusTemplate(JReleaserContext context, TemplateContext extraProps) {
+        TemplateContext props = context.fullProps();
+        applyTemplates(props, resolvedExtraProperties());
+        props.set(KEY_TAG_NAME, context.getModel().getRelease().getReleaser()
             .getEffectiveTagName(context.getModel()));
-        props.putAll(extraProps);
+        props.set(Constants.KEY_PREVIOUS_TAG_NAME,
+            context.getModel().getRelease().getReleaser()
+                .getResolvedPreviousTagName(context.getModel()));
+        props.setAll(extraProps);
 
         Path templatePath = context.getBasedir().resolve(statusTemplate);
         try {

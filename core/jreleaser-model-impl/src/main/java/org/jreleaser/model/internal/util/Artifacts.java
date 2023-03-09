@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,6 +33,7 @@ import org.jreleaser.model.internal.packagers.Packager;
 import org.jreleaser.model.internal.release.BaseReleaser;
 import org.jreleaser.model.internal.upload.Upload;
 import org.jreleaser.model.internal.upload.Uploader;
+import org.jreleaser.mustache.TemplateContext;
 import org.jreleaser.util.FileType;
 
 import java.io.IOException;
@@ -48,7 +49,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -66,12 +66,11 @@ import static org.jreleaser.model.Constants.KEY_ARTIFACT_PLATFORM;
 import static org.jreleaser.model.Constants.KEY_ARTIFACT_PLATFORM_REPLACED;
 import static org.jreleaser.model.Constants.KEY_ARTIFACT_VERSION;
 import static org.jreleaser.model.Constants.KEY_DISTRIBUTION_ARTIFACT_ARCHIVE_FORMAT;
-import static org.jreleaser.model.Constants.KEY_DISTRIBUTION_ARTIFACT_FILE;
 import static org.jreleaser.model.Constants.KEY_DISTRIBUTION_ARTIFACT_FILE_EXTENSION;
 import static org.jreleaser.model.Constants.KEY_DISTRIBUTION_ARTIFACT_FILE_FORMAT;
-import static org.jreleaser.model.Constants.KEY_DISTRIBUTION_ARTIFACT_FILE_NAME;
 import static org.jreleaser.model.Constants.KEY_DISTRIBUTION_ARTIFACT_PLATFORM;
 import static org.jreleaser.model.Constants.KEY_DISTRIBUTION_ARTIFACT_PLATFORM_REPLACED;
+import static org.jreleaser.model.Constants.KEY_PLATFORM;
 import static org.jreleaser.model.Constants.KEY_PROJECT_EFFECTIVE_VERSION;
 import static org.jreleaser.model.Constants.KEY_PROJECT_VERSION;
 import static org.jreleaser.mustache.Templates.resolveTemplate;
@@ -84,10 +83,14 @@ import static org.jreleaser.util.StringUtils.isNotBlank;
  * @author Andres Almiray
  * @since 0.1.0
  */
-public class Artifacts {
+public final class Artifacts {
     private static final String DOWNLOAD_URL_SUFFIX = "DownloadUrl";
     private static final String DOWNLOAD_URL_KEY = "downloadUrl";
     private static final String DOWNLOAD_URL_FROM_KEY = "downloadUrlFrom";
+
+    private Artifacts() {
+        // noop
+    }
 
     public static String resolveForArtifact(String input, JReleaserContext context) {
         return resolveTemplate(input, context.fullProps());
@@ -106,158 +109,122 @@ public class Artifacts {
     }
 
     public static String resolveForArtifact(String input, JReleaserContext context, Artifact artifact, Distribution distribution) {
-        Map<String, Object> props = context.fullProps();
-        props.putAll(distribution.props());
-        props = artifactProps(artifact, props);
+        TemplateContext props = context.fullProps();
+        props.setAll(distribution.props());
+        artifactProps(artifact, props);
         return resolveTemplate(input, props);
     }
 
-    public static String resolveForArtifact(String input, JReleaserContext context, Artifact artifact, Assembler assembler) {
-        Map<String, Object> props = context.fullProps();
-        props.putAll(assembler.props());
-        props = artifactProps(artifact, props);
+    public static String resolveForArtifact(String input, JReleaserContext context, Artifact artifact, Assembler<?> assembler) {
+        TemplateContext props = context.fullProps();
+        props.setAll(assembler.props());
+        artifactProps(artifact, props);
         return resolveTemplate(input, props);
     }
 
-    public static Map<String, Object> artifactProps(Artifact artifact, Map<String, Object> props) {
-        if (artifact.getEffectivePath() != null) {
+    public static TemplateContext artifactProps(Artifact artifact, TemplateContext props) {
+        if (null != artifact.getEffectivePath()) {
             return resolvedArtifactProps(artifact, props);
         }
         return unresolvedArtifactProps(artifact, props);
     }
 
-    public static Map<String, Object> artifactProps(Artifact artifact, Distribution distribution, Map<String, Object> props) {
-        if (artifact.getEffectivePath() != null) {
+    public static TemplateContext artifactProps(Artifact artifact, Distribution distribution, TemplateContext props) {
+        if (null != artifact.getEffectivePath()) {
             return resolvedArtifactProps(artifact, distribution, props);
         }
         return unresolvedArtifactProps(artifact, props);
     }
 
-    public static Map<String, Object> unresolvedArtifactProps(Artifact artifact, Map<String, Object> props) {
-        props.putAll(artifact.getExtraProperties());
-        props.putAll(artifact.getResolvedExtraProperties());
-        props.put("platform", artifact.getPlatform());
-        props.put("artifactPlatform", artifact.getPlatform());
+    public static TemplateContext unresolvedArtifactProps(Artifact artifact, TemplateContext props) {
+        props.setAll(artifact.getExtraProperties());
+        props.setAll(artifact.resolvedExtraProperties());
+        props.set(KEY_PLATFORM, artifact.getPlatform());
+        props.set(KEY_ARTIFACT_PLATFORM, artifact.getPlatform());
         return props;
     }
 
-    public static Map<String, Object> resolvedArtifactProps(Artifact artifact, Map<String, Object> props) {
-        props.putAll(artifact.getExtraProperties());
-        props.putAll(artifact.getResolvedExtraProperties());
+    public static TemplateContext resolvedArtifactProps(Artifact artifact, TemplateContext props) {
+        props.setAll(artifact.getExtraProperties());
+        props.setAll(artifact.resolvedExtraProperties());
 
         String artifactFile = artifact.getEffectivePath().getFileName().toString();
         String artifactFileName = getFilename(artifactFile, FileType.getSupportedExtensions());
-        props.put(KEY_ARTIFACT_FILE, artifactFile);
-        props.put(KEY_ARTIFACT_FILE_NAME, artifactFileName);
+        props.set(KEY_ARTIFACT_FILE, artifactFile);
+        props.set(KEY_ARTIFACT_FILE_NAME, artifactFileName);
 
         if (!artifactFile.equals(artifactFileName)) {
             String artifactExtension = artifactFile.substring(artifactFileName.length());
             String artifactFileFormat = artifactExtension.substring(1);
-            props.put(KEY_ARTIFACT_FILE_EXTENSION, artifactExtension);
-            props.put(KEY_ARTIFACT_FILE_FORMAT, artifactFileFormat);
+            props.set(KEY_ARTIFACT_FILE_EXTENSION, artifactExtension);
+            props.set(KEY_ARTIFACT_FILE_FORMAT, artifactFileFormat);
         }
 
         String artifactName = "";
-        String projectVersion = (String) props.get(KEY_PROJECT_EFFECTIVE_VERSION);
+        String projectVersion = props.get(KEY_PROJECT_EFFECTIVE_VERSION);
         if (isNotBlank(projectVersion) && artifactFileName.contains(projectVersion)) {
             artifactName = artifactFileName.substring(0, artifactFileName.indexOf(projectVersion));
             if (artifactName.endsWith("-")) {
                 artifactName = artifactName.substring(0, artifactName.length() - 1);
             }
-            props.put(KEY_ARTIFACT_VERSION, projectVersion);
+            props.set(KEY_ARTIFACT_VERSION, projectVersion);
         }
-        projectVersion = (String) props.get(KEY_PROJECT_VERSION);
+        projectVersion = props.get(KEY_PROJECT_VERSION);
         if (isBlank(artifactName) && isNotBlank(projectVersion) && artifactFileName.contains(projectVersion)) {
             artifactName = artifactFileName.substring(0, artifactFileName.indexOf(projectVersion));
             if (artifactName.endsWith("-")) {
                 artifactName = artifactName.substring(0, artifactName.length() - 1);
             }
-            props.put(KEY_ARTIFACT_VERSION, projectVersion);
+            props.set(KEY_ARTIFACT_VERSION, projectVersion);
         }
-        props.put(KEY_ARTIFACT_NAME, artifactName);
+        props.set(KEY_ARTIFACT_NAME, artifactName);
 
         String platform = artifact.getPlatform();
         if (isNotBlank(platform)) {
-            props.put("platform", platform);
-            props.put(KEY_ARTIFACT_PLATFORM, platform);
+            props.set(KEY_PLATFORM, platform);
+            props.set(KEY_ARTIFACT_PLATFORM, platform);
             if (platform.contains("-")) {
                 String[] parts = platform.split("-");
-                props.put(KEY_ARTIFACT_OS, parts[0]);
-                props.put(KEY_ARTIFACT_ARCH, parts[1]);
+                props.set(KEY_ARTIFACT_OS, parts[0]);
+                props.set(KEY_ARTIFACT_ARCH, parts[1]);
             }
         }
 
         return props;
     }
 
-    public static Map<String, Object> resolvedArtifactProps(Artifact artifact, Distribution distribution, Map<String, Object> props) {
-        props.putAll(artifact.getExtraProperties());
-        props.putAll(artifact.getResolvedExtraProperties());
+    public static TemplateContext resolvedArtifactProps(Artifact artifact, Distribution distribution, TemplateContext props) {
+        resolvedArtifactProps(artifact, props);
 
-        String artifactFile = artifact.getEffectivePath().getFileName().toString();
-        String artifactFileName = getFilename(artifactFile, FileType.getSupportedExtensions());
-        props.put(KEY_ARTIFACT_FILE, artifactFile);
-        props.put(KEY_ARTIFACT_FILE_NAME, artifactFileName);
-        props.put(KEY_DISTRIBUTION_ARTIFACT_FILE, artifactFile);
-        props.put(KEY_DISTRIBUTION_ARTIFACT_FILE_NAME, artifactFileName);
+        String artifactFile = props.get(KEY_ARTIFACT_FILE);
+        String artifactFileName = props.get(KEY_ARTIFACT_FILE_NAME);
 
         if (!artifactFile.equals(artifactFileName)) {
-            String artifactExtension = artifactFile.substring(artifactFileName.length());
-            String artifactFileFormat = artifactExtension.substring(1);
-            props.put(KEY_ARTIFACT_FILE_EXTENSION, artifactExtension);
-            props.put(KEY_ARTIFACT_FILE_FORMAT, artifactFileFormat);
-            props.put(KEY_DISTRIBUTION_ARTIFACT_FILE_EXTENSION, artifactExtension);
-            props.put(KEY_DISTRIBUTION_ARTIFACT_FILE_FORMAT, artifactFileFormat);
-            props.put(KEY_DISTRIBUTION_ARTIFACT_ARCHIVE_FORMAT, artifactFileFormat);
+            String artifactExtension = props.get(KEY_ARTIFACT_FILE_EXTENSION);
+            String artifactFileFormat = props.get(KEY_ARTIFACT_FILE_FORMAT);
+            props.set(KEY_DISTRIBUTION_ARTIFACT_FILE_EXTENSION, artifactExtension);
+            props.set(KEY_DISTRIBUTION_ARTIFACT_FILE_FORMAT, artifactFileFormat);
+            props.set(KEY_DISTRIBUTION_ARTIFACT_ARCHIVE_FORMAT, artifactFileFormat);
         }
-
-        String artifactName = "";
-        String projectVersion = (String) props.get(KEY_PROJECT_EFFECTIVE_VERSION);
-        if (isNotBlank(projectVersion) && artifactFileName.contains(projectVersion)) {
-            artifactName = artifactFileName.substring(0, artifactFileName.indexOf(projectVersion));
-            if (artifactName.endsWith("-")) {
-                artifactName = artifactName.substring(0, artifactName.length() - 1);
-            }
-            props.put(KEY_ARTIFACT_VERSION, projectVersion);
-        }
-        projectVersion = (String) props.get(KEY_PROJECT_VERSION);
-        if (isBlank(artifactName) && isNotBlank(projectVersion) && artifactFileName.contains(projectVersion)) {
-            artifactName = artifactFileName.substring(0, artifactFileName.indexOf(projectVersion));
-            if (artifactName.endsWith("-")) {
-                artifactName = artifactName.substring(0, artifactName.length() - 1);
-            }
-            props.put(KEY_ARTIFACT_VERSION, projectVersion);
-        }
-        props.put(KEY_ARTIFACT_NAME, artifactName);
 
         String platform = artifact.getPlatform();
-        if (isNotBlank(platform)) {
-            props.put("platform", platform);
-            props.put(KEY_ARTIFACT_PLATFORM, platform);
-            if (platform.contains("-")) {
-                String[] parts = platform.split("-");
-                props.put(KEY_ARTIFACT_OS, parts[0]);
-                props.put(KEY_ARTIFACT_ARCH, parts[1]);
-            }
-        }
-
         String platformReplaced = distribution.getPlatform().applyReplacements(platform);
-        if (isNotBlank(platformReplaced)) props.put(KEY_ARTIFACT_PLATFORM_REPLACED, platformReplaced);
-        if (isNotBlank(platform)) props.put(KEY_DISTRIBUTION_ARTIFACT_PLATFORM, platform);
-        if (isNotBlank(platformReplaced)) props.put(KEY_DISTRIBUTION_ARTIFACT_PLATFORM_REPLACED, platformReplaced);
+        if (isNotBlank(platformReplaced)) props.set(KEY_ARTIFACT_PLATFORM_REPLACED, platformReplaced);
+        if (isNotBlank(platform)) props.set(KEY_DISTRIBUTION_ARTIFACT_PLATFORM, platform);
+        if (isNotBlank(platformReplaced)) props.set(KEY_DISTRIBUTION_ARTIFACT_PLATFORM_REPLACED, platformReplaced);
 
         return props;
     }
 
-    public static Map<String, Object> globProps(Glob glob, Map<String, Object> props) {
-        props.putAll(glob.getExtraProperties());
-        props.putAll(glob.getResolvedExtraProperties());
+    public static TemplateContext globProps(Glob glob, TemplateContext props) {
+        props.setAll(glob.getExtraProperties());
+        props.setAll(glob.resolvedExtraProperties());
         return props;
     }
 
-    public static Map<String, Object> fileSetProps(FileSet fileSet, Map<String, Object> props) {
-        props.putAll(fileSet.getExtraProperties());
-        props.putAll(fileSet.getResolvedExtraProperties());
+    public static TemplateContext fileSetProps(FileSet fileSet, TemplateContext props) {
+        props.setAll(fileSet.getExtraProperties());
+        props.setAll(fileSet.resolvedExtraProperties());
         return props;
     }
 
@@ -270,7 +237,7 @@ public class Artifacts {
             downloadUrl = artifact.getExtraProperty(DOWNLOAD_URL_KEY);
         }
 
-        Packager packager = distribution.findPackager(packagerName);
+        Packager<?> packager = distribution.findPackager(packagerName);
         if (isBlank(downloadUrl)) {
             downloadUrl = packager.getDownloadUrl();
         }
@@ -282,11 +249,9 @@ public class Artifacts {
             downloadUrl = distribution.getExtraProperty(DOWNLOAD_URL_KEY);
         }
 
-        BaseReleaser service = context.getModel().getRelease().getReleaser();
-        if (isBlank(downloadUrl)) {
-            if (!service.isSkipRelease() && service.isArtifacts() && service.resolveUploadAssetsEnabled(context.getModel().getProject())) {
-                downloadUrl = service.getDownloadUrl();
-            }
+        BaseReleaser<?, ?> service = context.getModel().getRelease().getReleaser();
+        if (isBlank(downloadUrl) && !service.isSkipRelease() && service.isArtifacts() && service.resolveUploadAssetsEnabled(context.getModel().getProject())) {
+            downloadUrl = service.getDownloadUrl();
         }
 
         if (isBlank(downloadUrl)) {
@@ -307,9 +272,9 @@ public class Artifacts {
             downloadUrl = service.getDownloadUrl();
         }
 
-        Map<String, Object> props = context.fullProps();
-        props.putAll(packager.getResolvedExtraProperties());
-        props.putAll(distribution.props());
+        TemplateContext props = context.fullProps();
+        props.setAll(packager.resolvedExtraProperties());
+        props.setAll(distribution.props());
         artifactProps(artifact, distribution, props);
 
         return resolveTemplate(downloadUrl, props);
@@ -336,11 +301,9 @@ public class Artifacts {
             downloadUrl = distribution.getExtraProperty(DOWNLOAD_URL_KEY);
         }
 
-        BaseReleaser service = context.getModel().getRelease().getReleaser();
-        if (isBlank(downloadUrl)) {
-            if (!service.isSkipRelease() && service.isArtifacts() && service.resolveUploadAssetsEnabled(context.getModel().getProject())) {
-                downloadUrl = service.getDownloadUrl();
-            }
+        BaseReleaser<?, ?> service = context.getModel().getRelease().getReleaser();
+        if (isBlank(downloadUrl) && !service.isSkipRelease() && service.isArtifacts() && service.resolveUploadAssetsEnabled(context.getModel().getProject())) {
+            downloadUrl = service.getDownloadUrl();
         }
 
         if (isBlank(downloadUrl)) {
@@ -361,9 +324,9 @@ public class Artifacts {
             downloadUrl = service.getDownloadUrl();
         }
 
-        Map<String, Object> props = context.fullProps();
-        props.putAll(announcer.getResolvedExtraProperties());
-        props.putAll(distribution.props());
+        TemplateContext props = context.fullProps();
+        props.setAll(announcer.resolvedExtraProperties());
+        props.setAll(distribution.props());
         artifactProps(artifact, distribution, props);
 
         return resolveTemplate(downloadUrl, props);
@@ -375,7 +338,7 @@ public class Artifacts {
         String coords = props.getExtraProperty(DOWNLOAD_URL_FROM_KEY);
         if (isBlank(coords)) {
             // search for "<uploaderType><uploaderName>Path"
-            for (Uploader up : upload.findAllActiveUploaders()) {
+            for (Uploader<?> up : upload.findAllActiveUploaders()) {
                 List<String> keys = up.resolveSkipKeys();
                 String key = up.getType() + capitalize(up.getName()) + "Path";
                 if (artifact.getExtraProperties().containsKey(key) && !isSkip(props, keys)) {
@@ -388,7 +351,7 @@ public class Artifacts {
         String[] parts = coords.split(":");
         if (parts.length != 2) return null;
 
-        Optional<? extends Uploader> uploader = upload
+        Optional<? extends Uploader<?>> uploader = upload
             .getActiveUploader(parts[0], parts[1]);
         if (uploader.isPresent()) {
             List<String> keys = uploader.get().resolveSkipKeys();
@@ -397,7 +360,7 @@ public class Artifacts {
             }
         } else {
             // search for "<uploaderType><uploaderName>Path"
-            for (Uploader up : upload.findAllActiveUploaders()) {
+            for (Uploader<?> up : upload.findAllActiveUploaders()) {
                 List<String> keys = up.resolveSkipKeys();
                 String key = up.getType() + capitalize(up.getName()) + "Path";
                 if (artifact.getExtraProperties().containsKey(key) && !isSkip(props, keys)) {
@@ -418,8 +381,8 @@ public class Artifacts {
         return false;
     }
 
-    public static Path checkAndCopyFile(JReleaserContext context, Path src, Path dest) throws JReleaserException {
-        if (null == dest) return src;
+    public static Path checkAndCopyFile(JReleaserContext context, Path src, Path dest, boolean optional) throws JReleaserException {
+        if (!java.nio.file.Files.exists(src) && optional || null == dest) return src;
 
         if (!java.nio.file.Files.exists(dest)) {
             context.getLogger().debug(RB.$("artifacts.not.exists"),
@@ -459,9 +422,11 @@ public class Artifacts {
         // resolve artifacts
         for (Artifact artifact : files.getArtifacts()) {
             if (!context.isPlatformSelected(artifact)) continue;
-            artifact.activate();
-            artifact.getEffectivePath(context);
-            paths.add(artifact);
+            Path effectivePath = artifact.getEffectivePath(context);
+            if (null != effectivePath) {
+                artifact.activate();
+                paths.add(artifact);
+            }
         }
 
         // resolve globs
@@ -502,7 +467,7 @@ public class Artifacts {
     }
 
     public static Set<Artifact> resolveFiles(JReleaserLogger logger,
-                                             Map<String, Object> props,
+                                             TemplateContext props,
                                              Path basedir,
                                              Collection<String> globs) throws JReleaserException {
         if (null == globs || globs.isEmpty()) {

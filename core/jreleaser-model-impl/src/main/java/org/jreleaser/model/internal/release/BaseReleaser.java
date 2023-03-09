@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,6 +29,7 @@ import org.jreleaser.model.internal.common.Domain;
 import org.jreleaser.model.internal.common.EnabledAware;
 import org.jreleaser.model.internal.project.Project;
 import org.jreleaser.mustache.MustacheUtils;
+import org.jreleaser.mustache.TemplateContext;
 import org.jreleaser.util.Env;
 import org.jreleaser.util.PlatformUtils;
 import org.jreleaser.version.SemanticVersion;
@@ -51,53 +52,58 @@ import static org.jreleaser.util.StringUtils.isNotBlank;
  * @since 0.1.0
  */
 public abstract class BaseReleaser<A extends org.jreleaser.model.api.release.Releaser, S extends BaseReleaser<A, S>> extends AbstractModelObject<S> implements Releaser<A> {
+    private static final long serialVersionUID = -8672937544539013287L;
+
     @JsonIgnore
-    protected final String serviceName;
-    protected final Changelog changelog = new Changelog();
-    protected final Milestone milestone = new Milestone();
-    protected final Issues issues = new Issues();
-    protected final CommitAuthor commitAuthor = new CommitAuthor();
-    protected final Update update = new Update();
-    protected final Prerelease prerelease = new Prerelease();
+    private final String serviceName;
+    private final Changelog changelog = new Changelog();
+    private final Milestone milestone = new Milestone();
+    private final Issues issues = new Issues();
+    private final CommitAuthor commitAuthor = new CommitAuthor();
+    private final Update update = new Update();
+    private final Prerelease prerelease = new Prerelease();
     @JsonIgnore
-    protected final boolean releaseSupported;
+    private final boolean releaseSupported;
     @JsonIgnore
-    protected boolean match = true;
-    protected Boolean enabled;
-    protected String host;
-    protected String owner;
-    protected String name;
-    protected String repoUrl;
-    protected String repoCloneUrl;
-    protected String commitUrl;
-    protected String srcUrl;
-    protected String downloadUrl;
-    protected String releaseNotesUrl;
-    protected String latestReleaseUrl;
-    protected String issueTrackerUrl;
-    protected String username;
-    protected String token;
-    protected String tagName;
-    protected String previousTagName;
-    protected String releaseName;
-    protected String branch;
+    private boolean match = true;
+    private Boolean enabled;
+    private String host;
+    private String owner;
+    private String name;
+    private String repoUrl;
+    private String repoCloneUrl;
+    private String commitUrl;
+    private String srcUrl;
+    private String downloadUrl;
+    private String releaseNotesUrl;
+    private String latestReleaseUrl;
+    private String issueTrackerUrl;
+    private String username;
+    private String token;
+    private String tagName;
+    private String previousTagName;
+    private String releaseName;
+    private String branch;
     protected Boolean sign;
     protected Boolean skipTag;
     protected Boolean skipRelease;
     protected Boolean overwrite;
-    protected String apiEndpoint;
-    protected int connectTimeout;
-    protected int readTimeout;
+    private String apiEndpoint;
+    private int connectTimeout;
+    private int readTimeout;
     protected Boolean artifacts;
     protected Boolean files;
     protected Boolean checksums;
     protected Boolean signatures;
-    protected Active uploadAssets;
+    protected Boolean catalogs;
+    private Active uploadAssets;
     protected Boolean uploadAssetsEnabled;
     @JsonIgnore
-    protected String cachedTagName;
+    private String cachedTagName;
     @JsonIgnore
-    protected String cachedReleaseName;
+    private String cachedPreviousTagName;
+    @JsonIgnore
+    private String cachedReleaseName;
 
     protected BaseReleaser(String serviceName, boolean releaseSupported) {
         this.serviceName = serviceName;
@@ -116,44 +122,49 @@ public abstract class BaseReleaser<A extends org.jreleaser.model.api.release.Rel
 
     @Override
     public void merge(S source) {
-        this.match = source.match;
-        this.enabled = merge(this.enabled, source.enabled);
-        this.host = merge(this.host, source.host);
-        this.owner = merge(this.owner, source.owner);
-        this.name = merge(this.name, source.name);
-        this.repoUrl = merge(this.repoUrl, source.repoUrl);
-        this.repoCloneUrl = merge(this.repoCloneUrl, source.repoCloneUrl);
-        this.commitUrl = merge(this.commitUrl, source.commitUrl);
-        this.srcUrl = merge(this.srcUrl, source.srcUrl);
-        this.downloadUrl = merge(this.downloadUrl, source.downloadUrl);
-        this.releaseNotesUrl = merge(this.releaseNotesUrl, source.releaseNotesUrl);
-        this.latestReleaseUrl = merge(this.latestReleaseUrl, source.latestReleaseUrl);
-        this.issueTrackerUrl = merge(this.issueTrackerUrl, source.issueTrackerUrl);
-        this.username = merge(this.username, source.username);
-        this.token = merge(this.token, source.token);
-        this.tagName = merge(this.tagName, source.tagName);
-        this.previousTagName = merge(this.previousTagName, source.previousTagName);
-        this.releaseName = merge(this.releaseName, source.releaseName);
-        this.branch = merge(this.branch, source.branch);
+        this.match = source.isMatch();
+        this.enabled = merge(this.enabled, source.isEnabled());
+        this.host = merge(this.host, source.getHost());
+        this.owner = merge(this.owner, source.getOwner());
+        this.name = merge(this.name, source.getName());
+        this.repoUrl = merge(this.repoUrl, source.getRepoUrl());
+        this.repoCloneUrl = merge(this.repoCloneUrl, source.getRepoCloneUrl());
+        this.commitUrl = merge(this.commitUrl, source.getCommitUrl());
+        this.srcUrl = merge(this.srcUrl, source.getSrcUrl());
+        this.downloadUrl = merge(this.downloadUrl, source.getDownloadUrl());
+        this.releaseNotesUrl = merge(this.releaseNotesUrl, source.getReleaseNotesUrl());
+        this.latestReleaseUrl = merge(this.latestReleaseUrl, source.getLatestReleaseUrl());
+        this.issueTrackerUrl = merge(this.issueTrackerUrl, source.getIssueTrackerUrl());
+        this.username = merge(this.username, source.getUsername());
+        this.token = merge(this.token, source.getToken());
+        this.tagName = merge(this.tagName, source.getTagName());
+        this.previousTagName = merge(this.previousTagName, source.getPreviousTagName());
+        this.releaseName = merge(this.releaseName, source.getReleaseName());
+        this.branch = merge(this.branch, source.getBranch());
         this.sign = merge(this.sign, source.sign);
         this.skipTag = merge(this.skipTag, source.skipTag);
         this.skipRelease = merge(this.skipRelease, source.skipRelease);
         this.overwrite = merge(this.overwrite, source.overwrite);
-        this.apiEndpoint = merge(this.apiEndpoint, source.apiEndpoint);
-        this.connectTimeout = merge(this.connectTimeout, source.connectTimeout);
-        this.readTimeout = merge(this.readTimeout, source.readTimeout);
+        this.apiEndpoint = merge(this.apiEndpoint, source.getApiEndpoint());
+        this.connectTimeout = merge(this.getConnectTimeout(), source.getConnectTimeout());
+        this.readTimeout = merge(this.getReadTimeout(), source.getReadTimeout());
         this.artifacts = merge(this.artifacts, source.artifacts);
         this.files = merge(this.files, source.files);
         this.checksums = merge(this.checksums, source.checksums);
         this.signatures = merge(this.signatures, source.signatures);
-        this.uploadAssets = merge(this.uploadAssets, source.uploadAssets);
+        this.catalogs = merge(this.catalogs, source.catalogs);
+        this.uploadAssets = merge(this.uploadAssets, source.getUploadAssets());
         this.uploadAssetsEnabled = merge(this.uploadAssetsEnabled, source.uploadAssetsEnabled);
-        setCommitAuthor(source.commitAuthor);
-        setUpdate(source.update);
-        setPrerelease(source.prerelease);
-        setChangelog(source.changelog);
-        setMilestone(source.milestone);
-        setIssues(source.issues);
+        setCommitAuthor(source.getCommitAuthor());
+        setUpdate(source.getUpdate());
+        setPrerelease(source.getPrerelease());
+        setChangelog(source.getChangelog());
+        setMilestone(source.getMilestone());
+        setIssues(source.getIssues());
+    }
+
+    protected Boolean getUploadAssetsEnabled() {
+        return uploadAssetsEnabled;
     }
 
     public abstract String getReverseRepoHost();
@@ -170,22 +181,22 @@ public abstract class BaseReleaser<A extends org.jreleaser.model.api.release.Rel
         return name;
     }
 
-    public String getConfiguredTagName() {
-        return Env.env(org.jreleaser.model.api.release.Releaser.TAG_NAME, tagName);
-    }
+    public String getResolvedPreviousTagName(JReleaserModel model) {
+        if (isBlank(cachedPreviousTagName) && isNotBlank(previousTagName)) {
+            cachedPreviousTagName = resolveTemplate(previousTagName, props(model));
+        }
+        if (isNotBlank(cachedPreviousTagName) && cachedPreviousTagName.contains("{{")) {
+            cachedPreviousTagName = resolveTemplate(cachedPreviousTagName, props(model));
+        }
 
-    public String getConfiguredPreviousTagName() {
-        return Env.env(org.jreleaser.model.api.release.Releaser.PREVIOUS_TAG_NAME, previousTagName);
+        return cachedPreviousTagName;
     }
 
     public String getResolvedTagName(JReleaserModel model) {
         if (isBlank(cachedTagName)) {
-            cachedTagName = getConfiguredTagName();
-        }
-
-        if (isBlank(cachedTagName)) {
             cachedTagName = resolveTemplate(tagName, props(model));
-        } else if (cachedTagName.contains("{{")) {
+        }
+        if (cachedTagName.contains("{{")) {
             cachedTagName = resolveTemplate(cachedTagName, props(model));
         }
 
@@ -199,18 +210,11 @@ public abstract class BaseReleaser<A extends org.jreleaser.model.api.release.Rel
         return cachedTagName;
     }
 
-    public String getConfiguredReleaseName() {
-        return Env.env(org.jreleaser.model.api.release.Releaser.RELEASE_NAME, cachedReleaseName);
-    }
-
     public String getResolvedReleaseName(JReleaserModel model) {
         if (isBlank(cachedReleaseName)) {
-            cachedReleaseName = getConfiguredReleaseName();
-        }
-
-        if (isBlank(cachedReleaseName)) {
             cachedReleaseName = resolveTemplate(releaseName, props(model));
-        } else if (cachedReleaseName.contains("{{")) {
+        }
+        if (cachedReleaseName.contains("{{")) {
             cachedReleaseName = resolveTemplate(cachedReleaseName, props(model));
         }
 
@@ -233,17 +237,17 @@ public abstract class BaseReleaser<A extends org.jreleaser.model.api.release.Rel
 
     public String getResolvedRepoUrl(JReleaserModel model, String repoOwner, String repoName) {
         if (!releaseSupported) return "";
-        Map<String, Object> props = props(model);
-        props.put(Constants.KEY_REPO_OWNER, repoOwner);
-        props.put(Constants.KEY_REPO_NAME, repoName);
+        TemplateContext props = props(model);
+        props.set(Constants.KEY_REPO_OWNER, repoOwner);
+        props.set(Constants.KEY_REPO_NAME, repoName);
         return resolveTemplate(repoUrl, props);
     }
 
     public String getResolvedRepoCloneUrl(JReleaserModel model, String repoOwner, String repoName) {
         if (!releaseSupported) return "";
-        Map<String, Object> props = props(model);
-        props.put(Constants.KEY_REPO_OWNER, repoOwner);
-        props.put(Constants.KEY_REPO_NAME, repoName);
+        TemplateContext props = props(model);
+        props.set(Constants.KEY_REPO_OWNER, repoOwner);
+        props.set(Constants.KEY_REPO_NAME, repoName);
         return resolveTemplate(repoCloneUrl, props);
     }
 
@@ -272,9 +276,13 @@ public abstract class BaseReleaser<A extends org.jreleaser.model.api.release.Rel
         return resolveTemplate(latestReleaseUrl, props(model));
     }
 
-    public String getResolvedIssueTrackerUrl(JReleaserModel model) {
+    public String getResolvedIssueTrackerUrl(JReleaserModel model, boolean appendSlash) {
         if (!releaseSupported) return "";
-        return resolveTemplate(issueTrackerUrl, props(model));
+        String issueTracker = resolveTemplate(issueTrackerUrl, props(model));
+        if (appendSlash && isNotBlank(issueTracker) && !issueTracker.endsWith("/")) {
+            issueTracker += "/";
+        }
+        return issueTracker;
     }
 
     public boolean resolveUploadAssetsEnabled(Project project) {
@@ -295,7 +303,7 @@ public abstract class BaseReleaser<A extends org.jreleaser.model.api.release.Rel
 
     @Override
     public boolean isEnabled() {
-        return enabled != null && enabled;
+        return null != enabled && enabled;
     }
 
     @Override
@@ -305,7 +313,7 @@ public abstract class BaseReleaser<A extends org.jreleaser.model.api.release.Rel
 
     @Override
     public boolean isEnabledSet() {
-        return enabled != null;
+        return null != enabled;
     }
 
     public String getHost() {
@@ -419,6 +427,7 @@ public abstract class BaseReleaser<A extends org.jreleaser.model.api.release.Rel
     }
 
     public void setTagName(String tagName) {
+        this.cachedTagName = null;
         this.tagName = tagName;
     }
 
@@ -427,6 +436,7 @@ public abstract class BaseReleaser<A extends org.jreleaser.model.api.release.Rel
     }
 
     public void setPreviousTagName(String previousTagName) {
+        this.cachedPreviousTagName = null;
         this.previousTagName = previousTagName;
     }
 
@@ -435,6 +445,7 @@ public abstract class BaseReleaser<A extends org.jreleaser.model.api.release.Rel
     }
 
     public void setReleaseName(String releaseName) {
+        this.cachedReleaseName = null;
         this.releaseName = releaseName;
     }
 
@@ -446,10 +457,12 @@ public abstract class BaseReleaser<A extends org.jreleaser.model.api.release.Rel
         this.branch = branch;
     }
 
+    @Override
     public CommitAuthor getCommitAuthor() {
         return commitAuthor;
     }
 
+    @Override
     public void setCommitAuthor(CommitAuthor commitAuthor) {
         this.commitAuthor.merge(commitAuthor);
     }
@@ -463,7 +476,7 @@ public abstract class BaseReleaser<A extends org.jreleaser.model.api.release.Rel
     }
 
     public boolean isSign() {
-        return sign != null && sign;
+        return null != sign && sign;
     }
 
     public void setSign(Boolean sign) {
@@ -495,7 +508,7 @@ public abstract class BaseReleaser<A extends org.jreleaser.model.api.release.Rel
     }
 
     public boolean isSkipTag() {
-        return skipTag != null && skipTag;
+        return null != skipTag && skipTag;
     }
 
     public void setSkipTag(Boolean skipTag) {
@@ -503,11 +516,11 @@ public abstract class BaseReleaser<A extends org.jreleaser.model.api.release.Rel
     }
 
     public boolean isSkipTagSet() {
-        return skipTag != null;
+        return null != skipTag;
     }
 
     public boolean isSkipRelease() {
-        return skipRelease != null && skipRelease;
+        return null != skipRelease && skipRelease;
     }
 
     public void setSkipRelease(Boolean skipRelease) {
@@ -515,11 +528,11 @@ public abstract class BaseReleaser<A extends org.jreleaser.model.api.release.Rel
     }
 
     public boolean isSkipReleaseSet() {
-        return skipRelease != null;
+        return null != skipRelease;
     }
 
     public boolean isOverwrite() {
-        return overwrite != null && overwrite;
+        return null != overwrite && overwrite;
     }
 
     public void setOverwrite(Boolean overwrite) {
@@ -527,7 +540,7 @@ public abstract class BaseReleaser<A extends org.jreleaser.model.api.release.Rel
     }
 
     public boolean isOverwriteSet() {
-        return overwrite != null;
+        return null != overwrite;
     }
 
     public Update getUpdate() {
@@ -567,11 +580,11 @@ public abstract class BaseReleaser<A extends org.jreleaser.model.api.release.Rel
     }
 
     public boolean isArtifactsSet() {
-        return artifacts != null;
+        return null != artifacts;
     }
 
     public boolean isArtifacts() {
-        return artifacts == null || artifacts;
+        return null == artifacts || artifacts;
     }
 
     public void setArtifacts(Boolean artifacts) {
@@ -579,7 +592,7 @@ public abstract class BaseReleaser<A extends org.jreleaser.model.api.release.Rel
     }
 
     public boolean isFiles() {
-        return files == null || files;
+        return null == files || files;
     }
 
     public void setFiles(Boolean files) {
@@ -587,27 +600,39 @@ public abstract class BaseReleaser<A extends org.jreleaser.model.api.release.Rel
     }
 
     public boolean isFilesSet() {
-        return files != null;
+        return null != files;
     }
 
     public boolean isChecksumsSet() {
-        return checksums != null;
+        return null != checksums;
     }
 
     public boolean isChecksums() {
-        return checksums == null || checksums;
+        return null == checksums || checksums;
     }
 
     public void setChecksums(Boolean checksums) {
         this.checksums = checksums;
     }
 
+    public boolean isCatalogsSet() {
+        return null != catalogs;
+    }
+
+    public boolean isCatalogs() {
+        return null == catalogs || catalogs;
+    }
+
+    public void setCatalogs(Boolean catalogs) {
+        this.catalogs = catalogs;
+    }
+
     public boolean isSignaturesSet() {
-        return signatures != null;
+        return null != signatures;
     }
 
     public boolean isSignatures() {
-        return signatures == null || signatures;
+        return null == signatures || signatures;
     }
 
     public void setSignatures(Boolean signatures) {
@@ -627,155 +652,167 @@ public abstract class BaseReleaser<A extends org.jreleaser.model.api.release.Rel
     }
 
     public boolean isUploadAssetsSet() {
-        return uploadAssets != null;
+        return null != uploadAssets;
     }
 
     @Override
     public Map<String, Object> asMap(boolean full) {
-        Map<String, Object> props = new LinkedHashMap<>();
-        props.put("enabled", isEnabled());
-        props.put("host", host);
-        props.put("owner", owner);
-        props.put("name", name);
-        props.put("username", username);
-        props.put("token", isNotBlank(token) ? Constants.HIDE : Constants.UNSET);
+        Map<String, Object> map = new LinkedHashMap<>();
+        map.put("enabled", isEnabled());
+        map.put("host", host);
+        map.put("owner", owner);
+        map.put("name", name);
+        map.put("username", username);
+        map.put("token", isNotBlank(token) ? Constants.HIDE : Constants.UNSET);
         if (releaseSupported) {
-            props.put("uploadAssets", uploadAssets);
-            props.put("artifacts", isArtifacts());
-            props.put("files", isFiles());
-            props.put("checksums", isChecksums());
-            props.put("signatures", isSignatures());
-            props.put("repoUrl", repoUrl);
-            props.put("repoCloneUrl", repoCloneUrl);
-            props.put("commitUrl", commitUrl);
-            props.put("srcUrl", srcUrl);
-            props.put("downloadUrl", downloadUrl);
-            props.put("releaseNotesUrl", releaseNotesUrl);
-            props.put("latestReleaseUrl", latestReleaseUrl);
-            props.put("issueTrackerUrl", issueTrackerUrl);
+            map.put("uploadAssets", uploadAssets);
+            map.put("artifacts", isArtifacts());
+            map.put("files", isFiles());
+            map.put("checksums", isChecksums());
+            map.put("catalogs", isCatalogs());
+            map.put("signatures", isSignatures());
+            map.put("repoUrl", repoUrl);
+            map.put("repoCloneUrl", repoCloneUrl);
+            map.put("commitUrl", commitUrl);
+            map.put("srcUrl", srcUrl);
+            map.put("downloadUrl", downloadUrl);
+            map.put("releaseNotesUrl", releaseNotesUrl);
+            map.put("latestReleaseUrl", latestReleaseUrl);
+            map.put("issueTrackerUrl", issueTrackerUrl);
         }
-        props.put("tagName", tagName);
+        map.put("tagName", tagName);
+        map.put("previousTagName", previousTagName);
         if (releaseSupported) {
-            props.put("releaseName", releaseName);
+            map.put("releaseName", releaseName);
         }
-        props.put("branch", branch);
-        props.put("commitAuthor", commitAuthor.asMap(full));
-        props.put("sign", isSign());
-        props.put("skipTag", isSkipTag());
-        props.put("skipRelease", isSkipRelease());
-        props.put("overwrite", isOverwrite());
+        map.put("branch", branch);
+        map.put("commitAuthor", commitAuthor.asMap(full));
+        map.put("sign", isSign());
+        map.put("skipTag", isSkipTag());
+        map.put("skipRelease", isSkipRelease());
+        map.put("overwrite", isOverwrite());
         if (releaseSupported) {
-            props.put("update", update.asMap(full));
-            props.put("apiEndpoint", apiEndpoint);
-            props.put("connectTimeout", connectTimeout);
-            props.put("readTimeout", readTimeout);
+            map.put("update", update.asMap(full));
+            map.put("apiEndpoint", apiEndpoint);
+            map.put("connectTimeout", connectTimeout);
+            map.put("readTimeout", readTimeout);
         }
-        props.put("changelog", changelog.asMap(full));
+        map.put("changelog", changelog.asMap(full));
         if (releaseSupported) {
-            props.put("milestone", milestone.asMap(full));
-            props.put("issues", issues.asMap(full));
+            map.put("milestone", milestone.asMap(full));
+            map.put("issues", issues.asMap(full));
         }
-        props.put("prerelease", prerelease.asMap(full));
-        return props;
+        map.put("prerelease", prerelease.asMap(full));
+        return map;
     }
 
-    public Map<String, Object> props(JReleaserModel model) {
+    public TemplateContext props(JReleaserModel model) {
         // duplicate from JReleaserModel to avoid endless recursion
-        Map<String, Object> props = new LinkedHashMap<>();
+        TemplateContext props = new TemplateContext();
         Project project = model.getProject();
-        props.putAll(model.getEnvironment().getProperties());
-        props.putAll(model.getEnvironment().getSourcedProperties());
-        props.put(Constants.KEY_PROJECT_NAME, project.getName());
-        props.put(Constants.KEY_PROJECT_NAME_CAPITALIZED, getCapitalizedName(project.getName()));
-        props.put(Constants.KEY_PROJECT_VERSION, project.getVersion());
-        props.put(Constants.KEY_PROJECT_STEREOTYPE, project.getStereotype());
-        props.put(Constants.KEY_PROJECT_EFFECTIVE_VERSION, project.getEffectiveVersion());
-        props.put(Constants.KEY_PROJECT_SNAPSHOT, String.valueOf(project.isSnapshot()));
+        props.setAll(model.getEnvironment().getProperties());
+        props.setAll(model.getEnvironment().getSourcedProperties());
+        props.set(Constants.KEY_PROJECT_NAME, project.getName());
+        props.set(Constants.KEY_PROJECT_NAME_CAPITALIZED, getCapitalizedName(project.getName()));
+        props.set(Constants.KEY_PROJECT_VERSION, project.getVersion());
+        props.set(Constants.KEY_PROJECT_STEREOTYPE, project.getStereotype());
+        props.set(Constants.KEY_PROJECT_EFFECTIVE_VERSION, project.getEffectiveVersion());
+        props.set(Constants.KEY_PROJECT_SNAPSHOT, String.valueOf(project.isSnapshot()));
         if (isNotBlank(project.getDescription())) {
-            props.put(Constants.KEY_PROJECT_DESCRIPTION, MustacheUtils.passThrough(project.getDescription()));
+            props.set(Constants.KEY_PROJECT_DESCRIPTION, MustacheUtils.passThrough(project.getDescription()));
         }
         if (isNotBlank(project.getLongDescription())) {
-            props.put(Constants.KEY_PROJECT_LONG_DESCRIPTION, MustacheUtils.passThrough(project.getLongDescription()));
+            props.set(Constants.KEY_PROJECT_LONG_DESCRIPTION, MustacheUtils.passThrough(project.getLongDescription()));
         }
         if (isNotBlank(project.getLicense())) {
-            props.put(Constants.KEY_PROJECT_LICENSE, project.getLicense());
+            props.set(Constants.KEY_PROJECT_LICENSE, project.getLicense());
         }
         if (null != project.getInceptionYear()) {
-            props.put(Constants.KEY_PROJECT_INCEPTION_YEAR, project.getInceptionYear());
+            props.set(Constants.KEY_PROJECT_INCEPTION_YEAR, project.getInceptionYear());
         }
         if (isNotBlank(project.getCopyright())) {
-            props.put(Constants.KEY_PROJECT_COPYRIGHT, project.getCopyright());
+            props.set(Constants.KEY_PROJECT_COPYRIGHT, project.getCopyright());
         }
         if (isNotBlank(project.getVendor())) {
-            props.put(Constants.KEY_PROJECT_VENDOR, project.getVendor());
+            props.set(Constants.KEY_PROJECT_VENDOR, project.getVendor());
         }
         project.getLinks().fillProps(props);
 
         if (project.getJava().isEnabled()) {
-            props.putAll(project.getJava().getResolvedExtraProperties());
-            props.put(Constants.KEY_PROJECT_JAVA_GROUP_ID, project.getJava().getGroupId());
-            props.put(Constants.KEY_PROJECT_JAVA_ARTIFACT_ID, project.getJava().getArtifactId());
-            props.put(Constants.KEY_PROJECT_JAVA_VERSION, project.getJava().getVersion());
-            props.put(Constants.KEY_PROJECT_JAVA_MAIN_CLASS, project.getJava().getMainClass());
-            SemanticVersion jv = SemanticVersion.of(project.getJava().getVersion());
-            props.put(Constants.KEY_PROJECT_JAVA_VERSION_MAJOR, jv.getMajor());
-            if (jv.hasMinor()) props.put(Constants.KEY_PROJECT_JAVA_VERSION_MINOR, jv.getMinor());
-            if (jv.hasPatch()) props.put(Constants.KEY_PROJECT_JAVA_VERSION_PATCH, jv.getPatch());
-            if (jv.hasTag()) props.put(Constants.KEY_PROJECT_JAVA_VERSION_TAG, jv.getTag());
-            if (jv.hasBuild()) props.put(Constants.KEY_PROJECT_JAVA_VERSION_BUILD, jv.getBuild());
+            props.setAll(project.getJava().resolvedExtraProperties());
+            props.set(Constants.KEY_PROJECT_JAVA_GROUP_ID, project.getJava().getGroupId());
+            props.set(Constants.KEY_PROJECT_JAVA_ARTIFACT_ID, project.getJava().getArtifactId());
+            String javaVersion = project.getJava().getVersion();
+            props.set(Constants.KEY_PROJECT_JAVA_VERSION, javaVersion);
+            props.set(Constants.KEY_PROJECT_JAVA_MAIN_CLASS, project.getJava().getMainClass());
+            if (isNotBlank(javaVersion)) {
+                SemanticVersion jv = SemanticVersion.of(javaVersion);
+                props.set(Constants.KEY_PROJECT_JAVA_VERSION_MAJOR, jv.getMajor());
+                if (jv.hasMinor()) props.set(Constants.KEY_PROJECT_JAVA_VERSION_MINOR, jv.getMinor());
+                if (jv.hasPatch()) props.set(Constants.KEY_PROJECT_JAVA_VERSION_PATCH, jv.getPatch());
+                if (jv.hasTag()) props.set(Constants.KEY_PROJECT_JAVA_VERSION_TAG, jv.getTag());
+                if (jv.hasBuild()) props.set(Constants.KEY_PROJECT_JAVA_VERSION_BUILD, jv.getBuild());
+            }
         }
 
         project.parseVersion();
-        props.putAll(project.getResolvedExtraProperties());
+        props.setAll(project.resolvedExtraProperties());
 
         String osName = PlatformUtils.getDetectedOs();
         String osArch = PlatformUtils.getDetectedArch();
-        props.put(Constants.KEY_OS_NAME, osName);
-        props.put(Constants.KEY_OS_ARCH, osArch);
-        props.put(Constants.KEY_OS_VERSION, PlatformUtils.getDetectedVersion());
-        props.put(Constants.KEY_OS_PLATFORM, PlatformUtils.getCurrentFull());
-        props.put(Constants.KEY_OS_PLATFORM_REPLACED, model.getPlatform().applyReplacements(PlatformUtils.getCurrentFull()));
+        props.set(Constants.KEY_OS_NAME, osName);
+        props.set(Constants.KEY_OS_ARCH, osArch);
+        props.set(Constants.KEY_OS_VERSION, PlatformUtils.getDetectedVersion());
+        props.set(Constants.KEY_OS_PLATFORM, PlatformUtils.getCurrentFull());
+        props.set(Constants.KEY_OS_PLATFORM_REPLACED, model.getPlatform().applyReplacements(PlatformUtils.getCurrentFull()));
 
-        props.put(Constants.KEY_REPO_HOST, host);
-        props.put(Constants.KEY_REPO_OWNER, owner);
-        props.put(Constants.KEY_REPO_NAME, name);
-        props.put(Constants.KEY_REPO_BRANCH, branch);
-        props.put(Constants.KEY_REVERSE_REPO_HOST, getReverseRepoHost());
-        props.put(Constants.KEY_CANONICAL_REPO_NAME, getCanonicalRepoName());
-        props.put(Constants.KEY_TAG_NAME, project.isSnapshot() ? project.getSnapshot().getResolvedLabel(model) : cachedTagName);
-        props.put(Constants.KEY_RELEASE_NAME, cachedReleaseName);
-        props.put(Constants.KEY_MILESTONE_NAME, milestone.getEffectiveName());
+        props.set(Constants.KEY_REPO_HOST, host);
+        props.set(Constants.KEY_REPO_OWNER, owner);
+        props.set(Constants.KEY_REPO_NAME, name);
+        props.set(Constants.KEY_REPO_BRANCH, branch);
+        props.set(Constants.KEY_REVERSE_REPO_HOST, getReverseRepoHost());
+        props.set(Constants.KEY_CANONICAL_REPO_NAME, getCanonicalRepoName());
+        props.set(Constants.KEY_TAG_NAME, project.isSnapshot() ? project.getSnapshot().getResolvedLabel(model) : cachedTagName);
+        props.set(Constants.KEY_PREVIOUS_TAG_NAME, cachedPreviousTagName);
+        props.set(Constants.KEY_RELEASE_NAME, cachedReleaseName);
+        props.set(Constants.KEY_MILESTONE_NAME, milestone.getEffectiveName());
 
-        applyTemplates(props, project.getResolvedExtraProperties());
-        props.put(Constants.KEY_ZONED_DATE_TIME_NOW, model.getNow());
+        applyTemplates(props, project.resolvedExtraProperties());
+        props.set(Constants.KEY_ZONED_DATE_TIME_NOW, model.getNow());
 
         return props;
     }
 
-    public void fillProps(Map<String, Object> props, JReleaserModel model) {
-        props.put(Constants.KEY_REPO_HOST, host);
-        props.put(Constants.KEY_REPO_OWNER, owner);
-        props.put(Constants.KEY_REPO_NAME, name);
-        props.put(Constants.KEY_REPO_BRANCH, branch);
-        props.put(Constants.KEY_REVERSE_REPO_HOST, getReverseRepoHost());
-        props.put(Constants.KEY_CANONICAL_REPO_NAME, getCanonicalRepoName());
-        props.put(Constants.KEY_TAG_NAME, getEffectiveTagName(model));
-        props.put(Constants.KEY_RELEASE_NAME, getEffectiveReleaseName());
-        props.put(Constants.KEY_MILESTONE_NAME, milestone.getEffectiveName());
-        props.put(Constants.KEY_REPO_URL, getResolvedRepoUrl(model));
-        props.put(Constants.KEY_REPO_CLONE_URL, getResolvedRepoCloneUrl(model));
-        props.put(Constants.KEY_COMMIT_URL, getResolvedCommitUrl(model));
-        props.put(Constants.KEY_SRC_URL, getResolvedSrcUrl(model));
-        props.put(Constants.KEY_RELEASE_NOTES_URL, getResolvedReleaseNotesUrl(model));
-        props.put(Constants.KEY_LATEST_RELEASE_URL, getResolvedLatestReleaseUrl(model));
-        props.put(Constants.KEY_ISSUE_TRACKER_URL, getResolvedIssueTrackerUrl(model));
+    public void fillProps(TemplateContext props, JReleaserModel model) {
+        props.set(Constants.KEY_REPO_HOST, host);
+        props.set(Constants.KEY_REPO_OWNER, owner);
+        props.set(Constants.KEY_REPO_NAME, name);
+        props.set(Constants.KEY_REPO_BRANCH, branch);
+        props.set(Constants.KEY_REVERSE_REPO_HOST, getReverseRepoHost());
+        props.set(Constants.KEY_CANONICAL_REPO_NAME, getCanonicalRepoName());
+        props.set(Constants.KEY_TAG_NAME, getEffectiveTagName(model));
+        props.set(Constants.KEY_PREVIOUS_TAG_NAME, getResolvedPreviousTagName(model));
+        props.set(Constants.KEY_RELEASE_NAME, getEffectiveReleaseName());
+        props.set(Constants.KEY_MILESTONE_NAME, milestone.getEffectiveName());
+        props.set(Constants.KEY_REPO_URL, getResolvedRepoUrl(model));
+        props.set(Constants.KEY_REPO_CLONE_URL, getResolvedRepoCloneUrl(model));
+        props.set(Constants.KEY_COMMIT_URL, getResolvedCommitUrl(model));
+        props.set(Constants.KEY_SRC_URL, getResolvedSrcUrl(model));
+        props.set(Constants.KEY_RELEASE_NOTES_URL, getResolvedReleaseNotesUrl(model));
+        props.set(Constants.KEY_LATEST_RELEASE_URL, getResolvedLatestReleaseUrl(model));
+        props.set(Constants.KEY_ISSUE_TRACKER_URL, getResolvedIssueTrackerUrl(model, false));
     }
 
     public static final class Update extends AbstractModelObject<Update> implements Domain, EnabledAware {
+        private static final long serialVersionUID = -3809529510256990035L;
+
         private final Set<UpdateSection> sections = new LinkedHashSet<>();
         private Boolean enabled;
 
+        @JsonIgnore
         private final org.jreleaser.model.api.release.Releaser.Update immutable = new org.jreleaser.model.api.release.Releaser.Update() {
+            private static final long serialVersionUID = -7253526159752557224L;
+
             @Override
             public Set<UpdateSection> getSections() {
                 return unmodifiableSet(sections);
@@ -804,7 +841,7 @@ public abstract class BaseReleaser<A extends org.jreleaser.model.api.release.Rel
 
         @Override
         public boolean isEnabled() {
-            return enabled != null && enabled;
+            return null != enabled && enabled;
         }
 
         @Override
@@ -814,9 +851,8 @@ public abstract class BaseReleaser<A extends org.jreleaser.model.api.release.Rel
 
         @Override
         public boolean isEnabledSet() {
-            return enabled != null;
+            return null != enabled;
         }
-
 
         public Set<UpdateSection> getSections() {
             return sections;
@@ -837,10 +873,15 @@ public abstract class BaseReleaser<A extends org.jreleaser.model.api.release.Rel
     }
 
     public static final class Prerelease extends AbstractModelObject<Prerelease> implements Domain, EnabledAware {
+        private static final long serialVersionUID = -7358833182369685133L;
+
         private Boolean enabled;
         private String pattern;
 
+        @JsonIgnore
         private final org.jreleaser.model.api.release.Releaser.Prerelease immutable = new org.jreleaser.model.api.release.Releaser.Prerelease() {
+            private static final long serialVersionUID = -862797136353472181L;
+
             @Override
             public boolean isPrerelease(String version) {
                 return Prerelease.this.isPrerelease(version);
@@ -876,17 +917,19 @@ public abstract class BaseReleaser<A extends org.jreleaser.model.api.release.Rel
             enabled = false;
         }
 
+        @Override
         public boolean isEnabled() {
-            return enabled != null && enabled;
+            return null != enabled && enabled;
         }
 
+        @Override
         public void setEnabled(Boolean enabled) {
             this.enabled = enabled;
         }
 
         @Override
         public boolean isEnabledSet() {
-            return enabled != null;
+            return null != enabled;
         }
 
         public boolean isPrerelease(String version) {
@@ -924,10 +967,15 @@ public abstract class BaseReleaser<A extends org.jreleaser.model.api.release.Rel
     }
 
     public static final class Milestone extends AbstractModelObject<Milestone> implements Domain {
+        private static final long serialVersionUID = 5385291379888571159L;
+
         private Boolean close;
         private String name;
 
+        @JsonIgnore
         private final org.jreleaser.model.api.release.Releaser.Milestone immutable = new org.jreleaser.model.api.release.Releaser.Milestone() {
+            private static final long serialVersionUID = 2957887352276816797L;
+
             @Override
             public boolean isClose() {
                 return Milestone.this.isClose();
@@ -961,7 +1009,7 @@ public abstract class BaseReleaser<A extends org.jreleaser.model.api.release.Rel
             return Env.env(org.jreleaser.model.api.release.Releaser.MILESTONE_NAME, cachedName);
         }
 
-        public String getResolvedName(Map<String, Object> props) {
+        public String getResolvedName(TemplateContext props) {
             if (isBlank(cachedName)) {
                 cachedName = getConfiguredName();
             }
@@ -980,7 +1028,7 @@ public abstract class BaseReleaser<A extends org.jreleaser.model.api.release.Rel
         }
 
         public boolean isClose() {
-            return close == null || close;
+            return null == close || close;
         }
 
         public void setClose(Boolean close) {
@@ -988,7 +1036,7 @@ public abstract class BaseReleaser<A extends org.jreleaser.model.api.release.Rel
         }
 
         public boolean isCloseSet() {
-            return close != null;
+            return null != close;
         }
 
         public String getName() {
@@ -1009,12 +1057,17 @@ public abstract class BaseReleaser<A extends org.jreleaser.model.api.release.Rel
     }
 
     public static final class Issues extends AbstractModelObject<Issues> implements Domain, EnabledAware {
+        private static final long serialVersionUID = -8544658826532962076L;
+
         private final Label label = new Label();
         private Apply applyMilestone;
         private String comment;
         private Boolean enabled;
 
+        @JsonIgnore
         private final org.jreleaser.model.api.release.Releaser.Issues immutable = new org.jreleaser.model.api.release.Releaser.Issues() {
+            private static final long serialVersionUID = 7857893617001154950L;
+
             @Override
             public String getComment() {
                 return comment;
@@ -1055,7 +1108,7 @@ public abstract class BaseReleaser<A extends org.jreleaser.model.api.release.Rel
 
         @Override
         public boolean isEnabled() {
-            return enabled != null && enabled;
+            return null != enabled && enabled;
         }
 
         @Override
@@ -1065,7 +1118,7 @@ public abstract class BaseReleaser<A extends org.jreleaser.model.api.release.Rel
 
         @Override
         public boolean isEnabledSet() {
-            return enabled != null;
+            return null != enabled;
         }
 
         public String getComment() {
@@ -1107,11 +1160,16 @@ public abstract class BaseReleaser<A extends org.jreleaser.model.api.release.Rel
         }
 
         public static final class Label extends AbstractModelObject<Label> implements Domain {
+            private static final long serialVersionUID = 6951467063217168128L;
+
             private String name;
             private String color;
             private String description;
 
+            @JsonIgnore
             private final org.jreleaser.model.api.release.Releaser.Issues.Label immutable = new org.jreleaser.model.api.release.Releaser.Issues.Label() {
+                private static final long serialVersionUID = 8642359487826561699L;
+
                 @Override
                 public String getName() {
                     return name;

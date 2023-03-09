@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,6 +15,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+boolean qualityEnabled    = (project.rootProject.findProperty('qualityEnabled') ?: false).toBoolean()
+boolean sonarEnabled      = qualityEnabled || (project.rootProject.findProperty('sonarEnabled') ?: false).toBoolean()
+boolean spotbugsEnabled   = qualityEnabled || (project.rootProject.findProperty('spotbugsEnabled') ?: false).toBoolean()
+boolean errorproneEnabled = qualityEnabled || (project.rootProject.findProperty('errorproneEnabled') ?: false).toBoolean()
+
 config {
     info {
         description = 'jreleaser'
@@ -64,13 +69,48 @@ config {
                 enabled = true
             }
         }
+        spotbugs {
+            enabled = spotbugsEnabled
+            toolVersion = spotbugsVersion
+            ignoreFailures = true
+            report = 'xml'
+            aggregate {
+                enabled = spotbugsEnabled
+            }
+        }
+        errorprone {
+            enabled = errorproneEnabled
+            excludedPaths = '.*/build/mavenPlugin/.*'
+            args = [
+                '-Xep:MissingSummary:OFF',
+                '-Xep:SameNameButDifferent:OFF',
+                '-Xep:JavaLangClash:OFF'
+            ]
+        }
+        sonar {
+            enabled = sonarEnabled
+            standalone = true
+            hostUrl = 'https://sonarcloud.io'
+            organization = 'org-jreleaser-sonar'
+            projectKey = 'org_jreleaser_jreleaser'
+        }
+    }
+
+    coverage {
+        jacoco {
+            enabled = true
+            toolVersion = jacocoVersion
+        }
+        coveralls {
+            enabled = true
+            standalone = true
+        }
     }
 }
 
 allprojects {
     repositories {
         mavenLocal()
-        mavenCentral()
         gradlePluginPortal()
     }
 
@@ -78,8 +118,8 @@ allprojects {
         enabled = false
     }
 
-    tasks.withType(JavaCompiler) {
-        options.compilerArgs += ['-Duser.language=en', '-Duser.country=US']
+    tasks.withType(JavaCompile) {
+        options.encoding = 'UTF-8'
     }
 }
 
@@ -100,12 +140,32 @@ subprojects {
         testImplementation "org.junit.jupiter:junit-jupiter:$junit5Version"
         testImplementation "org.junit.jupiter:junit-jupiter-params:$junit5Version"
         testImplementation "org.hamcrest:hamcrest-library:$hamcrestVersion"
+        testImplementation "org.assertj:assertj-core:$assertjVersion"
+        testImplementation "org.junit-pioneer:junit-pioneer:$junitPioneerVersion"
 
         testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:$junit5Version"
     }
 
     test {
         useJUnitPlatform()
+    }
+}
+
+subprojects { p ->
+    config {
+        coverage {
+            jacoco {
+                enabled = hasTestsAt(p.file('src/test'))
+            }
+        }
+    }
+
+    pitest {
+        outputFormats = ['XML', 'HTML']
+        exportLineCoverage = true
+        timestampedReports = false
+        junit5PluginVersion = '1.1.0'
+        failWhenNoMutations = hasTestsAt(p.file('src/test'))
     }
 }
 
@@ -120,6 +180,14 @@ projects {
                 compileOnly project(':jreleaser-nativeimage-annotations')
                 annotationProcessor project(':jreleaser-nativeimage-processor')
             }
+
+            if (!(project.findProperty('automatic.module.name.skip') ?: false).toBoolean()) {
+                jar {
+                    manifest {
+                        attributes('Automatic-Module-Name': project.findProperty('automatic.module.name'))
+                    }
+                }
+            }
         }
     }
 }
@@ -133,4 +201,8 @@ tasks.register('cleanupStagedRepository') {
         repoDir.dir('jreleaser-gradle-plugin').asFile.deleteDir()
         repoDir.dir('org.jreleaser.gradle.plugin').asFile.deleteDir()
     }
+}
+
+boolean hasTestsAt(File testDir) {
+    testDir.exists() && testDir.listFiles()?.size()
 }

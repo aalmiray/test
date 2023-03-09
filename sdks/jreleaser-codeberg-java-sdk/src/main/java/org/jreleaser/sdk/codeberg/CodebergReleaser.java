@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,6 +29,7 @@ import org.jreleaser.model.spi.release.Release;
 import org.jreleaser.model.spi.release.ReleaseException;
 import org.jreleaser.model.spi.release.Repository;
 import org.jreleaser.model.spi.release.User;
+import org.jreleaser.mustache.TemplateContext;
 import org.jreleaser.sdk.commons.RestAPIException;
 import org.jreleaser.sdk.git.ChangelogProvider;
 import org.jreleaser.sdk.git.GitSdk;
@@ -43,11 +44,12 @@ import org.jreleaser.sdk.gitea.api.GtRepository;
 
 import java.io.IOException;
 import java.nio.file.Files;
-import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.regex.Pattern;
 
 import static org.jreleaser.mustache.Templates.resolveTemplate;
@@ -60,9 +62,11 @@ import static org.jreleaser.util.StringUtils.uncapitalize;
  */
 @org.jreleaser.infra.nativeimage.annotations.NativeImage
 public class CodebergReleaser extends AbstractReleaser<org.jreleaser.model.api.release.CodebergReleaser> {
+    private static final long serialVersionUID = 2353604736025160554L;
+
     private final org.jreleaser.model.internal.release.CodebergReleaser codeberg;
 
-    public CodebergReleaser(JReleaserContext context, List<Asset> assets) {
+    public CodebergReleaser(JReleaserContext context, Set<Asset> assets) {
         super(context, assets);
         codeberg = context.getModel().getRelease().getCodeberg();
     }
@@ -105,7 +109,7 @@ public class CodebergReleaser extends AbstractReleaser<org.jreleaser.model.api.r
                 throw new ReleaseException(RB.$("ERROR_git_release_branch_not_exists", branch, branchNames));
             }
 
-            String changelog = context.getChangelog();
+            String changelog = context.getChangelog().getResolvedChangelog();
 
             context.getLogger().debug(RB.$("git.releaser.release.lookup"), tagName, codeberg.getCanonicalRepoName());
             GtRelease release = api.findReleaseByTag(codeberg.getOwner(), codeberg.getName(), tagName);
@@ -123,8 +127,12 @@ public class CodebergReleaser extends AbstractReleaser<org.jreleaser.model.api.r
                     context.getLogger().debug(RB.$("git.releaser.release.update"), tagName);
                     if (!context.isDryrun()) {
                         GtRelease updater = new GtRelease();
-                        updater.setPrerelease(codeberg.getPrerelease().isEnabled());
-                        updater.setDraft(codeberg.isDraft());
+                        if (codeberg.getPrerelease().isEnabledSet()) {
+                            updater.setPrerelease(codeberg.getPrerelease().isEnabled());
+                        }
+                        if (codeberg.isDraftSet()) {
+                            updater.setDraft(codeberg.isDraft());
+                        }
                         if (codeberg.getUpdate().getSections().contains(UpdateSection.TITLE)) {
                             context.getLogger().info(RB.$("git.releaser.release.update.title"), codeberg.getEffectiveReleaseName());
                             updater.setName(codeberg.getEffectiveReleaseName());
@@ -166,7 +174,7 @@ public class CodebergReleaser extends AbstractReleaser<org.jreleaser.model.api.r
     }
 
     protected Repository.Kind resolveRepositoryKind() {
-        return Repository.Kind.OTHER;
+        return Repository.Kind.CODEBERG;
     }
 
     @Override
@@ -211,7 +219,7 @@ public class CodebergReleaser extends AbstractReleaser<org.jreleaser.model.api.r
                 codeberg.getConnectTimeout(),
                 codeberg.getReadTimeout())
                 .findUser(email, name, host);
-        } catch (RestAPIException | IOException e) {
+        } catch (RestAPIException e) {
             context.getLogger().trace(e);
             context.getLogger().debug(RB.$("git.releaser.user.not.found"), email);
         }
@@ -308,7 +316,7 @@ public class CodebergReleaser extends AbstractReleaser<org.jreleaser.model.api.r
         String tagName = codeberg.getEffectiveTagName(context.getModel());
         String labelName = codeberg.getIssues().getLabel().getName();
         String labelColor = codeberg.getIssues().getLabel().getColor();
-        Map<String, Object> props = codeberg.props(context.getModel());
+        TemplateContext props = codeberg.props(context.getModel());
         codeberg.fillProps(props, context.getModel());
         String comment = resolveTemplate(codeberg.getIssues().getComment(), props);
 
@@ -325,7 +333,7 @@ public class CodebergReleaser extends AbstractReleaser<org.jreleaser.model.api.r
                 labelName,
                 labelColor,
                 codeberg.getIssues().getLabel().getDescription());
-        } catch (IOException e) {
+        } catch (RestAPIException e) {
             throw new IllegalStateException(RB.$("ERROR_git_releaser_fetch_label", tagName, labelName), e);
         }
 
@@ -350,7 +358,7 @@ public class CodebergReleaser extends AbstractReleaser<org.jreleaser.model.api.r
             if (!op.isPresent()) continue;
 
             GtIssue gtIssue = op.get();
-            if (gtIssue.getState().equals("closed") && gtIssue.getLabels().stream().noneMatch(l -> l.getName().equals(labelName))) {
+            if ("closed".equals(gtIssue.getState()) && gtIssue.getLabels().stream().noneMatch(l -> l.getName().equals(labelName))) {
                 context.getLogger().debug(RB.$("git.issue.release", issueNumber));
                 api.addLabelToIssue(codeberg.getOwner(), codeberg.getName(), gtIssue, gtLabel);
                 api.commentOnIssue(codeberg.getOwner(), codeberg.getName(), gtIssue, comment);
@@ -388,8 +396,8 @@ public class CodebergReleaser extends AbstractReleaser<org.jreleaser.model.api.r
     }
 
     private void updateAssets(Gitea api, GtRelease release) throws IOException {
-        List<Asset> assetsToBeUpdated = new ArrayList<>();
-        List<Asset> assetsToBeUploaded = new ArrayList<>();
+        Set<Asset> assetsToBeUpdated = new TreeSet<>();
+        Set<Asset> assetsToBeUploaded = new TreeSet<>();
 
         Map<String, GtAsset> existingAssets = api.listAssets(codeberg.getOwner(), codeberg.getName(), release);
         Map<String, Asset> assetsToBePublished = new LinkedHashMap<>();

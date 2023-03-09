@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
  */
 package org.jreleaser.model.internal.upload;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.jreleaser.model.Active;
 
 import java.util.Map;
@@ -29,70 +30,75 @@ import static org.jreleaser.model.api.upload.SftpUploader.TYPE;
  * @since 1.1.0
  */
 public final class SftpUploader extends AbstractSshUploader<org.jreleaser.model.api.upload.SftpUploader, SftpUploader> {
+    private static final long serialVersionUID = -1747846855467388566L;
+
+    @JsonIgnore
     private final org.jreleaser.model.api.upload.SftpUploader immutable = new org.jreleaser.model.api.upload.SftpUploader() {
+        private static final long serialVersionUID = -3588257846441022384L;
+
         @Override
         public String getPath() {
-            return path;
+            return SftpUploader.this.getPath();
         }
 
         @Override
         public String getDownloadUrl() {
-            return downloadUrl;
+            return SftpUploader.this.getDownloadUrl();
         }
 
         @Override
         public String getUsername() {
-            return username;
+            return SftpUploader.this.getUsername();
         }
 
         @Override
         public String getPassword() {
-            return password;
+            return SftpUploader.this.getPassword();
         }
 
         @Override
         public String getHost() {
-            return host;
+            return SftpUploader.this.getHost();
         }
 
         @Override
         public Integer getPort() {
-            return port;
+            return SftpUploader.this.getPort();
         }
 
         @Override
         public String getKnownHostsFile() {
-            return knownHostsFile;
+            return SftpUploader.this.getKnownHostsFile();
         }
 
         @Override
         public String getPublicKey() {
-            return publicKey;
+            return SftpUploader.this.getPublicKey();
         }
 
         @Override
         public String getPrivateKey() {
-            return privateKey;
+            return SftpUploader.this.getPrivateKey();
         }
 
         @Override
         public String getPassphrase() {
-            return passphrase;
+            return SftpUploader.this.getPassphrase();
         }
 
         @Override
         public String getFingerprint() {
-            return fingerprint;
+            return SftpUploader.this.getFingerprint();
         }
 
         @Override
         public String getType() {
-            return type;
+            return SftpUploader.this.getType();
         }
 
         @Override
         public String getName() {
-            return name;
+            return SftpUploader.this.getName();
         }
 
         @Override
@@ -121,8 +127,13 @@ public final class SftpUploader extends AbstractSshUploader<org.jreleaser.model.
         }
 
         @Override
+        public boolean isCatalogs() {
+            return SftpUploader.this.isCatalogs();
+        }
+
+        @Override
         public Active getActive() {
-            return active;
+            return SftpUploader.this.getActive();
         }
 
         @Override
@@ -137,22 +148,22 @@ public final class SftpUploader extends AbstractSshUploader<org.jreleaser.model.
 
         @Override
         public String getPrefix() {
-            return SftpUploader.this.getPrefix();
+            return SftpUploader.this.prefix();
         }
 
         @Override
         public Map<String, Object> getExtraProperties() {
-            return unmodifiableMap(extraProperties);
+            return unmodifiableMap(SftpUploader.this.getExtraProperties());
         }
 
         @Override
         public Integer getConnectTimeout() {
-            return connectTimeout;
+            return SftpUploader.this.getConnectTimeout();
         }
 
         @Override
         public Integer getReadTimeout() {
-            return readTimeout;
+            return SftpUploader.this.getReadTimeout();
         }
     };
 

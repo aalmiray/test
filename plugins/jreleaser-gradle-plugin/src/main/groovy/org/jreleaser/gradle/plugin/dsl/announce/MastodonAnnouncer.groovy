@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@
 package org.jreleaser.gradle.plugin.dsl.announce
 
 import groovy.transform.CompileStatic
+import org.gradle.api.provider.ListProperty
 import org.gradle.api.provider.Property
 
 /**
@@ -32,4 +33,10 @@ interface MastodonAnnouncer extends Announcer {
     Property<String> getAccessToken()
 
     Property<String> getStatus()
+
+    Property<String> getStatusTemplate()
+
+    ListProperty<String> getStatuses()
+
+    void status(String message)
 }

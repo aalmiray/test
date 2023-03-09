@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,24 +18,29 @@
 package org.jreleaser.model.internal.validation.download;
 
 import org.jreleaser.bundle.RB;
-import org.jreleaser.model.Active;
 import org.jreleaser.model.api.JReleaserContext.Mode;
 import org.jreleaser.model.internal.JReleaserContext;
 import org.jreleaser.model.internal.download.Downloader;
 import org.jreleaser.model.internal.download.SftpDownloader;
-import org.jreleaser.model.internal.validation.common.Validator;
 import org.jreleaser.util.Errors;
 
 import java.util.Map;
 
 import static org.jreleaser.model.internal.validation.common.SshValidator.validateSsh;
+import static org.jreleaser.model.internal.validation.common.Validator.resolveActivatable;
+import static org.jreleaser.model.internal.validation.common.Validator.validateTimeout;
+import static org.jreleaser.util.CollectionUtils.listOf;
 import static org.jreleaser.util.StringUtils.isBlank;
 
 /**
  * @author Andres Almiray
  * @since 1.1.0
  */
-public abstract class SftpDownloaderValidator extends Validator {
+public final class SftpDownloaderValidator {
+    private SftpDownloaderValidator() {
+        // noop
+    }
+
     public static void validateSftpDownloader(JReleaserContext context, Mode mode, Errors errors) {
         Map<String, SftpDownloader> sftp = context.getModel().getDownload().getSftp();
         if (!sftp.isEmpty()) context.getLogger().debug("download.sftp");
@@ -43,32 +48,32 @@ public abstract class SftpDownloaderValidator extends Validator {
         for (Map.Entry<String, SftpDownloader> e : sftp.entrySet()) {
             e.getValue().setName(e.getKey());
             if (mode.validateConfig() || mode.validateDownload()) {
-                validateSftpDownloader(context, mode, e.getValue(), errors);
+                validateSftpDownloader(context, e.getValue(), errors);
             }
         }
     }
 
-    private static void validateSftpDownloader(JReleaserContext context, Mode mode, SftpDownloader sftp, Errors errors) {
-        context.getLogger().debug("download.sftp.{}", sftp.getName());
+    private static void validateSftpDownloader(JReleaserContext context, SftpDownloader downloader, Errors errors) {
+        context.getLogger().debug("download.sftp.{}", downloader.getName());
 
-        if (!sftp.isActiveSet()) {
-            sftp.setActive(Active.ALWAYS);
-        }
-        if (!sftp.resolveEnabled(context.getModel().getProject())) {
+        resolveActivatable(context, downloader,
+            listOf("download.sftp." + downloader.getName(), "download.sftp"),
+            "ALWAYS");
+        if (!downloader.resolveEnabled(context.getModel().getProject())) {
             context.getLogger().debug(RB.$("validation.disabled"));
             return;
         }
 
-        validateSsh(context, sftp, sftp.getName(), "SFTP", sftp.getType(), errors);
-        validateTimeout(sftp);
+        validateSsh(context, downloader, downloader.getType(), downloader.getName(), "download.", errors);
+        validateTimeout(downloader);
 
-        if (sftp.getAssets().isEmpty()) {
-            errors.configuration(RB.$("validation_must_not_be_empty", "sftp." + sftp.getName() + ".assets"));
+        if (downloader.getAssets().isEmpty()) {
+            errors.configuration(RB.$("validation_must_not_be_empty", "download.sftp." + downloader.getName() + ".assets"));
         } else {
             int index = 0;
-            for (Downloader.Asset asset : sftp.getAssets()) {
+            for (Downloader.Asset asset : downloader.getAssets()) {
                 if (isBlank(asset.getInput())) {
-                    errors.configuration(RB.$("validation_must_not_be_null", "sftp." + sftp.getName() + ".asset[" + (index++) + "].input"));
+                    errors.configuration(RB.$("validation_must_not_be_null", "download.sftp." + downloader.getName() + ".asset[" + (index++) + "].input"));
                 }
             }
         }

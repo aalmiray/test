@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,9 +17,22 @@
  */
 package org.jreleaser.sdk.mastodon;
 
+import org.jreleaser.bundle.RB;
 import org.jreleaser.model.internal.JReleaserContext;
 import org.jreleaser.model.spi.announce.AnnounceException;
 import org.jreleaser.model.spi.announce.Announcer;
+import org.jreleaser.mustache.TemplateContext;
+import org.jreleaser.util.StringUtils;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+
+import static org.jreleaser.model.Constants.KEY_PREVIOUS_TAG_NAME;
+import static org.jreleaser.model.Constants.KEY_TAG_NAME;
+import static org.jreleaser.mustache.MustacheUtils.applyTemplates;
+import static org.jreleaser.mustache.Templates.resolveTemplate;
+import static org.jreleaser.util.StringUtils.isNotBlank;
 
 /**
  * @author Andres Almiray
@@ -52,9 +65,35 @@ public class MastodonAnnouncer implements Announcer<org.jreleaser.model.api.anno
 
     @Override
     public void announce() throws AnnounceException {
-        String status = mastodon.getResolvedStatus(context);
+        List<String> statuses = new ArrayList<>();
 
-        context.getLogger().debug("status: {}", status);
+        if (isNotBlank(mastodon.getStatusTemplate())) {
+            TemplateContext props = new TemplateContext();
+            context.getChangelog().apply(props);
+            context.getModel().getRelease().getReleaser().fillProps(props, context.getModel());
+            Arrays.stream(mastodon.getResolvedStatusTemplate(context, props)
+                    .split(System.lineSeparator()))
+                .filter(StringUtils::isNotBlank)
+                .map(String::trim)
+                .forEach(statuses::add);
+        }
+        if (statuses.isEmpty() && !mastodon.getStatuses().isEmpty()) {
+            statuses.addAll(mastodon.getStatuses());
+            mastodon.getStatuses().stream()
+                .filter(StringUtils::isNotBlank)
+                .map(String::trim)
+                .forEach(statuses::add);
+        }
+        if (statuses.isEmpty()) {
+            statuses.add(mastodon.getStatus());
+        }
+
+        for (int i = 0; i < statuses.size(); i++) {
+            String status = getResolvedMessage(context, statuses.get(i));
+            context.getLogger().info(RB.$("mastodon.toot"), status);
+            context.getLogger().debug(RB.$("mastodon.toot.size"), status.length());
+            statuses.set(i, status);
+        }
 
         try {
             MastodonSdk sdk = MastodonSdk.builder(context.getLogger())
@@ -64,9 +103,17 @@ public class MastodonAnnouncer implements Announcer<org.jreleaser.model.api.anno
                 .readTimeout(mastodon.getReadTimeout())
                 .dryrun(context.isDryrun())
                 .build();
-            sdk.status(status);
+            sdk.toot(statuses);
         } catch (MastodonException e) {
             throw new AnnounceException(e);
         }
+    }
+
+    private String getResolvedMessage(JReleaserContext context, String message) {
+        TemplateContext props = context.fullProps();
+        applyTemplates(props, context.getModel().getAnnounce().getMastodon().resolvedExtraProperties());
+        props.set(KEY_TAG_NAME, context.getModel().getRelease().getReleaser().getEffectiveTagName(context.getModel()));
+        props.set(KEY_PREVIOUS_TAG_NAME, context.getModel().getRelease().getReleaser().getResolvedPreviousTagName(context.getModel()));
+        return resolveTemplate(message, props);
     }
 }

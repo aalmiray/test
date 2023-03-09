@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,12 +22,14 @@ import org.jreleaser.model.internal.JReleaserContext;
 import org.jreleaser.workflow.Workflows;
 import picocli.CommandLine;
 
+import java.util.Set;
+
 /**
  * @author Andres Almiray
  * @since 0.1.0
  */
 @CommandLine.Command(name = "announce")
-public class Announce extends AbstractModelCommand {
+public class Announce extends AbstractModelCommand<Main> {
     @CommandLine.Option(names = {"--dry-run"})
     Boolean dryrun;
 
@@ -44,11 +46,11 @@ public class Announce extends AbstractModelCommand {
         Exclude exclude;
 
         String[] includedAnnouncers() {
-            return include != null ? include.includedAnnouncers : null;
+            return null != include ? include.includedAnnouncers : null;
         }
 
         String[] excludedAnnouncers() {
-            return exclude != null ? exclude.excludedAnnouncers : null;
+            return null != exclude ? exclude.excludedAnnouncers : null;
         }
     }
 
@@ -62,6 +64,13 @@ public class Announce extends AbstractModelCommand {
         @CommandLine.Option(names = {"-xa", "--exclude-announcer"},
             paramLabel = "<announcer>")
         String[] excludedAnnouncers;
+    }
+
+    @Override
+    protected void collectCandidateDeprecatedArgs(Set<AbstractCommand.DeprecatedArg> args) {
+        super.collectCandidateDeprecatedArgs(args);
+        args.add(new DeprecatedArg("-a", "--announcer", "1.5.0"));
+        args.add(new DeprecatedArg("-xa", "--exclude-announcer", "1.5.0"));
     }
 
     @Override

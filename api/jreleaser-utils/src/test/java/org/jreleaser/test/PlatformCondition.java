@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@ import org.junit.jupiter.api.extension.ExtensionContext;
 
 import java.util.Optional;
 
+import static org.jreleaser.util.StringUtils.isNotBlank;
 import static org.junit.platform.commons.util.AnnotationUtils.findAnnotation;
 
 /**
@@ -40,7 +41,7 @@ public class PlatformCondition implements ExecutionCondition {
             Platform annotation = optional.get();
             boolean match = annotation.match();
             String platform = annotation.platform();
-            boolean compatible = PlatformUtils.isCompatible(platform, PlatformUtils.getCurrentFull());
+            boolean compatible = isNotBlank(platform) && PlatformUtils.isCompatible(platform, PlatformUtils.getCurrentFull());
             boolean result = match == compatible;
             if (result) {
                 return ConditionEvaluationResult.enabled("Platform " + platform + " matches");

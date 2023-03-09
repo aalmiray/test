@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,36 +17,34 @@
  */
 package org.jreleaser.model.internal.upload;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.jreleaser.model.Active;
-import org.jreleaser.model.internal.JReleaserContext;
 import org.jreleaser.model.internal.common.Artifact;
+import org.jreleaser.mustache.TemplateContext;
 
-import java.util.LinkedHashMap;
 import java.util.Map;
 
 import static java.util.Collections.unmodifiableMap;
-import static org.jreleaser.model.Constants.HIDE;
-import static org.jreleaser.model.Constants.UNSET;
 import static org.jreleaser.model.api.upload.GiteaUploader.TYPE;
 import static org.jreleaser.mustache.Templates.resolveTemplate;
-import static org.jreleaser.util.StringUtils.isNotBlank;
 
 /**
  * @author Andres Almiray
  * @since 1.2.0
  */
-public final class GiteaUploader extends AbstractUploader<org.jreleaser.model.api.upload.GiteaUploader, GiteaUploader> {
+public final class GiteaUploader extends AbstractGitPackageUploader<org.jreleaser.model.api.upload.GiteaUploader, GiteaUploader> {
     private static final String DOWNLOAD_URL = "https://{{host}}/api/packages/{{owner}}/generic/{{packageName}}/{{packageVersion}}/{{artifactFile}}";
-    private String host;
-    private String owner;
-    private String token;
-    private String packageName;
-    private String packageVersion;
+    private static final long serialVersionUID = 8284794407254124499L;
 
+    private String owner;
+
+    @JsonIgnore
     private final org.jreleaser.model.api.upload.GiteaUploader immutable = new org.jreleaser.model.api.upload.GiteaUploader() {
+        private static final long serialVersionUID = -7859608360457491380L;
+
         @Override
         public String getHost() {
-            return host;
+            return GiteaUploader.this.getHost();
         }
 
         @Override
@@ -56,27 +54,27 @@ public final class GiteaUploader extends AbstractUploader<org.jreleaser.model.ap
 
         @Override
         public String getToken() {
-            return token;
+            return GiteaUploader.this.getToken();
         }
 
         @Override
         public String getPackageName() {
-            return packageName;
+            return GiteaUploader.this.getPackageName();
         }
 
         @Override
         public String getPackageVersion() {
-            return packageVersion;
+            return GiteaUploader.this.getPackageVersion();
         }
 
         @Override
         public String getType() {
-            return type;
+            return GiteaUploader.this.getType();
         }
 
         @Override
         public String getName() {
-            return name;
+            return GiteaUploader.this.getName();
         }
 
         @Override
@@ -105,8 +103,13 @@ public final class GiteaUploader extends AbstractUploader<org.jreleaser.model.ap
         }
 
         @Override
+        public boolean isCatalogs() {
+            return GiteaUploader.this.isCatalogs();
+        }
+
+        @Override
         public Active getActive() {
-            return active;
+            return GiteaUploader.this.getActive();
         }
 
         @Override
@@ -121,22 +124,22 @@ public final class GiteaUploader extends AbstractUploader<org.jreleaser.model.ap
 
         @Override
         public String getPrefix() {
-            return GiteaUploader.this.getPrefix();
+            return GiteaUploader.this.prefix();
         }
 
         @Override
         public Map<String, Object> getExtraProperties() {
-            return unmodifiableMap(extraProperties);
+            return unmodifiableMap(GiteaUploader.this.getExtraProperties());
         }
 
         @Override
         public Integer getConnectTimeout() {
-            return connectTimeout;
+            return GiteaUploader.this.getConnectTimeout();
         }
 
         @Override
         public Integer getReadTimeout() {
-            return readTimeout;
+            return GiteaUploader.this.getReadTimeout();
         }
     };
 
@@ -152,19 +155,7 @@ public final class GiteaUploader extends AbstractUploader<org.jreleaser.model.ap
     @Override
     public void merge(GiteaUploader source) {
         super.merge(source);
-        this.host = merge(this.host, source.host);
         this.owner = merge(this.owner, source.owner);
-        this.token = merge(this.token, source.token);
-        this.packageName = merge(this.packageName, source.packageName);
-        this.packageVersion = merge(this.packageVersion, source.packageVersion);
-    }
-
-    public String getHost() {
-        return host;
-    }
-
-    public void setHost(String host) {
-        this.host = host;
     }
 
     public String getOwner() {
@@ -175,56 +166,20 @@ public final class GiteaUploader extends AbstractUploader<org.jreleaser.model.ap
         this.owner = owner;
     }
 
-    public String getToken() {
-        return token;
-    }
-
-    public void setToken(String token) {
-        this.token = token;
-    }
-
-    public String getPackageName() {
-        return packageName;
-    }
-
-    public void setPackageName(String packageName) {
-        this.packageName = packageName;
-    }
-
-    public String getPackageVersion() {
-        return packageVersion;
-    }
-
-    public void setPackageVersion(String packageVersion) {
-        this.packageVersion = packageVersion;
-    }
-
     @Override
     protected void asMap(boolean full, Map<String, Object> props) {
-        props.put("host", host);
+        super.asMap(full, props);
         props.put("owner", owner);
-        props.put("token", isNotBlank(token) ? HIDE : UNSET);
-        props.put("packageName", packageName);
-        props.put("packageVersion", packageVersion);
     }
 
     @Override
-    public String getResolvedDownloadUrl(JReleaserContext context, Artifact artifact) {
-        return getResolvedDownloadUrl(context.fullProps(), artifact);
-    }
-
-    @Override
-    public String getResolvedDownloadUrl(Map<String, Object> props, Artifact artifact) {
-        Map<String, Object> p = new LinkedHashMap<>(artifactProps(props, artifact));
-        p.putAll(getResolvedExtraProperties());
-        p.put("host", host);
-        p.put("owner", owner);
-        p.put("packageName", packageName);
-        p.put("packageVersion", packageVersion);
+    public String getResolvedDownloadUrl(TemplateContext props, Artifact artifact) {
+        TemplateContext p = new TemplateContext(artifactProps(props, artifact));
+        p.setAll(resolvedExtraProperties());
+        p.set("host", getHost());
+        p.set("owner", getOwner());
+        p.set("packageName", getPackageName());
+        p.set("packageVersion", getPackageVersion());
         return resolveTemplate(DOWNLOAD_URL, p);
-    }
-
-    public String getResolvedUploadUrl(JReleaserContext context, Artifact artifact) {
-        return getResolvedDownloadUrl(context, artifact);
     }
 }

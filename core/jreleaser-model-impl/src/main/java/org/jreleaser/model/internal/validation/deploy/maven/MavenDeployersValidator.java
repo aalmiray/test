@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,35 +18,43 @@
 package org.jreleaser.model.internal.validation.deploy.maven;
 
 import org.jreleaser.bundle.RB;
-import org.jreleaser.model.Active;
 import org.jreleaser.model.api.JReleaserContext.Mode;
 import org.jreleaser.model.internal.JReleaserContext;
 import org.jreleaser.model.internal.deploy.maven.Maven;
 import org.jreleaser.model.internal.deploy.maven.MavenDeployer;
-import org.jreleaser.model.internal.validation.common.Validator;
-import org.jreleaser.util.Env;
+import org.jreleaser.model.internal.release.BaseReleaser;
+import org.jreleaser.util.DefaultVersions;
 import org.jreleaser.util.Errors;
 
-import java.util.Locale;
-
+import static org.jreleaser.model.internal.validation.common.Validator.checkProperty;
+import static org.jreleaser.model.internal.validation.common.Validator.resolveActivatable;
+import static org.jreleaser.model.internal.validation.common.Validator.validateTimeout;
 import static org.jreleaser.model.internal.validation.deploy.maven.ArtifactoryMavenDeployerValidator.validateArtifactoryMavenDeployer;
+import static org.jreleaser.model.internal.validation.deploy.maven.AzureMavenDeployerValidator.validateAzureMavenDeployer;
 import static org.jreleaser.model.internal.validation.deploy.maven.GiteaMavenDeployerValidator.validateGiteaMavenDeployer;
 import static org.jreleaser.model.internal.validation.deploy.maven.GithubMavenDeployerValidator.validateGithubMavenDeployer;
 import static org.jreleaser.model.internal.validation.deploy.maven.GitlabMavenDeployerValidator.validateGitlabMavenDeployer;
 import static org.jreleaser.model.internal.validation.deploy.maven.Nexus2MavenDeployerValidator.validateNexus2MavenDeployer;
 import static org.jreleaser.util.CollectionUtils.listOf;
+import static org.jreleaser.util.StringUtils.isBlank;
 import static org.jreleaser.util.StringUtils.isNotBlank;
 
 /**
  * @author Andres Almiray
  * @since 1.3.0
  */
-public abstract class MavenDeployersValidator extends Validator {
+public final class MavenDeployersValidator {
+    private MavenDeployersValidator() {
+        // noop
+    }
+
     public static void validateMavenDeployers(JReleaserContext context, Mode mode, Errors errors) {
         Maven maven = context.getModel().getDeploy().getMaven();
         context.getLogger().debug("deploy.maven");
 
+        validatePomchecker(context);
         validateArtifactoryMavenDeployer(context, mode, errors);
+        validateAzureMavenDeployer(context, mode, errors);
         validateGiteaMavenDeployer(context, mode, errors);
         validateGithubMavenDeployer(context, mode, errors);
         validateGitlabMavenDeployer(context, mode, errors);
@@ -54,10 +62,12 @@ public abstract class MavenDeployersValidator extends Validator {
 
         if (mode.validateDeploy() || mode.validateConfig()) {
             boolean activeSet = maven.isActiveSet();
-            maven.resolveEnabled(context.getModel().getProject());
+            resolveActivatable(context, maven, "deploy.maven", "ALWAYS");
+            maven.resolveEnabledWithSnapshot(context.getModel().getProject());
 
             if (maven.isEnabled()) {
                 boolean enabled = !maven.getActiveArtifactories().isEmpty() ||
+                    !maven.getActiveAzures().isEmpty() ||
                     !maven.getActiveGiteas().isEmpty() ||
                     !maven.getActiveGithubs().isEmpty() ||
                     !maven.getActiveGitlabs().isEmpty() ||
@@ -71,24 +81,36 @@ public abstract class MavenDeployersValidator extends Validator {
         }
     }
 
-    static void validateMavenDeployer(JReleaserContext context, Mode mode, MavenDeployer mavenDeployer, Errors errors) {
+    private static void validatePomchecker(JReleaserContext context) {
+        Maven maven = context.getModel().getDeploy().getMaven();
+
+        if (isBlank(maven.getPomchecker().getVersion())) {
+            maven.getPomchecker().setVersion(DefaultVersions.getInstance().getPomcheckerVersion());
+        }
+    }
+
+    static void validateMavenDeployer(JReleaserContext context, MavenDeployer<?> mavenDeployer, Errors errors) {
         context.getLogger().debug("deploy.maven.{}.{}", mavenDeployer.getType(), mavenDeployer.getName());
 
-        if (!mavenDeployer.isActiveSet()) {
-            mavenDeployer.setActive(Active.NEVER);
-        }
-        if (!mavenDeployer.resolveEnabled(context.getModel().getProject())) {
+        resolveActivatable(context, mavenDeployer,
+            listOf("deploy.maven." + mavenDeployer.getType() + "." + mavenDeployer.getName(),
+                "deploy.maven." + mavenDeployer.getType()),
+            "NEVER");
+        if (!mavenDeployer.resolveEnabledWithSnapshot(context.getModel().getProject())) {
             context.getLogger().debug(RB.$("validation.disabled"));
             return;
         }
 
-        String baseEnvKey = mavenDeployer.getType().toLowerCase(Locale.ENGLISH);
         String deployerPrefix = "deploy.maven." + mavenDeployer.getType() + "." + mavenDeployer.getName();
 
         mavenDeployer.setUrl(
             checkProperty(context,
-                baseEnvKey + "_" + Env.toVar(mavenDeployer.getName()) + "_URL",
-                mavenDeployer.getType() + "." + mavenDeployer.getName()+ ".url",
+                listOf(
+                    "deploy.maven." + mavenDeployer.getType() + "." + mavenDeployer.getName() + ".url",
+                    "deploy.maven." + mavenDeployer.getType() + ".url",
+                    mavenDeployer.getType() + "." + mavenDeployer.getName() + ".url",
+                    mavenDeployer.getType() + ".url"),
+                "deploy.maven." + mavenDeployer.getType() + "." + mavenDeployer.getName() + ".url",
                 mavenDeployer.getUrl(),
                 errors));
 
@@ -96,42 +118,51 @@ public abstract class MavenDeployersValidator extends Validator {
             mavenDeployer.setUrl(mavenDeployer.getUrl().substring(0, mavenDeployer.getUrl().length() - 1));
         }
 
+        BaseReleaser<?, ?> service = context.getModel().getRelease().getReleaser();
+
         switch (mavenDeployer.resolveAuthorization()) {
             case BEARER:
                 mavenDeployer.setPassword(
                     checkProperty(context,
                         listOf(
-                            baseEnvKey + "_" + Env.toVar(mavenDeployer.getName()) + "_PASSWORD",
-                            baseEnvKey + "_" + Env.toVar(mavenDeployer.getName()) + "_TOKEN",
-                            baseEnvKey + "_PASSWORD",
-                            baseEnvKey + "_TOKEN"),
-                        mavenDeployer.getType() + "." + mavenDeployer.getName() + ".password",
+                            "deploy.maven." + mavenDeployer.getType() + "." + mavenDeployer.getName() + ".password",
+                            "deploy.maven." + mavenDeployer.getType() + "." + mavenDeployer.getName() + ".token",
+                            "deploy.maven." + mavenDeployer.getType() + ".password",
+                            "deploy.maven." + mavenDeployer.getType() + ".token",
+                            mavenDeployer.getType() + "." + mavenDeployer.getName() + ".password",
+                            mavenDeployer.getType() + "." + mavenDeployer.getName() + ".token",
+                            mavenDeployer.getType() + ".password",
+                            mavenDeployer.getType() + ".token"),
+                        "deploy.maven." + mavenDeployer.getType() + "." + mavenDeployer.getName() + ".password",
                         mavenDeployer.getPassword(),
-                        errors,
-                        context.isDryrun()));
+                        service.getToken()));
                 break;
             case BASIC:
                 mavenDeployer.setUsername(
                     checkProperty(context,
                         listOf(
-                            baseEnvKey + "_" + Env.toVar(mavenDeployer.getName()) + "_USERNAME",
-                            baseEnvKey + "_USERNAME"),
-                        mavenDeployer.getType() + "." + mavenDeployer.getName() + ".username",
+                            "deploy.maven." + mavenDeployer.getType() + "." + mavenDeployer.getName() + ".username",
+                            "deploy.maven." + mavenDeployer.getType() + ".username",
+                            mavenDeployer.getType() + "." + mavenDeployer.getName() + ".username",
+                            mavenDeployer.getType() + ".username"),
+                        "deploy.maven." + mavenDeployer.getType() + "." + mavenDeployer.getName() + ".username",
                         mavenDeployer.getUsername(),
-                        errors,
-                        context.isDryrun()));
+                        service.getUsername()));
 
                 mavenDeployer.setPassword(
                     checkProperty(context,
                         listOf(
-                            baseEnvKey + "_" + Env.toVar(mavenDeployer.getName()) + "_PASSWORD",
-                            baseEnvKey + "_" + Env.toVar(mavenDeployer.getName()) + "_TOKEN",
-                            baseEnvKey + "_PASSWORD",
-                            baseEnvKey + "_TOKEN"),
-                        mavenDeployer.getType() + "." + mavenDeployer.getName() + ".password",
+                            "deploy.maven." + mavenDeployer.getType() + "." + mavenDeployer.getName() + ".password",
+                            "deploy.maven." + mavenDeployer.getType() + "." + mavenDeployer.getName() + ".token",
+                            "deploy.maven." + mavenDeployer.getType() + ".password",
+                            "deploy.maven." + mavenDeployer.getType() + ".token",
+                            mavenDeployer.getType() + "." + mavenDeployer.getName() + ".password",
+                            mavenDeployer.getType() + "." + mavenDeployer.getName() + ".token",
+                            mavenDeployer.getType() + ".password",
+                            mavenDeployer.getType() + ".token"),
+                        "deploy.maven." + mavenDeployer.getType() + "." + mavenDeployer.getName() + ".password",
                         mavenDeployer.getPassword(),
-                        errors,
-                        context.isDryrun()));
+                        service.getToken()));
                 break;
             case NONE:
                 errors.configuration(RB.$("validation_value_cannot_be", deployerPrefix + ".authorization", "NONE"));
@@ -154,10 +185,8 @@ public abstract class MavenDeployersValidator extends Validator {
             mavenDeployer.setVerifyPom(true);
         }
 
-        if (mavenDeployer.isSign() && !context.getModel().getSigning().isEnabled()) {
-            if (!context.isDryrun() /*&& !mode.validateConfig()*/) {
-                errors.configuration(RB.$("validation_maven_deployer_signing", deployerPrefix));
-            }
+        if (mavenDeployer.isSign() && !context.getModel().getSigning().isEnabled() && !context.isDryrun() /*&& !mode.validateConfig()*/) {
+            errors.configuration(RB.$("validation_maven_deployer_signing", deployerPrefix));
         }
     }
 }

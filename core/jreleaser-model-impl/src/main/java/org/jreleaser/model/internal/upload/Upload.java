@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,16 +18,14 @@
 package org.jreleaser.model.internal.upload;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonPropertyDescription;
 import org.jreleaser.model.Active;
 import org.jreleaser.model.internal.JReleaserContext;
-import org.jreleaser.model.internal.common.AbstractModelObject;
-import org.jreleaser.model.internal.common.Activatable;
+import org.jreleaser.model.internal.common.AbstractActivatable;
 import org.jreleaser.model.internal.common.Artifact;
 import org.jreleaser.model.internal.common.Domain;
 import org.jreleaser.model.internal.common.ExtraProperties;
 import org.jreleaser.model.internal.distributions.Distribution;
-import org.jreleaser.model.internal.project.Project;
-import org.jreleaser.util.Env;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -48,7 +46,9 @@ import static org.jreleaser.util.StringUtils.getClassNameForLowerCaseHyphenSepar
  * @author Andres Almiray
  * @since 0.3.0
  */
-public final class Upload extends AbstractModelObject<Upload> implements Domain, Activatable {
+public final class Upload extends AbstractActivatable<Upload> implements Domain {
+    private static final long serialVersionUID = -8267239230459971399L;
+
     private final Map<String, ArtifactoryUploader> artifactory = new LinkedHashMap<>();
     private final Map<String, FtpUploader> ftp = new LinkedHashMap<>();
     private final Map<String, GiteaUploader> gitea = new LinkedHashMap<>();
@@ -58,11 +58,10 @@ public final class Upload extends AbstractModelObject<Upload> implements Domain,
     private final Map<String, ScpUploader> scp = new LinkedHashMap<>();
     private final Map<String, SftpUploader> sftp = new LinkedHashMap<>();
 
-    private Active active;
     @JsonIgnore
-    private boolean enabled = true;
-
     private final org.jreleaser.model.api.upload.Upload immutable = new org.jreleaser.model.api.upload.Upload() {
+        private static final long serialVersionUID = -1954880769141203693L;
+
         private Map<String, ? extends org.jreleaser.model.api.upload.ArtifactoryUploader> artifactory;
         private Map<String, ? extends org.jreleaser.model.api.upload.FtpUploader> ftp;
         private Map<String, ? extends org.jreleaser.model.api.upload.GiteaUploader> gitea;
@@ -154,7 +153,7 @@ public final class Upload extends AbstractModelObject<Upload> implements Domain,
 
         @Override
         public Active getActive() {
-            return active;
+            return Upload.this.getActive();
         }
 
         @Override
@@ -168,14 +167,17 @@ public final class Upload extends AbstractModelObject<Upload> implements Domain,
         }
     };
 
+    public Upload() {
+        enabledSet(true);
+    }
+
     public org.jreleaser.model.api.upload.Upload asImmutable() {
         return immutable;
     }
 
     @Override
     public void merge(Upload source) {
-        this.active = merge(this.active, source.active);
-        this.enabled = merge(this.enabled, source.enabled);
+        super.merge(source);
         setArtifactory(mergeModel(this.artifactory, source.artifactory));
         setFtp(mergeModel(this.ftp, source.ftp));
         setGitea(mergeModel(this.gitea, source.gitea));
@@ -186,53 +188,16 @@ public final class Upload extends AbstractModelObject<Upload> implements Domain,
         setSftp(mergeModel(this.sftp, source.sftp));
     }
 
-    @Override
-    public boolean isEnabled() {
-        return enabled && active != null;
-    }
-
     @Deprecated
+    @JsonPropertyDescription("upload.enabled is deprecated since 1.1.0 and will be removed in 2.0.0")
     public void setEnabled(Boolean enabled) {
         nag("upload.enabled is deprecated since 1.1.0 and will be removed in 2.0.0");
         if (null != enabled) {
-            this.active = enabled ? Active.ALWAYS : Active.NEVER;
+            setActive(enabled ? Active.ALWAYS : Active.NEVER);
         }
     }
 
-    public void disable() {
-        active = Active.NEVER;
-        enabled = false;
-    }
-
-    public boolean resolveEnabled(Project project) {
-        if (null == active) {
-            setActive(Env.resolveOrDefault("upload.active", "", "ALWAYS"));
-        }
-        enabled = active.check(project);
-        return enabled;
-    }
-
-    @Override
-    public Active getActive() {
-        return active;
-    }
-
-    @Override
-    public void setActive(Active active) {
-        this.active = active;
-    }
-
-    @Override
-    public void setActive(String str) {
-        setActive(Active.of(str));
-    }
-
-    @Override
-    public boolean isActiveSet() {
-        return active != null;
-    }
-
-    public Optional<? extends Uploader> getUploader(String type, String name) {
+    public Optional<? extends Uploader<?>> getUploader(String type, String name) {
         switch (type) {
             case org.jreleaser.model.api.upload.ArtifactoryUploader.TYPE:
                 return Optional.ofNullable(artifactory.get(name));
@@ -250,12 +215,12 @@ public final class Upload extends AbstractModelObject<Upload> implements Domain,
                 return Optional.ofNullable(scp.get(name));
             case org.jreleaser.model.api.upload.SftpUploader.TYPE:
                 return Optional.ofNullable(sftp.get(name));
+            default:
+                return Optional.empty();
         }
-
-        return Optional.empty();
     }
 
-    public Optional<? extends Uploader> getActiveUploader(String type, String name) {
+    public Optional<? extends Uploader<?>> getActiveUploader(String type, String name) {
         switch (type) {
             case org.jreleaser.model.api.upload.ArtifactoryUploader.TYPE:
                 return getActiveArtifactory(name);
@@ -273,9 +238,9 @@ public final class Upload extends AbstractModelObject<Upload> implements Domain,
                 return getActiveScp(name);
             case org.jreleaser.model.api.upload.SftpUploader.TYPE:
                 return getActiveSftp(name);
+            default:
+                return Optional.empty();
         }
-
-        return Optional.empty();
     }
 
     public Optional<ArtifactoryUploader> getActiveArtifactory(String name) {
@@ -489,8 +454,8 @@ public final class Upload extends AbstractModelObject<Upload> implements Domain,
     @Override
     public Map<String, Object> asMap(boolean full) {
         Map<String, Object> map = new LinkedHashMap<>();
-        map.put("enabled", enabled);
-        map.put("active", active);
+        map.put("enabled", isEnabled());
+        map.put("active", getActive());
 
         List<Map<String, Object>> artifactory = this.artifactory.values()
             .stream()
@@ -569,9 +534,9 @@ public final class Upload extends AbstractModelObject<Upload> implements Domain,
                 return (Map<String, A>) scp;
             case org.jreleaser.model.api.upload.SftpUploader.TYPE:
                 return (Map<String, A>) sftp;
+            default:
+                return Collections.emptyMap();
         }
-
-        return Collections.emptyMap();
     }
 
     public <A extends Uploader<?>> List<A> findAllActiveUploaders() {

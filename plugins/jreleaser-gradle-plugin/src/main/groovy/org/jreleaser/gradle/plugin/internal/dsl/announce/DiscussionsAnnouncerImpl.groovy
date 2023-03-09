@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -67,15 +67,15 @@ class DiscussionsAnnouncerImpl extends AbstractAnnouncer implements DiscussionsA
     }
 
     org.jreleaser.model.internal.announce.DiscussionsAnnouncer toModel() {
-        org.jreleaser.model.internal.announce.DiscussionsAnnouncer discussions = new org.jreleaser.model.internal.announce.DiscussionsAnnouncer()
-        fillProperties(discussions)
-        if (organization.present) discussions.organization = organization.get()
-        if (team.present) discussions.team = team.get()
-        if (title.present) discussions.title = title.get()
-        if (message.present) discussions.message = message.get()
+        org.jreleaser.model.internal.announce.DiscussionsAnnouncer announcer = new org.jreleaser.model.internal.announce.DiscussionsAnnouncer()
+        fillProperties(announcer)
+        if (organization.present) announcer.organization = organization.get()
+        if (team.present) announcer.team = team.get()
+        if (title.present) announcer.title = title.get()
+        if (message.present) announcer.message = message.get()
         if (messageTemplate.present) {
-            discussions.messageTemplate = messageTemplate.asFile.get().absolutePath
+            announcer.messageTemplate = messageTemplate.asFile.get().absolutePath
         }
-        discussions
+        announcer
     }
 }

@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,12 +20,15 @@ package org.jreleaser.model.internal.validation.announce;
 import org.jreleaser.bundle.RB;
 import org.jreleaser.model.internal.JReleaserContext;
 import org.jreleaser.model.internal.announce.GitterAnnouncer;
-import org.jreleaser.model.internal.validation.common.Validator;
 import org.jreleaser.util.Errors;
 
 import java.nio.file.Files;
 
 import static org.jreleaser.model.api.announce.GitterAnnouncer.GITTER_WEBHOOK;
+import static org.jreleaser.model.internal.validation.common.Validator.checkProperty;
+import static org.jreleaser.model.internal.validation.common.Validator.resolveActivatable;
+import static org.jreleaser.model.internal.validation.common.Validator.validateTimeout;
+import static org.jreleaser.util.CollectionUtils.listOf;
 import static org.jreleaser.util.StringUtils.isBlank;
 import static org.jreleaser.util.StringUtils.isNotBlank;
 
@@ -33,37 +36,44 @@ import static org.jreleaser.util.StringUtils.isNotBlank;
  * @author Andres Almiray
  * @since 0.2.0
  */
-public abstract class GitterAnnouncerValidator extends Validator {
+public final class GitterAnnouncerValidator {
     private static final String DEFAULT_GITTER_TPL = "src/jreleaser/templates/gitter.tpl";
 
-    public static void validateGitter(JReleaserContext context, GitterAnnouncer gitter, Errors errors) {
+    private GitterAnnouncerValidator() {
+        // noop
+    }
+
+    public static void validateGitter(JReleaserContext context, GitterAnnouncer announcer, Errors errors) {
         context.getLogger().debug("announce.gitter");
-        if (!gitter.resolveEnabled(context.getModel().getProject())) {
+        resolveActivatable(context, announcer, "announce.gitter", "NEVER");
+        if (!announcer.resolveEnabledWithSnapshot(context.getModel().getProject())) {
             context.getLogger().debug(RB.$("validation.disabled"));
             return;
         }
 
-        gitter.setWebhook(
+        announcer.setWebhook(
             checkProperty(context,
-                GITTER_WEBHOOK,
-                "gitter.webhook",
-                gitter.getWebhook(),
+                listOf(
+                    "announce.gitter.webhook",
+                    GITTER_WEBHOOK),
+                "announce.gitter.webhook",
+                announcer.getWebhook(),
                 errors,
                 context.isDryrun()));
 
-        if (isBlank(gitter.getMessage()) && isBlank(gitter.getMessageTemplate())) {
+        if (isBlank(announcer.getMessage()) && isBlank(announcer.getMessageTemplate())) {
             if (Files.exists(context.getBasedir().resolve(DEFAULT_GITTER_TPL))) {
-                gitter.setMessageTemplate(DEFAULT_GITTER_TPL);
+                announcer.setMessageTemplate(DEFAULT_GITTER_TPL);
             } else {
-                gitter.setMessage(RB.$("default.release.message"));
+                announcer.setMessage(RB.$("default.release.message"));
             }
         }
 
-        if (isNotBlank(gitter.getMessageTemplate()) &&
-            !Files.exists(context.getBasedir().resolve(gitter.getMessageTemplate().trim()))) {
-            errors.configuration(RB.$("validation_directory_not_exist", "gitter.messageTemplate", gitter.getMessageTemplate()));
+        if (isNotBlank(announcer.getMessageTemplate()) &&
+            !Files.exists(context.getBasedir().resolve(announcer.getMessageTemplate().trim()))) {
+            errors.configuration(RB.$("validation_directory_not_exist", "gitter.messageTemplate", announcer.getMessageTemplate()));
         }
 
-        validateTimeout(gitter);
+        validateTimeout(announcer);
     }
 }

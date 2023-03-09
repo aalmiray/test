@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,10 +30,12 @@ import org.jreleaser.bundle.RB;
 import org.jreleaser.model.api.signing.Keyring;
 import org.jreleaser.model.api.signing.SigningException;
 import org.jreleaser.model.internal.JReleaserContext;
+import org.jreleaser.model.internal.catalog.sbom.SbomCataloger;
 import org.jreleaser.model.internal.common.Artifact;
 import org.jreleaser.model.internal.distributions.Distribution;
 import org.jreleaser.model.internal.signing.Signing;
 import org.jreleaser.model.internal.util.Artifacts;
+import org.jreleaser.model.spi.catalog.sbom.SbomCatalogerProcessorHelper;
 import org.jreleaser.sdk.signing.GpgCommandSigner;
 import org.jreleaser.sdk.signing.SigningUtils;
 import org.jreleaser.sdk.tool.Cosign;
@@ -48,9 +50,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.function.Function;
-import java.util.stream.Collectors;
+import java.util.function.Predicate;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.stream.Collectors.toList;
 import static org.jreleaser.model.api.signing.Signing.KEY_SKIP_SIGNING;
 import static org.jreleaser.util.StringUtils.isNotBlank;
 
@@ -58,7 +61,11 @@ import static org.jreleaser.util.StringUtils.isNotBlank;
  * @author Andres Almiray
  * @since 0.1.0
  */
-public class Signer {
+public final class Signer {
+    private Signer() {
+        // noop
+    }
+
     public static void sign(JReleaserContext context) throws SigningException {
         context.getLogger().info(RB.$("signing.header"));
         context.getLogger().increaseIndent();
@@ -94,7 +101,7 @@ public class Signer {
 
         files = files.stream()
             .filter(SigningUtils.FilePair::isInvalid)
-            .collect(Collectors.toList());
+            .collect(toList());
 
         if (files.isEmpty()) {
             context.getLogger().info(RB.$("signing.up.to.date"));
@@ -102,7 +109,9 @@ public class Signer {
         }
 
         sign(context, files);
-        verify(context, files);
+        if (context.getModel().getSigning().isVerify()) {
+            verify(context, files);
+        }
     }
 
     private static void cosignSign(JReleaserContext context) throws SigningException {
@@ -123,7 +132,7 @@ public class Signer {
 
         Path privateKeyFile = isNotBlank(privateKey) ? context.getBasedir().resolve(privateKey) : null;
         Path publicKeyFile = isNotBlank(publicKey) ? context.getBasedir().resolve(publicKey) : null;
-        byte[] password = (signing.getPassphrase() + System.lineSeparator()).getBytes();
+        byte[] password = (signing.getPassphrase() + System.lineSeparator()).getBytes(UTF_8);
 
         boolean forceSign = false;
         if (null == privateKeyFile) {
@@ -144,7 +153,7 @@ public class Signer {
 
         files = files.stream()
             .filter(SigningUtils.FilePair::isInvalid)
-            .collect(Collectors.toList());
+            .collect(toList());
 
         if (files.isEmpty()) {
             context.getLogger().info(RB.$("signing.up.to.date"));
@@ -171,7 +180,7 @@ public class Signer {
 
         files = files.stream()
             .filter(SigningUtils.FilePair::isInvalid)
-            .collect(Collectors.toList());
+            .collect(toList());
 
         if (files.isEmpty()) {
             context.getLogger().info(RB.$("signing.up.to.date"));
@@ -179,7 +188,9 @@ public class Signer {
         }
 
         sign(context, keyring, files);
-        verify(context, keyring, files);
+        if (context.getModel().getSigning().isVerify()) {
+            verify(context, keyring, files);
+        }
     }
 
 
@@ -219,14 +230,12 @@ public class Signer {
     private static boolean verify(JReleaserContext context, Keyring keyring, SigningUtils.FilePair filePair) throws SigningException {
         context.getLogger().setPrefix("verify");
 
-        try {
-            context.getLogger().debug("{}",
-                context.relativizeToBasedir(filePair.getSignatureFile()));
+        context.getLogger().debug("{}",
+            context.relativizeToBasedir(filePair.getSignatureFile()));
 
-            InputStream sigInputStream = PGPUtil.getDecoderStream(
-                new BufferedInputStream(
-                    new FileInputStream(filePair.getSignatureFile().toFile())));
-
+        try (InputStream sigInputStream = PGPUtil.getDecoderStream(
+            new BufferedInputStream(
+                new FileInputStream(filePair.getSignatureFile().toFile())))) {
             PGPObjectFactory pgpObjFactory = new PGPObjectFactory(sigInputStream, keyring.getKeyFingerPrintCalculator());
             Iterable<?> pgpSigList = null;
 
@@ -239,19 +248,17 @@ public class Signer {
                 pgpSigList = (Iterable<?>) obj;
             }
 
-            InputStream fileInputStream = new BufferedInputStream(new FileInputStream(filePair.getInputFile().toFile()));
             PGPSignature sig = (PGPSignature) pgpSigList.iterator().next();
-            PGPPublicKey pubKey = keyring.readPublicKey();
-            sig.init(new JcaPGPContentVerifierBuilderProvider()
-                .setProvider(BouncyCastleProvider.PROVIDER_NAME), pubKey);
+            try (InputStream fileInputStream = new BufferedInputStream(new FileInputStream(filePair.getInputFile().toFile()))) {
+                PGPPublicKey pubKey = keyring.readPublicKey();
+                sig.init(new JcaPGPContentVerifierBuilderProvider()
+                    .setProvider(BouncyCastleProvider.PROVIDER_NAME), pubKey);
 
-            int ch;
-            while ((ch = fileInputStream.read()) >= 0) {
-                sig.update((byte) ch);
+                int ch;
+                while ((ch = fileInputStream.read()) >= 0) {
+                    sig.update((byte) ch);
+                }
             }
-
-            fileInputStream.close();
-            sigInputStream.close();
 
             return sig.verify();
         } catch (IOException | PGPException e) {
@@ -339,11 +346,11 @@ public class Signer {
         }
     }
 
-    private static List<SigningUtils.FilePair> collectArtifacts(JReleaserContext context, Function<SigningUtils.FilePair, Boolean> validator) {
+    private static List<SigningUtils.FilePair> collectArtifacts(JReleaserContext context, Predicate<SigningUtils.FilePair> validator) {
         return collectArtifacts(context, false, validator);
     }
 
-    private static List<SigningUtils.FilePair> collectArtifacts(JReleaserContext context, boolean forceSign, Function<SigningUtils.FilePair, Boolean> validator) {
+    private static List<SigningUtils.FilePair> collectArtifacts(JReleaserContext context, boolean forceSign, Predicate<SigningUtils.FilePair> validator) {
         List<SigningUtils.FilePair> files = new ArrayList<>();
 
         Signing signing = context.getModel().getSigning();
@@ -356,11 +363,12 @@ public class Signer {
 
         if (signing.isFiles()) {
             for (Artifact artifact : Artifacts.resolveFiles(context)) {
-                if (!artifact.isActive() || artifact.extraPropertyIsTrue(KEY_SKIP_SIGNING)) continue;
+                if (!artifact.isActive() || artifact.extraPropertyIsTrue(KEY_SKIP_SIGNING) ||
+                    artifact.isOptional(context) && !artifact.resolvedPathExists()) continue;
                 Path input = artifact.getEffectivePath(context);
                 Path output = signaturesDirectory.resolve(input.getFileName().toString().concat(extension));
                 SigningUtils.FilePair pair = new SigningUtils.FilePair(input, output);
-                if (!forceSign) pair.setValid(validator.apply(pair));
+                if (!forceSign) pair.setValid(validator.test(pair));
                 files.add(pair);
             }
         }
@@ -371,9 +379,24 @@ public class Signer {
                 for (Artifact artifact : distribution.getArtifacts()) {
                     if (!artifact.isActive() || artifact.extraPropertyIsTrue(KEY_SKIP_SIGNING)) continue;
                     Path input = artifact.getEffectivePath(context, distribution);
+                    if (artifact.isOptional(context) && !artifact.resolvedPathExists()) continue;
                     Path output = signaturesDirectory.resolve(input.getFileName().toString().concat(extension));
                     SigningUtils.FilePair pair = new SigningUtils.FilePair(input, output);
-                    if (!forceSign) pair.setValid(validator.apply(pair));
+                    if (!forceSign) pair.setValid(validator.test(pair));
+                    files.add(pair);
+                }
+            }
+        }
+
+        if (signing.isCatalogs()) {
+            List<? extends SbomCataloger<?>> catalogers = context.getModel().getCatalog().getSbom().findAllActiveSbomCatalogers();
+            for (SbomCataloger<?> cataloger : catalogers) {
+                if (!cataloger.getPack().isEnabled()) continue;
+                for (Artifact artifact : SbomCatalogerProcessorHelper.resolveArtifacts(context, cataloger)) {
+                    Path input = artifact.getEffectivePath(context);
+                    Path output = signaturesDirectory.resolve(input.getFileName().toString().concat(extension));
+                    SigningUtils.FilePair pair = new SigningUtils.FilePair(input, output);
+                    if (!forceSign) pair.setValid(validator.test(pair));
                     files.add(pair);
                 }
             }
@@ -386,7 +409,7 @@ public class Signer {
                 if (Files.exists(checksums)) {
                     Path output = signaturesDirectory.resolve(checksums.getFileName().toString().concat(extension));
                     SigningUtils.FilePair pair = new SigningUtils.FilePair(checksums, output);
-                    if (!forceSign) pair.setValid(validator.apply(pair));
+                    if (!forceSign) pair.setValid(validator.test(pair));
                     files.add(pair);
                 }
             }

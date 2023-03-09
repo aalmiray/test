@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -54,7 +54,7 @@ public class SemanticVersion implements Version<SemanticVersion> {
         this.pattern = pattern;
 
         if (isNotBlank(tagsep)) {
-            requireState(tagsep.equals(".") || tagsep.equals("-"), "Argument 'tagsep' must not be '.' or '-'");
+            requireState(".".equals(tagsep) || "-".equals(tagsep), "Argument 'tagsep' must not be '.' or '-'");
         }
     }
 
@@ -128,7 +128,7 @@ public class SemanticVersion implements Version<SemanticVersion> {
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
+        if (null == o || getClass() != o.getClass()) return false;
         SemanticVersion version = (SemanticVersion) o;
         return pattern.pattern().equals(version.pattern.pattern()) &&
             major == version.major &&

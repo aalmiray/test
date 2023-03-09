@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,6 +26,8 @@ dependencies {
     api project(':jreleaser-graalvm-sdk')
     api "org.apache.commons:commons-text:$commonsTextVersion"
     api "org.commonmark:commonmark:$commonmarkVersion"
+    api "com.github.victools:jsonschema-generator:$jsonSchemaVersion"
+    api "com.github.victools:jsonschema-module-jackson:$jsonSchemaVersion"
 
     // tools
     api "org.apache.commons:commons-lang3:${commonsLang3Version}"
@@ -38,6 +40,7 @@ dependencies {
     api project(':jreleaser-discourse-java-sdk')
     api project(':jreleaser-gitter-java-sdk')
     api project(':jreleaser-google-chat-java-sdk')
+    api project(':jreleaser-linkedin-java-sdk')
     api project(':jreleaser-smtp-java-sdk')
     api project(':jreleaser-mastodon-java-sdk')
     api project(':jreleaser-mattermost-java-sdk')
@@ -54,8 +57,9 @@ dependencies {
     api project(':jreleaser-gitea-java-sdk')
     api project(':jreleaser-codeberg-java-sdk')
     api project(':jreleaser-genericgit-java-sdk')
-    // download/upload
+    // download/upload/deploy
     api project(':jreleaser-artifactory-java-sdk')
+    api project(':jreleaser-azure-java-sdk')
     api project(':jreleaser-nexus2-java-sdk')
     api project(':jreleaser-ftp-java-sdk')
     api project(':jreleaser-http-java-sdk')

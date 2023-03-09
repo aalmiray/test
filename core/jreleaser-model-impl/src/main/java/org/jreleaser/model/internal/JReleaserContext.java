@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
  */
 package org.jreleaser.model.internal;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.bouncycastle.openpgp.PGPException;
 import org.jreleaser.bundle.RB;
 import org.jreleaser.extensions.api.workflow.WorkflowListener;
@@ -27,8 +28,10 @@ import org.jreleaser.model.JReleaserException;
 import org.jreleaser.model.JReleaserVersion;
 import org.jreleaser.model.Signing;
 import org.jreleaser.model.api.JReleaserCommand;
+import org.jreleaser.model.api.JReleaserContext.Changelog;
 import org.jreleaser.model.api.announce.Announcer;
 import org.jreleaser.model.api.assemble.Assembler;
+import org.jreleaser.model.api.catalog.Cataloger;
 import org.jreleaser.model.api.deploy.Deployer;
 import org.jreleaser.model.api.distributions.Distribution;
 import org.jreleaser.model.api.download.Downloader;
@@ -40,12 +43,15 @@ import org.jreleaser.model.api.signing.SigningException;
 import org.jreleaser.model.api.upload.Uploader;
 import org.jreleaser.model.internal.assemble.JavaArchiveAssembler;
 import org.jreleaser.model.internal.assemble.JavaAssembler;
+import org.jreleaser.model.internal.assemble.NativeImageAssembler;
 import org.jreleaser.model.internal.common.Artifact;
 import org.jreleaser.model.internal.project.Project;
 import org.jreleaser.model.internal.release.BaseReleaser;
+import org.jreleaser.mustache.TemplateContext;
 import org.jreleaser.sdk.signing.FilesKeyring;
 import org.jreleaser.sdk.signing.InMemoryKeyring;
 import org.jreleaser.util.Errors;
+import org.jreleaser.util.FileType;
 import org.jreleaser.util.PlatformUtils;
 import org.jreleaser.util.StringUtils;
 import org.jreleaser.version.SemanticVersion;
@@ -53,6 +59,7 @@ import org.jreleaser.version.SemanticVersion;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -68,12 +75,14 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Collections.unmodifiableList;
 import static org.jreleaser.model.Constants.KEY_COMMIT_FULL_HASH;
 import static org.jreleaser.model.Constants.KEY_COMMIT_SHORT_HASH;
 import static org.jreleaser.model.Constants.KEY_MILESTONE_NAME;
 import static org.jreleaser.model.Constants.KEY_PLATFORM;
 import static org.jreleaser.model.Constants.KEY_PLATFORM_REPLACED;
+import static org.jreleaser.model.Constants.KEY_PREVIOUS_TAG_NAME;
 import static org.jreleaser.model.Constants.KEY_PROJECT_NAME;
 import static org.jreleaser.model.Constants.KEY_PROJECT_SNAPSHOT;
 import static org.jreleaser.model.Constants.KEY_PROJECT_VERSION;
@@ -97,6 +106,7 @@ import static org.jreleaser.model.Constants.KEY_VERSION_YEAR;
 import static org.jreleaser.util.CollectionUtils.safePut;
 import static org.jreleaser.util.StringUtils.capitalize;
 import static org.jreleaser.util.StringUtils.isBlank;
+import static org.jreleaser.util.StringUtils.isNotBlank;
 
 /**
  * @author Andres Almiray
@@ -113,11 +123,13 @@ public class JReleaserContext {
     private final org.jreleaser.model.api.JReleaserContext.Mode mode;
     private final Configurer configurer;
     private final Errors errors = new Errors();
+    private final Changelog changelog = new Changelog();
 
     private final List<String> selectedPlatforms = new ArrayList<>();
     private final List<String> rejectedPlatforms = new ArrayList<>();
     private final List<String> includedAnnouncers = new ArrayList<>();
     private final List<String> includedAssemblers = new ArrayList<>();
+    private final List<String> includedCatalogers = new ArrayList<>();
     private final List<String> includedDistributions = new ArrayList<>();
     private final List<String> includedPackagers = new ArrayList<>();
     private final List<String> includedDownloaderTypes = new ArrayList<>();
@@ -128,6 +140,7 @@ public class JReleaserContext {
     private final List<String> includedUploaderNames = new ArrayList<>();
     private final List<String> excludedAnnouncers = new ArrayList<>();
     private final List<String> excludedAssemblers = new ArrayList<>();
+    private final List<String> excludedCatalogers = new ArrayList<>();
     private final List<String> excludedDistributions = new ArrayList<>();
     private final List<String> excludedPackagers = new ArrayList<>();
     private final List<String> excludedDownloaderTypes = new ArrayList<>();
@@ -138,11 +151,13 @@ public class JReleaserContext {
     private final List<String> excludedUploaderNames = new ArrayList<>();
     private final List<WorkflowListener> workflowListeners = new ArrayList<>();
 
-    private String changelog;
     private org.jreleaser.model.spi.release.Releaser<?> releaser;
     private JReleaserCommand command;
 
+    @JsonIgnore
     private final org.jreleaser.model.api.JReleaserContext immutable = new org.jreleaser.model.api.JReleaserContext() {
+        private static final long serialVersionUID = 4782005131002875174L;
+
         @Override
         public Path relativize(Path basedir, Path other) {
             return JReleaserContext.this.relativize(basedir, other);
@@ -181,6 +196,11 @@ public class JReleaserContext {
         @Override
         public Path getChecksumsDirectory() {
             return JReleaserContext.this.getChecksumsDirectory();
+        }
+
+        @Override
+        public Path getCatalogsDirectory() {
+            return JReleaserContext.this.getCatalogsDirectory();
         }
 
         @Override
@@ -334,12 +354,12 @@ public class JReleaserContext {
         }
 
         @Override
-        public Map<String, Object> props() {
+        public TemplateContext props() {
             return JReleaserContext.this.props();
         }
 
         @Override
-        public Map<String, Object> fullProps() {
+        public TemplateContext fullProps() {
             return JReleaserContext.this.fullProps();
         }
 
@@ -351,6 +371,11 @@ public class JReleaserContext {
         @Override
         public Keyring createKeyring() throws SigningException {
             return JReleaserContext.this.createKeyring();
+        }
+
+        @Override
+        public Changelog getChangelog() {
+            return JReleaserContext.this.changelog;
         }
     };
 
@@ -384,6 +409,7 @@ public class JReleaserContext {
             logger.debug(RB.$("context.path.set", Constants.KEY_BASE_OUTPUT_DIRECTORY, getOutputDirectory().getParent()));
             logger.debug(RB.$("context.path.set", Constants.KEY_OUTPUT_DIRECTORY, getOutputDirectory()));
             logger.debug(RB.$("context.path.set", Constants.KEY_CHECKSUMS_DIRECTORY, getChecksumsDirectory()));
+            logger.debug(RB.$("context.path.set", Constants.KEY_CATALOGS_DIRECTORY, getCatalogsDirectory()));
             logger.debug(RB.$("context.path.set", Constants.KEY_SIGNATURES_DIRECTORY, getSignaturesDirectory()));
             logger.debug(RB.$("context.path.set", Constants.KEY_PREPARE_DIRECTORY, getPrepareDirectory()));
             logger.debug(RB.$("context.path.set", Constants.KEY_PACKAGE_DIRECTORY, getPackageDirectory()));
@@ -426,6 +452,14 @@ public class JReleaserContext {
     }
 
     public Path relativizeToBasedir(Path other) {
+        return relativize(basedir, other);
+    }
+
+    public Path relativize(Path basedir, String other) {
+        return relativize(basedir, Paths.get(other));
+    }
+
+    public Path relativizeToBasedir(String other) {
         return relativize(basedir, other);
     }
 
@@ -490,6 +524,9 @@ public class JReleaserContext {
             if (assembler instanceof JavaAssembler) {
                 distribution.getExecutable().setName(((JavaAssembler<?>) assembler).getExecutable());
                 distribution.setJava(((JavaAssembler<?>) assembler).getJava());
+                if (assembler instanceof NativeImageAssembler) {
+                    distribution.getExecutable().setWindowsExtension(FileType.EXE.type());
+                }
             } else if (assembler instanceof JavaArchiveAssembler) {
                 JavaArchiveAssembler javaArchiveAssembler = (JavaArchiveAssembler) assembler;
                 distribution.getExecutable().setName(javaArchiveAssembler.getExecutable().getName());
@@ -576,6 +613,10 @@ public class JReleaserContext {
         return outputDirectory.resolve("checksums");
     }
 
+    public Path getCatalogsDirectory() {
+        return outputDirectory.resolve("catalogs");
+    }
+
     public Path getSignaturesDirectory() {
         return outputDirectory.resolve("signatures");
     }
@@ -612,12 +653,8 @@ public class JReleaserContext {
         return strict;
     }
 
-    public String getChangelog() {
+    public Changelog getChangelog() {
         return changelog;
-    }
-
-    public void setChangelog(String changelog) {
-        this.changelog = changelog;
     }
 
     public org.jreleaser.model.spi.release.Releaser<?> getReleaser() {
@@ -629,7 +666,7 @@ public class JReleaserContext {
     }
 
     private List<String> normalize(List<String> list) {
-        if (list == null || list.isEmpty()) return Collections.emptyList();
+        if (null == list || list.isEmpty()) return Collections.emptyList();
 
         List<String> tmp = new ArrayList<>(list);
         for (int i = 0; i < tmp.size(); i++) {
@@ -668,6 +705,15 @@ public class JReleaserContext {
     public void setIncludedAssemblers(List<String> includedAssemblerTypes) {
         this.includedAssemblers.clear();
         this.includedAssemblers.addAll(normalize(includedAssemblerTypes));
+    }
+
+    public List<String> getIncludedCatalogers() {
+        return includedCatalogers;
+    }
+
+    public void setIncludedCatalogers(List<String> includedCatalogers) {
+        this.includedCatalogers.clear();
+        this.includedCatalogers.addAll(normalize(includedCatalogers));
     }
 
     public List<String> getIncludedDistributions() {
@@ -760,6 +806,15 @@ public class JReleaserContext {
         this.excludedAssemblers.addAll(normalize(excludedAssemblerTypes));
     }
 
+    public List<String> getExcludedCatalogers() {
+        return excludedCatalogers;
+    }
+
+    public void setExcludedCatalogers(List<String> excludedCatalogers) {
+        this.excludedCatalogers.clear();
+        this.excludedCatalogers.addAll(normalize(excludedCatalogers));
+    }
+
     public List<String> getExcludedDistributions() {
         return excludedDistributions;
     }
@@ -840,24 +895,25 @@ public class JReleaserContext {
         this.command = command;
     }
 
-    public Map<String, Object> props() {
-        Map<String, Object> props = new LinkedHashMap<>(model.props());
-        props.put(Constants.KEY_BASEDIR, getBasedir());
-        props.put(Constants.KEY_BASE_OUTPUT_DIRECTORY, getOutputDirectory().getParent());
-        props.put(Constants.KEY_OUTPUT_DIRECTORY, getOutputDirectory());
-        props.put(Constants.KEY_CHECKSUMS_DIRECTORY, getChecksumsDirectory());
-        props.put(Constants.KEY_SIGNATURES_DIRECTORY, getSignaturesDirectory());
-        props.put(Constants.KEY_PREPARE_DIRECTORY, getPrepareDirectory());
-        props.put(Constants.KEY_PACKAGE_DIRECTORY, getPackageDirectory());
-        props.put(Constants.KEY_DOWNLOAD_DIRECTORY, getDownloadDirectory());
-        props.put(Constants.KEY_ASSEMBLE_DIRECTORY, getAssembleDirectory());
-        props.put(Constants.KEY_ARTIFACTS_DIRECTORY, getArtifactsDirectory());
+    public TemplateContext props() {
+        TemplateContext props = new TemplateContext(model.props());
+        props.set(Constants.KEY_BASEDIR, getBasedir());
+        props.set(Constants.KEY_BASE_OUTPUT_DIRECTORY, getOutputDirectory().getParent());
+        props.set(Constants.KEY_OUTPUT_DIRECTORY, getOutputDirectory());
+        props.set(Constants.KEY_CHECKSUMS_DIRECTORY, getChecksumsDirectory());
+        props.set(Constants.KEY_CATALOGS_DIRECTORY, getCatalogsDirectory());
+        props.set(Constants.KEY_SIGNATURES_DIRECTORY, getSignaturesDirectory());
+        props.set(Constants.KEY_PREPARE_DIRECTORY, getPrepareDirectory());
+        props.set(Constants.KEY_PACKAGE_DIRECTORY, getPackageDirectory());
+        props.set(Constants.KEY_DOWNLOAD_DIRECTORY, getDownloadDirectory());
+        props.set(Constants.KEY_ASSEMBLE_DIRECTORY, getAssembleDirectory());
+        props.set(Constants.KEY_ARTIFACTS_DIRECTORY, getArtifactsDirectory());
         return props;
     }
 
-    public Map<String, Object> fullProps() {
-        LinkedHashMap<String, Object> props = new LinkedHashMap<>(props());
-        props.putAll(model.props());
+    public TemplateContext fullProps() {
+        TemplateContext props = new TemplateContext(props());
+        props.setAll(model.props());
         return props;
     }
 
@@ -880,38 +936,43 @@ public class JReleaserContext {
         props.put(KEY_TIMESTAMP, model.getTimestamp());
         props.put(KEY_PLATFORM, PlatformUtils.getCurrentFull());
         props.put(KEY_PLATFORM_REPLACED, model.getPlatform().applyReplacements(PlatformUtils.getCurrentFull()));
-        if (model.getCommit() != null) {
+        if (null != model.getCommit()) {
             props.put(KEY_COMMIT_SHORT_HASH, model.getCommit().getShortHash());
             props.put(KEY_COMMIT_FULL_HASH, model.getCommit().getFullHash());
         }
         props.put(KEY_PROJECT_NAME, project.getName());
         props.put(KEY_PROJECT_VERSION, project.getVersion());
         props.put(KEY_PROJECT_SNAPSHOT, String.valueOf(project.isSnapshot()));
-        if (model.getCommit() != null) {
-            BaseReleaser releaser = model.getRelease().getReleaser();
+        if (null != model.getCommit()) {
+            BaseReleaser<?, ?> releaser = model.getRelease().getReleaser();
             props.put(KEY_TAG_NAME, releaser.getEffectiveTagName(model));
+            String previousTagName = releaser.getResolvedPreviousTagName(model);
+            if (isNotBlank(previousTagName)) props.put(KEY_PREVIOUS_TAG_NAME, previousTagName);
+            props.put("releaseBranch", releaser.getBranch());
             if (releaser.isReleaseSupported()) {
                 props.put(KEY_RELEASE_NAME, releaser.getEffectiveReleaseName());
                 props.put(KEY_MILESTONE_NAME, releaser.getMilestone().getEffectiveName());
             }
         }
         props.put("javaVersion", System.getProperty("java.version"));
+        props.put("javaVendor", System.getProperty("java.vendor"));
+        props.put("javaVmVersion", System.getProperty("java.vm.version"));
 
-        Map<String, Object> resolvedExtraProperties = project.getResolvedExtraProperties();
-        safePut(project.getPrefix() + capitalize(KEY_VERSION_MAJOR), resolvedExtraProperties, props);
-        safePut(project.getPrefix() + capitalize(KEY_VERSION_MINOR), resolvedExtraProperties, props);
-        safePut(project.getPrefix() + capitalize(KEY_VERSION_PATCH), resolvedExtraProperties, props);
-        safePut(project.getPrefix() + capitalize(KEY_VERSION_NUMBER), resolvedExtraProperties, props);
-        safePut(project.getPrefix() + capitalize(KEY_VERSION_PRERELEASE), resolvedExtraProperties, props);
-        safePut(project.getPrefix() + capitalize(KEY_VERSION_TAG), resolvedExtraProperties, props);
-        safePut(project.getPrefix() + capitalize(KEY_VERSION_BUILD), resolvedExtraProperties, props);
-        safePut(project.getPrefix() + capitalize(KEY_VERSION_OPTIONAL), resolvedExtraProperties, props);
-        safePut(project.getPrefix() + capitalize(KEY_VERSION_YEAR), resolvedExtraProperties, props);
-        safePut(project.getPrefix() + capitalize(KEY_VERSION_MONTH), resolvedExtraProperties, props);
-        safePut(project.getPrefix() + capitalize(KEY_VERSION_DAY), resolvedExtraProperties, props);
-        safePut(project.getPrefix() + capitalize(KEY_VERSION_WEEK), resolvedExtraProperties, props);
-        safePut(project.getPrefix() + capitalize(KEY_VERSION_MICRO), resolvedExtraProperties, props);
-        safePut(project.getPrefix() + capitalize(KEY_VERSION_MODIFIER), resolvedExtraProperties, props);
+        Map<String, Object> resolvedExtraProperties = project.resolvedExtraProperties();
+        safePut(project.prefix() + capitalize(KEY_VERSION_MAJOR), resolvedExtraProperties, props);
+        safePut(project.prefix() + capitalize(KEY_VERSION_MINOR), resolvedExtraProperties, props);
+        safePut(project.prefix() + capitalize(KEY_VERSION_PATCH), resolvedExtraProperties, props);
+        safePut(project.prefix() + capitalize(KEY_VERSION_NUMBER), resolvedExtraProperties, props);
+        safePut(project.prefix() + capitalize(KEY_VERSION_PRERELEASE), resolvedExtraProperties, props);
+        safePut(project.prefix() + capitalize(KEY_VERSION_TAG), resolvedExtraProperties, props);
+        safePut(project.prefix() + capitalize(KEY_VERSION_BUILD), resolvedExtraProperties, props);
+        safePut(project.prefix() + capitalize(KEY_VERSION_OPTIONAL), resolvedExtraProperties, props);
+        safePut(project.prefix() + capitalize(KEY_VERSION_YEAR), resolvedExtraProperties, props);
+        safePut(project.prefix() + capitalize(KEY_VERSION_MONTH), resolvedExtraProperties, props);
+        safePut(project.prefix() + capitalize(KEY_VERSION_DAY), resolvedExtraProperties, props);
+        safePut(project.prefix() + capitalize(KEY_VERSION_WEEK), resolvedExtraProperties, props);
+        safePut(project.prefix() + capitalize(KEY_VERSION_MICRO), resolvedExtraProperties, props);
+        safePut(project.prefix() + capitalize(KEY_VERSION_MODIFIER), resolvedExtraProperties, props);
 
         Path output = getOutputDirectory().resolve("output.properties");
 
@@ -931,17 +992,19 @@ public class JReleaserContext {
 
     public Keyring createKeyring() throws SigningException {
         try {
-            if (model.getSigning().getMode() == Signing.Mode.FILE) {
+            org.jreleaser.model.internal.signing.Signing signing = model.getSigning();
+
+            if (signing.getMode() == Signing.Mode.FILE) {
                 return new FilesKeyring(
-                    basedir.resolve(model.getSigning().getPublicKey()),
-                    basedir.resolve(model.getSigning().getSecretKey())
-                ).initialize(model.getSigning().isArmored());
+                    signing.isVerify() ? basedir.resolve(signing.getPublicKey()) : null,
+                    basedir.resolve(signing.getSecretKey())
+                ).initialize(signing.isArmored());
             }
 
             return new InMemoryKeyring(
-                model.getSigning().getPublicKey().getBytes(),
-                model.getSigning().getSecretKey().getBytes()
-            ).initialize(model.getSigning().isArmored());
+                signing.isVerify() ? signing.getPublicKey().getBytes(UTF_8) : null,
+                signing.getSecretKey().getBytes(UTF_8)
+            ).initialize(signing.isArmored());
         } catch (IOException | PGPException e) {
             throw new SigningException(RB.$("ERROR_signing_init_keyring"), e);
         }
@@ -1005,6 +1068,16 @@ public class JReleaserContext {
         for (WorkflowListener workflowListener : workflowListeners) {
             try {
                 workflowListener.onAssembleStep(event, this.asImmutable(), assembler);
+            } catch (RuntimeException e) {
+                throw new WorkflowListenerException(workflowListener, e);
+            }
+        }
+    }
+
+    public void fireCatalogStepEvent(ExecutionEvent event, Cataloger cataloger) throws WorkflowListenerException {
+        for (WorkflowListener workflowListener : workflowListeners) {
+            try {
+                workflowListener.onCatalogStep(event, this.asImmutable(), cataloger);
             } catch (RuntimeException e) {
                 throw new WorkflowListenerException(workflowListener, e);
             }
@@ -1122,6 +1195,8 @@ public class JReleaserContext {
     }
 
     private static class SortedProperties extends Properties {
+        private static final long serialVersionUID = 8794541421003888869L;
+
         // Java 11 calls entrySet() when storing properties
         @Override
         public Set<Map.Entry<Object, Object>> entrySet() {

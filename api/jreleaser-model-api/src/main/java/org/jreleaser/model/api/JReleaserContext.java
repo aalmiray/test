@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,16 +20,22 @@ package org.jreleaser.model.api;
 import org.jreleaser.logging.JReleaserLogger;
 import org.jreleaser.model.api.signing.Keyring;
 import org.jreleaser.model.api.signing.SigningException;
+import org.jreleaser.mustache.TemplateContext;
 
+import java.io.Serializable;
 import java.nio.file.Path;
 import java.util.List;
-import java.util.Map;
+
+import static org.jreleaser.model.Constants.KEY_CHANGELOG;
+import static org.jreleaser.model.Constants.KEY_CHANGELOG_CHANGES;
+import static org.jreleaser.model.Constants.KEY_CHANGELOG_CONTRIBUTORS;
+import static org.jreleaser.mustache.MustacheUtils.passThrough;
 
 /**
  * @author Andres Almiray
  * @since 0.1.0
  */
-public interface JReleaserContext {
+public interface JReleaserContext extends Serializable {
     String BASEDIR = "BASEDIR";
     String DRY_RUN = "DRY_RUN";
     String GIT_ROOT_SEARCH = "GIT_ROOT_SEARCH";
@@ -53,6 +59,8 @@ public interface JReleaserContext {
     Path getOutputDirectory();
 
     Path getChecksumsDirectory();
+
+    Path getCatalogsDirectory();
 
     Path getSignaturesDirectory();
 
@@ -114,13 +122,53 @@ public interface JReleaserContext {
 
     JReleaserCommand getCommand();
 
-    Map<String, Object> props();
+    TemplateContext props();
 
-    Map<String, Object> fullProps();
+    TemplateContext fullProps();
 
     void nag(String version, String message);
 
     Keyring createKeyring() throws SigningException;
+
+    Changelog getChangelog();
+
+    class Changelog implements Serializable {
+        private static final long serialVersionUID = -7619174395858420344L;
+
+        private String resolvedChangelog;
+        private String formattedChanges;
+        private String formattedContributors;
+
+        public String getResolvedChangelog() {
+            return resolvedChangelog;
+        }
+
+        public void setResolvedChangelog(String resolvedChangelog) {
+            this.resolvedChangelog = resolvedChangelog;
+        }
+
+        public String getFormattedChanges() {
+            return formattedChanges;
+        }
+
+        public void setFormattedChanges(String formattedChanges) {
+            this.formattedChanges = formattedChanges;
+        }
+
+        public String getFormattedContributors() {
+            return formattedContributors;
+        }
+
+        public void setFormattedContributors(String formattedContributors) {
+            this.formattedContributors = formattedContributors;
+        }
+
+        public void apply(TemplateContext props) {
+            props.set(KEY_CHANGELOG, passThrough(resolvedChangelog));
+            props.set(KEY_CHANGELOG_CHANGES, passThrough(formattedChanges));
+            props.set(KEY_CHANGELOG_CONTRIBUTORS, passThrough(formattedContributors));
+        }
+    }
 
     enum Mode {
         CONFIG,

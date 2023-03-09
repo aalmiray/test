@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,17 +17,20 @@
  */
 package org.jreleaser.model.internal.assemble;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.jreleaser.model.Active;
 import org.jreleaser.model.Archive;
 import org.jreleaser.model.Distribution;
 import org.jreleaser.model.Stereotype;
 import org.jreleaser.model.internal.JReleaserContext;
 import org.jreleaser.model.internal.common.AbstractModelObject;
+import org.jreleaser.model.internal.common.ArchiveOptions;
 import org.jreleaser.model.internal.common.Artifact;
 import org.jreleaser.model.internal.common.Domain;
 import org.jreleaser.model.internal.common.Executable;
 import org.jreleaser.model.internal.common.FileSet;
 import org.jreleaser.model.internal.common.Glob;
+import org.jreleaser.mustache.TemplateContext;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -50,17 +53,22 @@ import static org.jreleaser.util.StringUtils.isNotBlank;
  * @since 1.4.0
  */
 public final class JavaArchiveAssembler extends AbstractAssembler<JavaArchiveAssembler, org.jreleaser.model.api.assemble.JavaArchiveAssembler> {
+
+
     private final Set<Archive.Format> formats = new LinkedHashSet<>();
+    private final ArchiveOptions options = new ArchiveOptions();
     private final List<Glob> jars = new ArrayList<>();
-    private final List<Glob> files = new ArrayList<>();
     private final Java java = new Java();
     private final Executable executable = new Executable();
     private final Artifact mainJar = new Artifact();
 
     private String archiveName;
-    private String templateDirectory;
 
+    @JsonIgnore
     private final org.jreleaser.model.api.assemble.JavaArchiveAssembler immutable = new org.jreleaser.model.api.assemble.JavaArchiveAssembler() {
+
+
+        private Set<? extends org.jreleaser.model.api.common.Artifact> artifacts;
         private List<? extends org.jreleaser.model.api.common.FileSet> fileSets;
         private Set<? extends org.jreleaser.model.api.common.Artifact> outputs;
         private List<? extends org.jreleaser.model.api.common.Glob> jars;
@@ -77,8 +85,13 @@ public final class JavaArchiveAssembler extends AbstractAssembler<JavaArchiveAss
         }
 
         @Override
+        public org.jreleaser.model.api.common.ArchiveOptions getOptions() {
+            return options.asImmutable();
+        }
+
+        @Override
         public org.jreleaser.model.api.platform.Platform getPlatform() {
-            return platform.asImmutable();
+            return JavaArchiveAssembler.this.getPlatform().asImmutable();
         }
 
         @Override
@@ -88,7 +101,7 @@ public final class JavaArchiveAssembler extends AbstractAssembler<JavaArchiveAss
 
         @Override
         public String getType() {
-            return type;
+            return JavaArchiveAssembler.this.getType();
         }
 
         @Override
@@ -103,12 +116,17 @@ public final class JavaArchiveAssembler extends AbstractAssembler<JavaArchiveAss
 
         @Override
         public String getName() {
-            return name;
+            return JavaArchiveAssembler.this.getName();
         }
 
         @Override
         public String getTemplateDirectory() {
-            return templateDirectory;
+            return JavaArchiveAssembler.this.getTemplateDirectory();
+        }
+
+        @Override
+        public Set<String> getSkipTemplates() {
+            return unmodifiableSet(JavaArchiveAssembler.this.getSkipTemplates());
         }
 
         @Override
@@ -127,9 +145,19 @@ public final class JavaArchiveAssembler extends AbstractAssembler<JavaArchiveAss
         }
 
         @Override
+        public Set<? extends org.jreleaser.model.api.common.Artifact> getArtifacts() {
+            if (null == artifacts) {
+                artifacts = JavaArchiveAssembler.this.getArtifacts().stream()
+                    .map(Artifact::asImmutable)
+                    .collect(toSet());
+            }
+            return artifacts;
+        }
+
+        @Override
         public List<? extends org.jreleaser.model.api.common.FileSet> getFileSets() {
             if (null == fileSets) {
-                fileSets = JavaArchiveAssembler.this.fileSets.stream()
+                fileSets = JavaArchiveAssembler.this.getFileSets().stream()
                     .map(FileSet::asImmutable)
                     .collect(toList());
             }
@@ -139,7 +167,7 @@ public final class JavaArchiveAssembler extends AbstractAssembler<JavaArchiveAss
         @Override
         public Set<? extends org.jreleaser.model.api.common.Artifact> getOutputs() {
             if (null == outputs) {
-                outputs = JavaArchiveAssembler.this.outputs.stream()
+                outputs = JavaArchiveAssembler.this.getOutputs().stream()
                     .map(Artifact::asImmutable)
                     .collect(toSet());
             }
@@ -159,7 +187,7 @@ public final class JavaArchiveAssembler extends AbstractAssembler<JavaArchiveAss
         @Override
         public List<? extends org.jreleaser.model.api.common.Glob> getFiles() {
             if (null == files) {
-                files = JavaArchiveAssembler.this.files.stream()
+                files = JavaArchiveAssembler.this.getFiles().stream()
                     .map(Glob::asImmutable)
                     .collect(toList());
             }
@@ -168,7 +196,7 @@ public final class JavaArchiveAssembler extends AbstractAssembler<JavaArchiveAss
 
         @Override
         public Active getActive() {
-            return active;
+            return JavaArchiveAssembler.this.getActive();
         }
 
         @Override
@@ -183,12 +211,12 @@ public final class JavaArchiveAssembler extends AbstractAssembler<JavaArchiveAss
 
         @Override
         public String getPrefix() {
-            return JavaArchiveAssembler.this.getPrefix();
+            return JavaArchiveAssembler.this.prefix();
         }
 
         @Override
         public Map<String, Object> getExtraProperties() {
-            return unmodifiableMap(extraProperties);
+            return unmodifiableMap(JavaArchiveAssembler.this.getExtraProperties());
         }
     };
 
@@ -209,19 +237,18 @@ public final class JavaArchiveAssembler extends AbstractAssembler<JavaArchiveAss
     @Override
     public void merge(JavaArchiveAssembler source) {
         super.merge(source);
-        this.archiveName = merge(source.archiveName, source.archiveName);
-        this.templateDirectory = merge(this.templateDirectory, source.templateDirectory);
+        this.archiveName = merge(this.archiveName, source.archiveName);
         setFormats(merge(this.formats, source.formats));
+        setOptions(source.options);
         setExecutable(source.executable);
         setJava(source.java);
         setMainJar(source.mainJar);
         setJars(merge(this.jars, source.jars));
-        setFiles(merge(this.files, source.files));
     }
 
     public String getResolvedArchiveName(JReleaserContext context) {
-        Map<String, Object> props = context.fullProps();
-        props.putAll(props());
+        TemplateContext props = context.fullProps();
+        props.setAll(props());
         return resolveTemplate(archiveName, props);
     }
 
@@ -231,14 +258,6 @@ public final class JavaArchiveAssembler extends AbstractAssembler<JavaArchiveAss
 
     public void setArchiveName(String archiveName) {
         this.archiveName = archiveName;
-    }
-
-    public String getTemplateDirectory() {
-        return templateDirectory;
-    }
-
-    public void setTemplateDirectory(String templateDirectory) {
-        this.templateDirectory = templateDirectory;
     }
 
     public Java getJava() {
@@ -282,6 +301,14 @@ public final class JavaArchiveAssembler extends AbstractAssembler<JavaArchiveAss
         this.formats.add(Archive.Format.of(str));
     }
 
+    public ArchiveOptions getOptions() {
+        return options;
+    }
+
+    public void setOptions(ArchiveOptions options) {
+        this.options.merge(options);
+    }
+
     public List<Glob> getJars() {
         return jars;
     }
@@ -301,30 +328,11 @@ public final class JavaArchiveAssembler extends AbstractAssembler<JavaArchiveAss
         }
     }
 
-    public List<Glob> getFiles() {
-        return files;
-    }
-
-    public void setFiles(List<Glob> files) {
-        this.files.clear();
-        this.files.addAll(files);
-    }
-
-    public void addFiles(List<Glob> files) {
-        this.files.addAll(files);
-    }
-
-    public void addFile(Glob file) {
-        if (null != file) {
-            this.files.add(file);
-        }
-    }
-
     @Override
     protected void asMap(boolean full, Map<String, Object> props) {
         props.put("archiveName", archiveName);
         props.put("formats", formats);
-        props.put("templateDirectory", templateDirectory);
+        props.put("options", options.asMap(full));
         props.put("executable", executable.asMap(full));
         props.put("mainJar", mainJar.asMap(full));
         Map<String, Object> javaMap = java.asMap(full);
@@ -334,18 +342,19 @@ public final class JavaArchiveAssembler extends AbstractAssembler<JavaArchiveAss
             mappedJars.put("glob " + i, jars.get(i).asMap(full));
         }
         props.put("jars", mappedJars);
-        Map<String, Map<String, Object>> mappedFiles = new LinkedHashMap<>();
-        for (int i = 0; i < files.size(); i++) {
-            mappedFiles.put("glob " + i, files.get(i).asMap(full));
-        }
-        props.put("files", mappedFiles);
     }
 
     public static final class Java extends AbstractModelObject<org.jreleaser.model.internal.assemble.JavaArchiveAssembler.Java> implements Domain {
+        private static final long serialVersionUID = 7202113953208274002L;
+
         private final List<String> options = new ArrayList<>();
         private String mainModule;
         private String mainClass;
+
+        @JsonIgnore
         private final org.jreleaser.model.api.assemble.JavaArchiveAssembler.Java immutable = new org.jreleaser.model.api.assemble.JavaArchiveAssembler.Java() {
+            private static final long serialVersionUID = 5951754473564143458L;
+
             @Override
             public String getMainClass() {
                 return mainClass;

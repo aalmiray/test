@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,23 +18,28 @@
 package org.jreleaser.model.internal.validation.assemble;
 
 import org.jreleaser.bundle.RB;
+import org.jreleaser.model.Archive;
 import org.jreleaser.model.internal.JReleaserContext;
 import org.jreleaser.model.internal.assemble.NativeImageAssembler;
 import org.jreleaser.model.internal.common.Artifact;
-import org.jreleaser.model.internal.validation.common.Validator;
 import org.jreleaser.util.Errors;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 
+import static org.jreleaser.model.Constants.KEY_ARCHIVE_FORMAT;
 import static org.jreleaser.util.StringUtils.isNotBlank;
 
 /**
  * @author Andres Almiray
  * @since 0.2.0
  */
-public abstract class NativeImageAssemblerResolver extends Validator {
+public final class NativeImageAssemblerResolver {
+    private NativeImageAssemblerResolver() {
+        // noop
+    }
+
     public static void resolveNativeImageOutputs(JReleaserContext context, Errors errors) {
         List<NativeImageAssembler> activeNativeImages = context.getModel().getAssemble().getActiveNativeImages();
         if (!activeNativeImages.isEmpty()) context.getLogger().debug("assemble.nativeImage");
@@ -44,32 +49,39 @@ public abstract class NativeImageAssemblerResolver extends Validator {
         }
     }
 
-    private static void resolveNativeImageOutputs(JReleaserContext context, NativeImageAssembler nativeImage, Errors errors) {
-        if (!context.isPlatformSelected(nativeImage.getGraal())) return;
+    private static void resolveNativeImageOutputs(JReleaserContext context, NativeImageAssembler assembler, Errors errors) {
+        Path baseOutputDirectory = context.getAssembleDirectory()
+            .resolve(assembler.getName())
+            .resolve(assembler.getType());
 
-        String imageName = nativeImage.getResolvedImageName(context);
-        if (isNotBlank(nativeImage.getImageNameTransform())) {
-            imageName = nativeImage.getResolvedImageNameTransform(context);
+        String imageName = assembler.getResolvedImageName(context);
+        if (isNotBlank(assembler.getImageNameTransform())) {
+            imageName = assembler.getResolvedImageNameTransform(context);
         }
 
-        String platform = nativeImage.getGraal().getPlatform();
-        String platformReplaced = nativeImage.getPlatform().applyReplacements(platform);
+        for (Artifact graalJdk : assembler.getGraalJdks()) {
+            if (!context.isPlatformSelected(graalJdk)) continue;
 
-        Path image = context.getAssembleDirectory()
-            .resolve(nativeImage.getName())
-            .resolve(nativeImage.getType())
-            .resolve(imageName + "-" +
-                platformReplaced + "." +
-                nativeImage.getArchiveFormat().extension());
+            String platform = graalJdk.getPlatform();
+            String platformReplaced = assembler.getPlatform().applyReplacements(platform);
+            String str = graalJdk.getExtraProperties()
+                .getOrDefault(KEY_ARCHIVE_FORMAT, assembler.getArchiveFormat())
+                .toString();
+            Archive.Format archiveFormat = Archive.Format.of(str);
 
-        if (!Files.exists(image)) {
-            errors.assembly(RB.$("validation_missing_assembly",
-                nativeImage.getType(), nativeImage.getName(), nativeImage.getName()));
-        } else {
-            Artifact artifact = Artifact.of(image, platform);
-            artifact.setExtraProperties(nativeImage.getExtraProperties());
-            artifact.activate();
-            nativeImage.addOutput(artifact);
+            Path image = baseOutputDirectory
+                .resolve(imageName + "-" + platformReplaced + "." + archiveFormat.extension())
+                .toAbsolutePath();
+
+            if (!Files.exists(image)) {
+                errors.assembly(RB.$("validation_missing_assembly",
+                    assembler.getType(), assembler.getName(), assembler.getName()));
+            } else {
+                Artifact artifact = Artifact.of(image, platform);
+                artifact.setExtraProperties(assembler.getExtraProperties());
+                artifact.activate();
+                assembler.addOutput(artifact);
+            }
         }
     }
 }

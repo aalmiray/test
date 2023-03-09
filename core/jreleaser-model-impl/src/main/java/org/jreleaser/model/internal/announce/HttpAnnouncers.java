@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,13 +17,12 @@
  */
 package org.jreleaser.model.internal.announce;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.jreleaser.model.Active;
 
 import java.util.Collections;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 import static java.util.Collections.unmodifiableMap;
 import static java.util.function.Function.identity;
@@ -35,10 +34,15 @@ import static org.jreleaser.model.api.announce.HttpAnnouncers.TYPE;
  * @since 1.3.0
  */
 public final class HttpAnnouncers extends AbstractAnnouncer<HttpAnnouncers, org.jreleaser.model.api.announce.HttpAnnouncers> {
-    private final Map<String, HttpAnnouncer> httpAnnouncers = new LinkedHashMap<>();
+    private static final long serialVersionUID = 5295187663038593069L;
 
+    private final Map<String, HttpAnnouncer> http = new LinkedHashMap<>();
+
+    @JsonIgnore
     private final org.jreleaser.model.api.announce.HttpAnnouncers immutable = new org.jreleaser.model.api.announce.HttpAnnouncers() {
-        private Map<String, ? extends org.jreleaser.model.api.announce.HttpAnnouncer> httpAnnouncers;
+        private static final long serialVersionUID = 4604741967520778012L;
+
+        private Map<String, ? extends org.jreleaser.model.api.announce.HttpAnnouncer> http;
 
         @Override
         public String getType() {
@@ -47,17 +51,17 @@ public final class HttpAnnouncers extends AbstractAnnouncer<HttpAnnouncers, org.
 
         @Override
         public Map<String, ? extends org.jreleaser.model.api.announce.HttpAnnouncer> getHttpAnnouncers() {
-            if (null == httpAnnouncers) {
-                httpAnnouncers = HttpAnnouncers.this.httpAnnouncers.values().stream()
+            if (null == http) {
+                http = HttpAnnouncers.this.http.values().stream()
                     .map(HttpAnnouncer::asImmutable)
                     .collect(toMap(org.jreleaser.model.api.announce.HttpAnnouncer::getName, identity()));
             }
-            return httpAnnouncers;
+            return http;
         }
 
         @Override
         public String getName() {
-            return name;
+            return HttpAnnouncers.this.getName();
         }
 
         @Override
@@ -67,7 +71,7 @@ public final class HttpAnnouncers extends AbstractAnnouncer<HttpAnnouncers, org.
 
         @Override
         public Active getActive() {
-            return active;
+            return HttpAnnouncers.this.getActive();
         }
 
         @Override
@@ -82,22 +86,22 @@ public final class HttpAnnouncers extends AbstractAnnouncer<HttpAnnouncers, org.
 
         @Override
         public String getPrefix() {
-            return HttpAnnouncers.this.getPrefix();
+            return HttpAnnouncers.this.prefix();
         }
 
         @Override
         public Map<String, Object> getExtraProperties() {
-            return unmodifiableMap(extraProperties);
+            return unmodifiableMap(HttpAnnouncers.this.getExtraProperties());
         }
 
         @Override
         public Integer getConnectTimeout() {
-            return connectTimeout;
+            return HttpAnnouncers.this.getConnectTimeout();
         }
 
         @Override
         public Integer getReadTimeout() {
-            return readTimeout;
+            return HttpAnnouncers.this.getReadTimeout();
         }
     };
 
@@ -113,26 +117,20 @@ public final class HttpAnnouncers extends AbstractAnnouncer<HttpAnnouncers, org.
     @Override
     public void merge(HttpAnnouncers source) {
         super.merge(source);
-        setHttpAnnouncers(mergeModel(this.httpAnnouncers, source.httpAnnouncers));
+        setHttp(mergeModel(this.http, source.http));
     }
 
-    public List<HttpAnnouncer> getActiveHttpAnnouncers() {
-        return httpAnnouncers.values().stream()
-            .filter(HttpAnnouncer::isEnabled)
-            .collect(Collectors.toList());
+    public Map<String, HttpAnnouncer> getHttp() {
+        return http;
     }
 
-    public Map<String, HttpAnnouncer> getHttpAnnouncers() {
-        return httpAnnouncers;
-    }
-
-    public void setHttpAnnouncers(Map<String, HttpAnnouncer> https) {
-        this.httpAnnouncers.clear();
-        this.httpAnnouncers.putAll(https);
+    public void setHttp(Map<String, HttpAnnouncer> http) {
+        this.http.clear();
+        this.http.putAll(http);
     }
 
     public void addHttpAnnouncer(HttpAnnouncer http) {
-        this.httpAnnouncers.put(http.getName(), http);
+        this.http.put(http.getName(), http);
     }
 
     @Override
@@ -149,7 +147,7 @@ public final class HttpAnnouncers extends AbstractAnnouncer<HttpAnnouncers, org.
 
     @Override
     protected void asMap(boolean full, Map<String, Object> props) {
-        this.httpAnnouncers.values()
+        this.http.values()
             .stream()
             .filter(h -> full || h.isEnabled())
             .map(d -> d.asMap(full))

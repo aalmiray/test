@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,9 +18,7 @@
 package org.jreleaser.model.internal.validation.packagers;
 
 import org.jreleaser.bundle.RB;
-import org.jreleaser.model.Active;
 import org.jreleaser.model.Stereotype;
-import org.jreleaser.model.api.JReleaserContext.Mode;
 import org.jreleaser.model.internal.JReleaserContext;
 import org.jreleaser.model.internal.JReleaserModel;
 import org.jreleaser.model.internal.common.Artifact;
@@ -28,7 +26,6 @@ import org.jreleaser.model.internal.common.Icon;
 import org.jreleaser.model.internal.distributions.Distribution;
 import org.jreleaser.model.internal.packagers.AppImagePackager;
 import org.jreleaser.model.internal.release.Releaser;
-import org.jreleaser.model.internal.validation.common.Validator;
 import org.jreleaser.util.Errors;
 
 import java.util.List;
@@ -37,6 +34,12 @@ import static java.util.stream.Collectors.toList;
 import static org.jreleaser.model.api.packagers.AppImagePackager.SKIP_APPIMAGE;
 import static org.jreleaser.model.internal.validation.common.ExtraPropertiesValidator.mergeExtraProperties;
 import static org.jreleaser.model.internal.validation.common.TemplateValidator.validateTemplate;
+import static org.jreleaser.model.internal.validation.common.Validator.resolveActivatable;
+import static org.jreleaser.model.internal.validation.common.Validator.validateCommitAuthor;
+import static org.jreleaser.model.internal.validation.common.Validator.validateContinueOnError;
+import static org.jreleaser.model.internal.validation.common.Validator.validateIcons;
+import static org.jreleaser.model.internal.validation.common.Validator.validateScreenshots;
+import static org.jreleaser.model.internal.validation.common.Validator.validateTap;
 import static org.jreleaser.model.internal.validation.distributions.DistributionsValidator.validateArtifactPlatforms;
 import static org.jreleaser.util.CollectionUtils.listOf;
 import static org.jreleaser.util.StringUtils.isBlank;
@@ -47,20 +50,22 @@ import static org.jreleaser.util.StringUtils.isTrue;
  * @author Andres Almiray
  * @since 1.2.0
  */
-public abstract class AppImagePackagerValidator extends Validator {
-    public static void validateAppImage(JReleaserContext context, Mode mode, Distribution distribution, AppImagePackager packager, Errors errors) {
+public final class AppImagePackagerValidator {
+    private AppImagePackagerValidator() {
+        // noop
+    }
+
+    public static void validateAppImage(JReleaserContext context, Distribution distribution, AppImagePackager packager, Errors errors) {
         context.getLogger().debug("distribution.{}.appImage", distribution.getName());
         JReleaserModel model = context.getModel();
         AppImagePackager parentPackager = model.getPackagers().getAppImage();
 
-        if (!packager.isActiveSet() && parentPackager.isActiveSet()) {
-            packager.setActive(parentPackager.getActive());
-        }
+        resolveActivatable(context, packager, "distributions." + distribution.getName() + "." + packager.getType(), parentPackager);
         if (!packager.resolveEnabled(context.getModel().getProject(), distribution)) {
             context.getLogger().debug(RB.$("validation.disabled"));
             return;
         }
-        Releaser service = model.getRelease().getReleaser();
+        Releaser<?> service = model.getRelease().getReleaser();
         if (!service.isReleaseSupported()) {
             context.getLogger().debug(RB.$("validation.disabled.release"));
             packager.disable();
@@ -68,8 +73,7 @@ public abstract class AppImagePackagerValidator extends Validator {
         }
 
         List<Artifact> candidateArtifacts = packager.resolveCandidateArtifacts(context, distribution);
-        if (candidateArtifacts.size() == 0) {
-            packager.setActive(Active.NEVER);
+        if (candidateArtifacts.isEmpty()) {
             context.getLogger().debug(RB.$("validation.disabled.no.artifacts"));
             errors.warning(RB.$("WARNING.validation.packager.no.artifacts", distribution.getName(),
                 packager.getType(), packager.getSupportedFileExtensions(distribution.getType())));
@@ -120,7 +124,7 @@ public abstract class AppImagePackagerValidator extends Validator {
         if (packager.getScreenshots().isEmpty()) {
             errors.configuration(RB.$("validation_is_empty", "distribution." + distribution.getName() + ".appImage.screenshots"));
         }
-        validateScreenshots(context, mode, packager.getScreenshots(), errors, "distribution." + distribution.getName() + ".appImage");
+        validateScreenshots(packager.getScreenshots(), errors, "distribution." + distribution.getName() + ".appImage");
         packager.getScreenshots().removeIf(screenshot -> isTrue(screenshot.getExtraProperties().get(SKIP_APPIMAGE)));
         if (packager.getScreenshots().isEmpty()) {
             errors.configuration(RB.$("validation_is_empty", "distribution." + distribution.getName() + ".appImage.screenshots"));
@@ -132,14 +136,14 @@ public abstract class AppImagePackagerValidator extends Validator {
         if (packager.getIcons().isEmpty()) {
             errors.configuration(RB.$("validation_is_empty", "distribution." + distribution.getName() + ".appImage.icons"));
         }
-        validateIcons(context, mode, packager.getIcons(), errors, "distribution." + distribution.getName() + ".appImage");
+        validateIcons(packager.getIcons(), errors, "distribution." + distribution.getName() + ".appImage");
         packager.getIcons().removeIf(icon -> isTrue(icon.getExtraProperties().get(SKIP_APPIMAGE)));
         if (packager.getIcons().isEmpty()) {
             errors.configuration(RB.$("validation_is_empty", "distribution." + distribution.getName() + ".appImage.icons"));
         }
         for (int i = 0; i < packager.getIcons().size(); i++) {
             Icon icon = packager.getIcons().get(i);
-            if (icon.getWidth() != null && !icon.getWidth().equals(icon.getHeight())) {
+            if (null != icon.getWidth() && !icon.getWidth().equals(icon.getHeight())) {
                 errors.configuration(RB.$("validation_must_be_equal",
                     "distribution." + distribution.getName() + ".appImage.icons[" + i + "].width", icon.getWidth(),
                     "distribution." + distribution.getName() + ".appImage.icons[" + i + "].height", icon.getHeight()));
@@ -168,7 +172,6 @@ public abstract class AppImagePackagerValidator extends Validator {
 
         validateCommitAuthor(packager, parentPackager);
         AppImagePackager.AppImageRepository repository = packager.getRepository();
-        repository.resolveEnabled(model.getProject());
         validateTap(context, distribution, repository, parentPackager.getRepository(), "appImage.repository");
         validateTemplate(context, distribution, packager, parentPackager, errors);
         mergeExtraProperties(packager, parentPackager);
@@ -176,6 +179,6 @@ public abstract class AppImagePackagerValidator extends Validator {
         if (isBlank(packager.getDownloadUrl())) {
             packager.setDownloadUrl(parentPackager.getDownloadUrl());
         }
-        validateArtifactPlatforms(context, distribution, packager, candidateArtifacts, errors);
+        validateArtifactPlatforms(distribution, packager, candidateArtifacts, errors);
     }
 }

@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -48,7 +48,7 @@ class KordampJReleaserAdapter {
         }
         if (!jreleaser.project.license.present) {
             List<License> licenses = config.licensing.allLicenses()
-            if (licenses.size() > 0) {
+            if (!licenses.isEmpty()) {
                 License license = licenses.find {
                     it.primary
                 } ?: licenses[0]

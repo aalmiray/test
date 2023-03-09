@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,6 @@
  */
 package org.jreleaser.maven.plugin;
 
-import org.apache.maven.execution.MavenSession;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
@@ -46,6 +45,7 @@ import java.util.List;
 import java.util.Set;
 
 import static java.util.stream.Collectors.toList;
+import static org.jreleaser.util.IoUtils.newPrintWriter;
 import static org.jreleaser.util.StringUtils.isBlank;
 import static org.jreleaser.util.StringUtils.isNotBlank;
 
@@ -67,8 +67,6 @@ public class JReleaserAutoConfigReleaseMojo extends AbstractMojo {
      */
     @Parameter(defaultValue = "${project}", readonly = true, required = true)
     private MavenProject project;
-    @Parameter(defaultValue = "${session}", required = true)
-    private MavenSession session;
     @Parameter(property = "jreleaser.output.directory", defaultValue = "${project.build.directory}/jreleaser")
     private File outputDirectory;
     /**
@@ -160,7 +158,7 @@ public class JReleaserAutoConfigReleaseMojo extends AbstractMojo {
      * If the release is a prerelease.
      */
     @Parameter(property = "jreleaser.prerelease")
-    private boolean prerelease;
+    private Boolean prerelease;
     /**
      * The prerelease pattern.
      */
@@ -170,7 +168,7 @@ public class JReleaserAutoConfigReleaseMojo extends AbstractMojo {
      * If the release is a draft.
      */
     @Parameter(property = "jreleaser.draft")
-    private boolean draft;
+    private Boolean draft;
     /**
      * Overwrite an existing release.
      */
@@ -320,7 +318,7 @@ public class JReleaserAutoConfigReleaseMojo extends AbstractMojo {
     private PrintWriter createTracer() throws MojoExecutionException {
         try {
             java.nio.file.Files.createDirectories(outputDirectory.toPath());
-            return new PrintWriter(new FileOutputStream(
+            return newPrintWriter(new FileOutputStream(
                 outputDirectory.toPath().resolve("trace.log").toFile()));
         } catch (IOException e) {
             throw new MojoExecutionException("Could not initialize trace file", e);
@@ -329,7 +327,7 @@ public class JReleaserAutoConfigReleaseMojo extends AbstractMojo {
 
     private List<String> collectAuthors() {
         List<String> list = new ArrayList<>();
-        if (authors != null && authors.length > 0) {
+        if (null != authors && authors.length > 0) {
             Collections.addAll(list, authors);
         }
         return list;
@@ -337,7 +335,7 @@ public class JReleaserAutoConfigReleaseMojo extends AbstractMojo {
 
     private List<String> collectFiles() {
         List<String> list = new ArrayList<>();
-        if (files != null && files.length > 0) {
+        if (null != files && files.length > 0) {
             Collections.addAll(list, files);
         }
         return list;
@@ -345,7 +343,7 @@ public class JReleaserAutoConfigReleaseMojo extends AbstractMojo {
 
     private List<String> collectGlobs() {
         List<String> list = new ArrayList<>();
-        if (globs != null && globs.length > 0) {
+        if (null != globs && globs.length > 0) {
             Collections.addAll(list, globs);
         }
         return list;
@@ -353,7 +351,7 @@ public class JReleaserAutoConfigReleaseMojo extends AbstractMojo {
 
     private Set<org.jreleaser.model.UpdateSection> collectUpdateSections() {
         Set<org.jreleaser.model.UpdateSection> set = new LinkedHashSet<>();
-        if (updateSections != null && updateSections.length > 0) {
+        if (null != updateSections && updateSections.length > 0) {
             for (UpdateSection updateSection : updateSections) {
                 set.add(org.jreleaser.model.UpdateSection.of(updateSection.name()));
             }
@@ -366,7 +364,7 @@ public class JReleaserAutoConfigReleaseMojo extends AbstractMojo {
         if (resolvedSelectCurrentPlatform) return Collections.singletonList(PlatformUtils.getCurrentFull());
 
         List<String> list = new ArrayList<>();
-        if (selectPlatforms != null && selectPlatforms.length > 0) {
+        if (null != selectPlatforms && selectPlatforms.length > 0) {
             Collections.addAll(list, selectPlatforms);
         }
         return resolveCollection(org.jreleaser.model.api.JReleaserContext.SELECT_PLATFORMS, list);
@@ -374,7 +372,7 @@ public class JReleaserAutoConfigReleaseMojo extends AbstractMojo {
 
     protected List<String> collectRejectedPlatforms() {
         List<String> list = new ArrayList<>();
-        if (rejectedPlatforms != null && rejectedPlatforms.length > 0) {
+        if (null != rejectedPlatforms && rejectedPlatforms.length > 0) {
             Collections.addAll(list, rejectedPlatforms);
         }
         return resolveCollection(org.jreleaser.model.api.JReleaserContext.REJECT_PLATFORMS, list);

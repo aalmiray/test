@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,13 +18,12 @@
 package org.jreleaser.model.internal.upload;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import org.jreleaser.model.Active;
 import org.jreleaser.model.internal.JReleaserContext;
-import org.jreleaser.model.internal.common.AbstractModelObject;
+import org.jreleaser.model.internal.common.AbstractActivatable;
 import org.jreleaser.model.internal.common.Artifact;
 import org.jreleaser.model.internal.common.ExtraProperties;
-import org.jreleaser.model.internal.project.Project;
 import org.jreleaser.model.internal.util.Artifacts;
+import org.jreleaser.mustache.TemplateContext;
 
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -42,21 +41,21 @@ import static org.jreleaser.util.StringUtils.getClassNameForLowerCaseHyphenSepar
  * @author Andres Almiray
  * @since 0.3.0
  */
-public abstract class AbstractUploader<A extends org.jreleaser.model.api.upload.Uploader, S extends AbstractUploader<A, S>> extends AbstractModelObject<S> implements Uploader<A>, ExtraProperties {
+public abstract class AbstractUploader<A extends org.jreleaser.model.api.upload.Uploader, S extends AbstractUploader<A, S>> extends AbstractActivatable<S> implements Uploader<A>, ExtraProperties {
+    private static final long serialVersionUID = 2011958303607038304L;
+
     @JsonIgnore
-    protected final String type;
-    protected final Map<String, Object> extraProperties = new LinkedHashMap<>();
+    private final String type;
+    private final Map<String, Object> extraProperties = new LinkedHashMap<>();
     @JsonIgnore
-    protected String name;
-    @JsonIgnore
-    protected boolean enabled;
-    protected Active active;
-    protected int connectTimeout;
-    protected int readTimeout;
+    private String name;
+    private int connectTimeout;
+    private int readTimeout;
     protected Boolean artifacts;
     protected Boolean files;
     protected Boolean signatures;
     protected Boolean checksums;
+    protected Boolean catalogs;
 
     protected AbstractUploader(String type) {
         this.type = type;
@@ -64,42 +63,21 @@ public abstract class AbstractUploader<A extends org.jreleaser.model.api.upload.
 
     @Override
     public void merge(S source) {
-        this.active = merge(this.active, source.active);
-        this.enabled = merge(this.enabled, source.enabled);
-        this.name = merge(this.name, source.name);
-        this.connectTimeout = merge(this.connectTimeout, source.connectTimeout);
-        this.readTimeout = merge(this.readTimeout, source.readTimeout);
+        super.merge(source);
+        this.name = merge(this.name, source.getName());
+        this.connectTimeout = merge(this.getConnectTimeout(), source.getConnectTimeout());
+        this.readTimeout = merge(this.getReadTimeout(), source.getReadTimeout());
         this.artifacts = merge(this.artifacts, source.artifacts);
         this.files = merge(this.files, source.files);
         this.signatures = merge(this.signatures, source.signatures);
         this.checksums = merge(this.checksums, source.checksums);
-        setExtraProperties(merge(this.extraProperties, source.extraProperties));
+        this.catalogs = merge(this.catalogs, source.catalogs);
+        setExtraProperties(merge(this.extraProperties, source.getExtraProperties()));
     }
 
     @Override
-    public String getPrefix() {
-        return type;
-    }
-
-    @Override
-    public boolean isEnabled() {
-        return enabled;
-    }
-
-    public void disable() {
-        active = Active.NEVER;
-        enabled = false;
-    }
-
-    public boolean resolveEnabled(Project project) {
-        if (null == active) {
-            active = Active.NEVER;
-        }
-        enabled = active.check(project);
-        if (project.isSnapshot() && !isSnapshotSupported()) {
-            enabled = false;
-        }
-        return enabled;
+    public String prefix() {
+        return getType();
     }
 
     @Override
@@ -110,26 +88,6 @@ public abstract class AbstractUploader<A extends org.jreleaser.model.api.upload.
     @Override
     public void setName(String name) {
         this.name = name;
-    }
-
-    @Override
-    public Active getActive() {
-        return active;
-    }
-
-    @Override
-    public void setActive(Active active) {
-        this.active = active;
-    }
-
-    @Override
-    public void setActive(String str) {
-        setActive(Active.of(str));
-    }
-
-    @Override
-    public boolean isActiveSet() {
-        return active != null;
     }
 
     @Override
@@ -180,7 +138,7 @@ public abstract class AbstractUploader<A extends org.jreleaser.model.api.upload.
 
     @Override
     public boolean isArtifacts() {
-        return artifacts == null || artifacts;
+        return null == artifacts || artifacts;
     }
 
     @Override
@@ -190,12 +148,12 @@ public abstract class AbstractUploader<A extends org.jreleaser.model.api.upload.
 
     @Override
     public boolean isArtifactsSet() {
-        return artifacts != null;
+        return null != artifacts;
     }
 
     @Override
     public boolean isFiles() {
-        return files == null || files;
+        return null == files || files;
     }
 
     @Override
@@ -205,12 +163,12 @@ public abstract class AbstractUploader<A extends org.jreleaser.model.api.upload.
 
     @Override
     public boolean isFilesSet() {
-        return files != null;
+        return null != files;
     }
 
     @Override
     public boolean isSignatures() {
-        return signatures == null || signatures;
+        return null == signatures || signatures;
     }
 
     @Override
@@ -220,17 +178,17 @@ public abstract class AbstractUploader<A extends org.jreleaser.model.api.upload.
 
     @Override
     public boolean isSignaturesSet() {
-        return signatures != null;
+        return null != signatures;
     }
 
     @Override
     public boolean isChecksumsSet() {
-        return checksums != null;
+        return null != checksums;
     }
 
     @Override
     public boolean isChecksums() {
-        return checksums == null || checksums;
+        return null == checksums || checksums;
     }
 
     @Override
@@ -239,20 +197,36 @@ public abstract class AbstractUploader<A extends org.jreleaser.model.api.upload.
     }
 
     @Override
+    public boolean isCatalogsSet() {
+        return null != catalogs;
+    }
+
+    @Override
+    public boolean isCatalogs() {
+        return null == catalogs || catalogs;
+    }
+
+    @Override
+    public void setCatalogs(Boolean catalogs) {
+        this.catalogs = catalogs;
+    }
+
+    @Override
     public Map<String, Object> asMap(boolean full) {
         if (!full && !isEnabled()) return Collections.emptyMap();
 
         Map<String, Object> props = new LinkedHashMap<>();
         props.put("enabled", isEnabled());
-        props.put("active", active);
+        props.put("active", getActive());
         props.put("connectTimeout", connectTimeout);
         props.put("readTimeout", readTimeout);
         props.put("artifacts", isArtifacts());
         props.put("files", isFiles());
         props.put("signatures", isSignatures());
         props.put("checksums", isChecksums());
+        props.put("catalogs", isCatalogs());
         asMap(full, props);
-        props.put("extraProperties", getResolvedExtraProperties());
+        props.put("extraProperties", resolvedExtraProperties());
 
         Map<String, Object> map = new LinkedHashMap<>();
         map.put(this.getName(), props);
@@ -270,16 +244,16 @@ public abstract class AbstractUploader<A extends org.jreleaser.model.api.upload.
     }
 
     @Override
-    public Map<String, Object> artifactProps(JReleaserContext context, Artifact artifact) {
+    public TemplateContext artifactProps(JReleaserContext context, Artifact artifact) {
         return artifactProps(context.fullProps(), artifact);
     }
 
     @Override
-    public Map<String, Object> artifactProps(Map<String, Object> props, Artifact artifact) {
-        props.put(KEY_UPLOADER_NAME, getName());
+    public TemplateContext artifactProps(TemplateContext props, Artifact artifact) {
+        props.set(KEY_UPLOADER_NAME, getName());
         Artifacts.artifactProps(artifact, props);
 
-        Set<String> keys = new LinkedHashSet<>(props.keySet());
+        Set<String> keys = new LinkedHashSet<>(props.keys());
         keys.stream()
             .filter(k -> k.contains("skip") || k.contains("Skip"))
             .forEach(props::remove);

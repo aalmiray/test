@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,7 +26,9 @@ import java.util.Map;
  * @since 0.1.0
  */
 public abstract class AbstractRepositoryPackager<A extends org.jreleaser.model.api.packagers.RepositoryPackager, S extends AbstractRepositoryPackager<A, S>> extends AbstractTemplatePackager<A, S> implements RepositoryPackager<A> {
-    protected final CommitAuthor commitAuthor = new CommitAuthor();
+    private static final long serialVersionUID = 1076497955696434410L;
+
+    private final CommitAuthor commitAuthor = new CommitAuthor();
 
     protected AbstractRepositoryPackager(String type) {
         super(type);
@@ -35,7 +37,7 @@ public abstract class AbstractRepositoryPackager<A extends org.jreleaser.model.a
     @Override
     public void merge(S source) {
         super.merge(source);
-        setCommitAuthor(source.commitAuthor);
+        setCommitAuthor(source.getCommitAuthor());
     }
 
     @Override

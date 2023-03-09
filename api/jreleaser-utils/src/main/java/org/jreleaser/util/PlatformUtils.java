@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,11 +17,11 @@
  */
 package org.jreleaser.util;
 
-import kr.motd.maven.os.Detector;
 import org.jreleaser.bundle.RB;
 import org.jreleaser.logging.JReleaserLogger;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -30,6 +30,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Properties;
 
 import static org.jreleaser.util.StringUtils.isBlank;
@@ -259,9 +260,9 @@ public final class PlatformUtils {
 
             Path release = Paths.get(javaHome).resolve("release");
 
-            try {
+            try (InputStream in = Files.newInputStream(release)) {
                 Properties props = new Properties();
-                props.load(Files.newInputStream(release));
+                props.load(in);
                 if (props.containsKey("LIBC")) {
                     String libc = props.getProperty("LIBC");
                     if ("musl".equalsIgnoreCase(libc)) {
@@ -302,9 +303,16 @@ public final class PlatformUtils {
     }
 
     public static boolean isCompatible(String expected, String actual) {
+        if (isBlank(actual)) return false;
+
         if (expected.contains("-")) {
             // expected is strict
-            return expected.equalsIgnoreCase(actual);
+            if (actual.contains("-")) {
+                // actual is strict
+                return expected.equalsIgnoreCase(actual);
+            } else {
+                return expected.toLowerCase(Locale.ENGLISH).contains(actual.toLowerCase(Locale.ENGLISH));
+            }
         }
 
         String[] parts = actual.split("-");
@@ -312,11 +320,11 @@ public final class PlatformUtils {
     }
 
     public static String getDetectedOs() {
-        return OS_DETECTOR.get(Detector.DETECTED_NAME);
+        return OS_DETECTOR.get(OsDetector.DETECTED_NAME);
     }
 
     public static String getDetectedArch() {
-        return OS_DETECTOR.get(Detector.DETECTED_ARCH);
+        return OS_DETECTOR.get(OsDetector.DETECTED_ARCH);
     }
 
     public static String getDetectedVersion() {

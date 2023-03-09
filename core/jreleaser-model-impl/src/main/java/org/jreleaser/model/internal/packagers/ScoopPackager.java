@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
  */
 package org.jreleaser.model.internal.packagers;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.jreleaser.model.Active;
 import org.jreleaser.model.Distribution;
 import org.jreleaser.model.Stereotype;
@@ -33,6 +34,7 @@ import static java.util.Collections.unmodifiableList;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.Collections.unmodifiableSet;
 import static org.jreleaser.model.Distribution.DistributionType.BINARY;
+import static org.jreleaser.model.Distribution.DistributionType.FLAT_BINARY;
 import static org.jreleaser.model.Distribution.DistributionType.JAVA_BINARY;
 import static org.jreleaser.model.Distribution.DistributionType.JLINK;
 import static org.jreleaser.model.Distribution.DistributionType.NATIVE_IMAGE;
@@ -41,8 +43,12 @@ import static org.jreleaser.model.Distribution.DistributionType.SINGLE_JAR;
 import static org.jreleaser.model.api.packagers.ScoopPackager.SKIP_SCOOP;
 import static org.jreleaser.model.api.packagers.ScoopPackager.TYPE;
 import static org.jreleaser.util.CollectionUtils.setOf;
+import static org.jreleaser.util.FileType.BAT;
+import static org.jreleaser.util.FileType.CMD;
+import static org.jreleaser.util.FileType.EXE;
 import static org.jreleaser.util.FileType.JAR;
 import static org.jreleaser.util.FileType.MSI;
+import static org.jreleaser.util.FileType.PS1;
 import static org.jreleaser.util.FileType.ZIP;
 import static org.jreleaser.util.StringUtils.isBlank;
 import static org.jreleaser.util.StringUtils.isFalse;
@@ -53,23 +59,28 @@ import static org.jreleaser.util.StringUtils.isFalse;
  */
 public final class ScoopPackager extends AbstractRepositoryPackager<org.jreleaser.model.api.packagers.ScoopPackager, ScoopPackager> {
     private static final Map<org.jreleaser.model.Distribution.DistributionType, Set<String>> SUPPORTED = new LinkedHashMap<>();
+    private static final long serialVersionUID = -8156604651470704715L;
 
     static {
         Set<String> extensions = setOf(ZIP.extension());
+        SUPPORTED.put(NATIVE_IMAGE, extensions);
         SUPPORTED.put(BINARY, extensions);
         SUPPORTED.put(JAVA_BINARY, extensions);
         SUPPORTED.put(JLINK, extensions);
-        SUPPORTED.put(NATIVE_IMAGE, extensions);
         SUPPORTED.put(NATIVE_PACKAGE, setOf(MSI.extension()));
         SUPPORTED.put(SINGLE_JAR, setOf(JAR.extension()));
+        SUPPORTED.put(FLAT_BINARY, setOf(BAT.extension(), CMD.extension(), EXE.extension(), PS1.extension()));
     }
 
-    private final ScoopRepository repository = new ScoopRepository();
+    private final ScoopRepository bucket = new ScoopRepository();
     private String packageName;
     private String checkverUrl;
     private String autoupdateUrl;
 
+    @JsonIgnore
     private final org.jreleaser.model.api.packagers.ScoopPackager immutable = new org.jreleaser.model.api.packagers.ScoopPackager() {
+        private static final long serialVersionUID = 7006999983739292013L;
+
         @Override
         public String getPackageName() {
             return packageName;
@@ -87,7 +98,7 @@ public final class ScoopPackager extends AbstractRepositoryPackager<org.jrelease
 
         @Override
         public org.jreleaser.model.api.packagers.PackagerRepository getBucket() {
-            return repository.asImmutable();
+            return bucket.asImmutable();
         }
 
         @Override
@@ -97,27 +108,27 @@ public final class ScoopPackager extends AbstractRepositoryPackager<org.jrelease
 
         @Override
         public org.jreleaser.model.api.common.CommitAuthor getCommitAuthor() {
-            return commitAuthor.asImmutable();
+            return ScoopPackager.this.getCommitAuthor().asImmutable();
         }
 
         @Override
         public String getTemplateDirectory() {
-            return templateDirectory;
+            return ScoopPackager.this.getTemplateDirectory();
         }
 
         @Override
         public List<String> getSkipTemplates() {
-            return unmodifiableList(skipTemplates);
+            return unmodifiableList(ScoopPackager.this.getSkipTemplates());
         }
 
         @Override
         public String getType() {
-            return type;
+            return ScoopPackager.this.getType();
         }
 
         @Override
         public String getDownloadUrl() {
-            return downloadUrl;
+            return ScoopPackager.this.getDownloadUrl();
         }
 
         @Override
@@ -152,7 +163,7 @@ public final class ScoopPackager extends AbstractRepositoryPackager<org.jrelease
 
         @Override
         public Active getActive() {
-            return active;
+            return ScoopPackager.this.getActive();
         }
 
         @Override
@@ -167,12 +178,12 @@ public final class ScoopPackager extends AbstractRepositoryPackager<org.jrelease
 
         @Override
         public String getPrefix() {
-            return ScoopPackager.this.getPrefix();
+            return ScoopPackager.this.prefix();
         }
 
         @Override
         public Map<String, Object> getExtraProperties() {
-            return unmodifiableMap(extraProperties);
+            return unmodifiableMap(ScoopPackager.this.getExtraProperties());
         }
     };
 
@@ -191,7 +202,7 @@ public final class ScoopPackager extends AbstractRepositoryPackager<org.jrelease
         this.packageName = merge(this.packageName, source.packageName);
         this.checkverUrl = merge(this.checkverUrl, source.checkverUrl);
         this.autoupdateUrl = merge(this.autoupdateUrl, source.autoupdateUrl);
-        setBucket(source.repository);
+        setBucket(source.bucket);
     }
 
     public String getPackageName() {
@@ -219,11 +230,11 @@ public final class ScoopPackager extends AbstractRepositoryPackager<org.jrelease
     }
 
     public ScoopRepository getBucket() {
-        return repository;
+        return bucket;
     }
 
     public void setBucket(ScoopRepository repository) {
-        this.repository.merge(repository);
+        this.bucket.merge(repository);
     }
 
     @Override
@@ -232,7 +243,7 @@ public final class ScoopPackager extends AbstractRepositoryPackager<org.jrelease
         props.put("packageName", packageName);
         props.put("checkverUrl", checkverUrl);
         props.put("autoupdateUrl", autoupdateUrl);
-        props.put("bucket", repository.asMap(full));
+        props.put("bucket", bucket.asMap(full));
     }
 
     @Override
@@ -241,7 +252,7 @@ public final class ScoopPackager extends AbstractRepositoryPackager<org.jrelease
     }
 
     public PackagerRepository getPackagerRepository() {
-        return repository;
+        return getBucket();
     }
 
     @Override
@@ -265,6 +276,8 @@ public final class ScoopPackager extends AbstractRepositoryPackager<org.jrelease
     }
 
     public static final class ScoopRepository extends PackagerRepository {
+        private static final long serialVersionUID = 5693815301518572010L;
+
         public ScoopRepository() {
             super("scoop", "scoop");
         }

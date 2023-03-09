@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,14 +17,10 @@
  */
 package org.jreleaser.sdk.telegram;
 
-import org.jreleaser.model.Constants;
 import org.jreleaser.model.internal.JReleaserContext;
 import org.jreleaser.model.spi.announce.AnnounceException;
 import org.jreleaser.model.spi.announce.Announcer;
-import org.jreleaser.mustache.MustacheUtils;
-
-import java.util.LinkedHashMap;
-import java.util.Map;
+import org.jreleaser.mustache.TemplateContext;
 
 import static org.jreleaser.util.StringUtils.isNotBlank;
 
@@ -63,8 +59,8 @@ public class TelegramAnnouncer implements Announcer<org.jreleaser.model.api.anno
         if (isNotBlank(telegram.getMessage())) {
             message = telegram.getResolvedMessage(context);
         } else {
-            Map<String, Object> props = new LinkedHashMap<>();
-            props.put(Constants.KEY_CHANGELOG, MustacheUtils.passThrough(context.getChangelog()));
+            TemplateContext props = new TemplateContext();
+            context.getChangelog().apply(props);
             context.getModel().getRelease().getReleaser().fillProps(props, context.getModel());
             message = telegram.getResolvedMessageTemplate(context, props);
         }

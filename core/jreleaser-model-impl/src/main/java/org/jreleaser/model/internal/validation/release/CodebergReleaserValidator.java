@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,44 +24,50 @@ import org.jreleaser.util.Errors;
 
 import static org.jreleaser.model.api.release.Releaser.DRAFT;
 import static org.jreleaser.model.api.release.Releaser.PRERELEASE_PATTERN;
+import static org.jreleaser.model.internal.validation.common.Validator.checkProperty;
+import static org.jreleaser.model.internal.validation.release.BaseReleaserValidator.validateGitService;
 
 
 /**
  * @author Andres Almiray
  * @since 0.1.0
  */
-public abstract class CodebergReleaserValidator extends BaseReleaserValidator {
-    public static boolean validateCodeberg(JReleaserContext context, Mode mode, CodebergReleaser codeberg, Errors errors) {
-        if (null == codeberg) return false;
+public final class CodebergReleaserValidator {
+    private CodebergReleaserValidator() {
+        // noop
+    }
+
+    public static boolean validateCodeberg(JReleaserContext context, Mode mode, CodebergReleaser service, Errors errors) {
+        if (null == service) return false;
         context.getLogger().debug("release.codeberg");
 
-        validateGitService(context, mode, codeberg, errors);
+        validateGitService(context, mode, service, errors);
 
         if (context.getModel().getProject().isSnapshot()) {
-            codeberg.getPrerelease().setEnabled(true);
+            service.getPrerelease().setEnabled(true);
         }
 
-        codeberg.getPrerelease().setPattern(
+        service.getPrerelease().setPattern(
             checkProperty(context,
                 PRERELEASE_PATTERN,
-                "codeberg.github.prerelease.pattern",
-                codeberg.getPrerelease().getPattern(),
+                "release.codeberg.prerelease.pattern",
+                service.getPrerelease().getPattern(),
                 ""));
-        codeberg.getPrerelease().isPrerelease(context.getModel().getProject().getResolvedVersion());
+        service.getPrerelease().isPrerelease(context.getModel().getProject().getResolvedVersion());
 
-        if (!codeberg.isDraftSet()) {
-            codeberg.setDraft(
+        if (!service.isDraftSet()) {
+            service.setDraft(
                 checkProperty(context,
                     DRAFT,
-                    "codeberg.draft",
+                    "release.codeberg.draft",
                     null,
                     false));
         }
 
-        if (codeberg.isDraft()) {
-            codeberg.getMilestone().setClose(false);
+        if (service.isDraft()) {
+            service.getMilestone().setClose(false);
         }
 
-        return codeberg.isEnabled();
+        return service.isEnabled();
     }
 }

@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -47,6 +47,7 @@ import java.util.Set;
 
 import static java.util.stream.Collectors.toList;
 import static org.jreleaser.util.FileUtils.resolveOutputDirectory;
+import static org.jreleaser.util.IoUtils.newPrintWriter;
 import static org.jreleaser.util.StringUtils.isBlank;
 import static org.jreleaser.util.StringUtils.isNotBlank;
 
@@ -83,9 +84,9 @@ public class JReleaserAutoConfigReleaseTask extends Task {
     private String releaseName;
     private String branch;
     private String milestoneName;
-    private boolean prerelease;
+    private Boolean prerelease;
     private String prereleasePattern;
-    private boolean draft;
+    private Boolean draft;
     private boolean overwrite;
     private boolean update;
     private boolean skipTag;
@@ -185,7 +186,7 @@ public class JReleaserAutoConfigReleaseTask extends Task {
         this.milestoneName = milestoneName;
     }
 
-    public void setPrerelease(boolean prerelease) {
+    public void setPrerelease(Boolean prerelease) {
         this.prerelease = prerelease;
     }
 
@@ -193,7 +194,7 @@ public class JReleaserAutoConfigReleaseTask extends Task {
         this.prereleasePattern = prereleasePattern;
     }
 
-    public void setDraft(boolean draft) {
+    public void setDraft(Boolean draft) {
         this.draft = draft;
     }
 
@@ -275,7 +276,7 @@ public class JReleaserAutoConfigReleaseTask extends Task {
 
     @Override
     public void execute() throws BuildException {
-        Banner.display(new PrintWriter(System.out, true));
+        Banner.display(newPrintWriter(System.err));
 
         basedir();
         initLogger();
@@ -353,7 +354,7 @@ public class JReleaserAutoConfigReleaseTask extends Task {
     private PrintWriter createTracer() {
         try {
             Files.createDirectories(getOutputDirectory());
-            return new PrintWriter(new FileOutputStream(
+            return newPrintWriter(new FileOutputStream(
                 getOutputDirectory().resolve("trace.log").toFile()));
         } catch (IOException e) {
             throw new IllegalStateException("Could not initialize trace file", e);

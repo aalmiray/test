@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,18 +21,20 @@ import org.jreleaser.bundle.RB;
 import org.jreleaser.model.internal.JReleaserContext;
 import org.jreleaser.model.internal.release.BaseReleaser;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.Set;
+import java.util.TreeSet;
 
 /**
  * @author Andres Almiray
  * @since 0.7.0
  */
 public abstract class AbstractReleaser<A extends org.jreleaser.model.api.release.Releaser> implements Releaser<A> {
-    protected final JReleaserContext context;
-    protected final List<Asset> assets = new ArrayList<>();
+    private static final long serialVersionUID = 362449254352903201L;
 
-    protected AbstractReleaser(JReleaserContext context, List<Asset> assets) {
+    protected final JReleaserContext context;
+    protected final Set<Asset> assets = new TreeSet<>();
+
+    protected AbstractReleaser(JReleaserContext context, Set<Asset> assets) {
         this.context = context;
         this.assets.addAll(assets);
     }

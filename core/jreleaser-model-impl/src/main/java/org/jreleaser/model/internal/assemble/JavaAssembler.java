@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,10 +32,6 @@ public interface JavaAssembler<A extends org.jreleaser.model.api.assemble.Assemb
 
     void setExecutable(String executable);
 
-    String getTemplateDirectory();
-
-    void setTemplateDirectory(String templateDirectory);
-
     Java getJava();
 
     void setJava(Java java);
@@ -51,12 +47,4 @@ public interface JavaAssembler<A extends org.jreleaser.model.api.assemble.Assemb
     void addJars(List<Glob> jars);
 
     void addJar(Glob jar);
-
-    List<Glob> getFiles();
-
-    void setFiles(List<Glob> files);
-
-    void addFiles(List<Glob> files);
-
-    void addFile(Glob file);
 }

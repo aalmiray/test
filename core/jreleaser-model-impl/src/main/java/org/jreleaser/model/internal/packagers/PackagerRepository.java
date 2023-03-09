@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
  */
 package org.jreleaser.model.internal.packagers;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.jreleaser.model.Active;
 
 import java.util.Map;
@@ -28,10 +29,15 @@ import static java.util.Collections.unmodifiableMap;
  * @since 0.1.0
  */
 public class PackagerRepository extends AbstractRepositoryTap<PackagerRepository> {
+    private static final long serialVersionUID = -3486962328445966652L;
+
+    @JsonIgnore
     private final org.jreleaser.model.api.packagers.PackagerRepository immutable = new org.jreleaser.model.api.packagers.PackagerRepository() {
+        private static final long serialVersionUID = 9016477371123655393L;
+
         @Override
         public String getBasename() {
-            return basename;
+            return PackagerRepository.this.getBasename();
         }
 
         @Override
@@ -41,37 +47,42 @@ public class PackagerRepository extends AbstractRepositoryTap<PackagerRepository
 
         @Override
         public String getName() {
-            return name;
+            return PackagerRepository.this.getName();
         }
 
         @Override
         public String getTagName() {
-            return tagName;
+            return PackagerRepository.this.getTagName();
         }
 
         @Override
         public String getBranch() {
-            return branch;
+            return PackagerRepository.this.getBranch();
+        }
+
+        @Override
+        public String getBranchPush() {
+            return PackagerRepository.this.getBranchPush();
         }
 
         @Override
         public String getUsername() {
-            return username;
+            return PackagerRepository.this.getUsername();
         }
 
         @Override
         public String getToken() {
-            return token;
+            return PackagerRepository.this.getToken();
         }
 
         @Override
         public String getCommitMessage() {
-            return commitMessage;
+            return PackagerRepository.this.getCommitMessage();
         }
 
         @Override
         public Active getActive() {
-            return active;
+            return PackagerRepository.this.getActive();
         }
 
         @Override
@@ -86,7 +97,7 @@ public class PackagerRepository extends AbstractRepositoryTap<PackagerRepository
 
         @Override
         public String getOwner() {
-            return owner;
+            return PackagerRepository.this.getOwner();
         }
     };
 

@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,26 +19,28 @@ package org.jreleaser.sdk.tool;
 
 import org.jreleaser.bundle.RB;
 import org.jreleaser.logging.JReleaserLogger;
+import org.jreleaser.mustache.TemplateContext;
 import org.jreleaser.sdk.command.Command;
 import org.jreleaser.sdk.command.CommandException;
 import org.jreleaser.sdk.command.CommandExecutor;
 import org.jreleaser.util.FileUtils;
+import org.jreleaser.util.IoUtils;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.net.URL;
+import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.LinkedHashMap;
-import java.util.Map;
 import java.util.Properties;
 import java.util.regex.Pattern;
 
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
+import static org.jreleaser.model.Constants.JRELEASER_USER_HOME;
+import static org.jreleaser.model.Constants.XDG_CACHE_HOME;
 import static org.jreleaser.mustache.Templates.resolveTemplate;
 import static org.jreleaser.util.StringUtils.isBlank;
 import static org.jreleaser.util.StringUtils.isNotBlank;
@@ -49,13 +51,13 @@ import static org.jreleaser.util.StringUtils.isNotBlank;
  */
 public class DownloadableTool {
     private static final String BASE_TEMPLATE_PREFIX = "META-INF/jreleaser/tools/";
-    private static final String DOWNLOAD_URL = "download.url";
-    private static final String VERSION = "version";
-    private static final String EXECUTABLE = ".executable";
-    private static final String FILENAME = ".filename";
-    private static final String COMMAND_VERSION = "command.version";
-    private static final String COMMAND_VERIFY = "command.verify";
-    private static final String EXECUTABLE_PATH = ".executable.path";
+    private static final String K_DOWNLOAD_URL = "download.url";
+    private static final String K_VERSION = "version";
+    private static final String K_EXECUTABLE = ".executable";
+    private static final String K_FILENAME = ".filename";
+    private static final String K_COMMAND_VERSION = "command.version";
+    private static final String K_COMMAND_VERIFY = "command.verify";
+    private static final String K_EXECUTABLE_PATH = ".executable.path";
     private static final String UNPACK = "unpack";
 
     private final JReleaserLogger logger;
@@ -81,9 +83,9 @@ public class DownloadableTool {
             properties = new Properties();
             properties.load(DownloadableTool.class.getClassLoader()
                 .getResourceAsStream(BASE_TEMPLATE_PREFIX + key));
-            enabled = properties.containsKey(platformKey(EXECUTABLE));
+            enabled = properties.containsKey(platformKey(K_EXECUTABLE));
             if (enabled) {
-                executable = Paths.get(properties.getProperty(platformKey(EXECUTABLE)));
+                executable = Paths.get(properties.getProperty(platformKey(K_EXECUTABLE)));
             }
         } catch (Exception e) {
             throw new ToolException(RB.$("ERROR_unexpected_reading_resource_for", key, "classpath"));
@@ -128,12 +130,11 @@ public class DownloadableTool {
 
     private boolean verify(Path executable) {
         Command command = new Command(executable.toString())
-            .arg(properties.getProperty(COMMAND_VERSION));
+            .arg(properties.getProperty(K_COMMAND_VERSION));
 
         try {
-
-            String verify = properties.getProperty(COMMAND_VERIFY).trim();
-            Map<String, Object> props = props();
+            String verify = properties.getProperty(K_COMMAND_VERIFY).trim();
+            TemplateContext props = props();
             verify = resolveTemplate(verify, props);
 
             Pattern pattern = Pattern.compile(verify);
@@ -142,13 +143,12 @@ public class DownloadableTool {
                 ByteArrayOutputStream out = new ByteArrayOutputStream();
                 ByteArrayOutputStream err = new ByteArrayOutputStream();
                 executeCommandCapturing(command, out, err);
-                return pattern.matcher(out.toString()).find() || pattern.matcher(err.toString()).find();
+                return pattern.matcher(IoUtils.toString(out)).find() || pattern.matcher(IoUtils.toString(err)).find();
             } else {
                 ByteArrayOutputStream out = new ByteArrayOutputStream();
                 executeCommandCapturing(command, out, null);
-                return pattern.matcher(out.toString()).find();
+                return pattern.matcher(IoUtils.toString(out)).find();
             }
-
         } catch (CommandException e) {
             if (null != e.getCause()) {
                 logger.debug(e.getCause().getMessage());
@@ -160,7 +160,7 @@ public class DownloadableTool {
     }
 
     public void download() throws ToolException {
-        String filename = properties.getProperty(platformKey(FILENAME));
+        String filename = properties.getProperty(platformKey(K_FILENAME));
 
         if (isBlank(filename)) {
             executable = null;
@@ -171,16 +171,16 @@ public class DownloadableTool {
         Path dest = caches.resolve(name).resolve(version);
 
         boolean unpack = Boolean.parseBoolean(properties.getProperty(UNPACK));
-        String downloadUrl = properties.getProperty(DOWNLOAD_URL);
-        String executablePath = properties.getProperty(platformKey(EXECUTABLE_PATH));
-        String exec = properties.getProperty(platformKey(EXECUTABLE));
+        String downloadUrl = properties.getProperty(K_DOWNLOAD_URL);
+        String executablePath = properties.getProperty(platformKey(K_EXECUTABLE_PATH));
+        String exec = properties.getProperty(platformKey(K_EXECUTABLE));
 
-        Map<String, Object> props = props();
+        TemplateContext props = props();
         filename = resolveTemplate(filename, props);
         if (isNotBlank(executablePath)) executablePath = resolveTemplate(executablePath, props);
 
         Path test = dest;
-        if (unpack) {
+        if (unpack && isNotBlank(executablePath)) {
             test = dest.resolve(executablePath);
         }
         test = test.resolve(exec).toAbsolutePath();
@@ -192,7 +192,7 @@ public class DownloadableTool {
         }
 
         downloadUrl = resolveTemplate(downloadUrl, props) + filename;
-        try (InputStream stream = new URL(downloadUrl).openStream()) {
+        try (InputStream stream = new URI(downloadUrl).toURL().openStream()) {
             Path tmp = Files.createTempDirectory("jreleaser");
             Path destination = tmp.resolve(filename);
 
@@ -205,7 +205,11 @@ public class DownloadableTool {
             if (unpack) {
                 FileUtils.unpackArchive(destination, dest, false);
                 logger.debug(RB.$("tool.unpacked", filename));
-                executable = dest.resolve(executablePath).resolve(exec).toAbsolutePath();
+                if (isNotBlank(executablePath)) {
+                    executable = dest.resolve(executablePath).resolve(exec).toAbsolutePath();
+                } else {
+                    executable = dest.resolve(exec).toAbsolutePath();
+                }
             } else {
                 Path executableFile = dest.resolve(exec);
                 Files.move(destination, executableFile);
@@ -226,9 +230,9 @@ public class DownloadableTool {
         return new Command(executable.toString());
     }
 
-    private Map<String, Object> props() {
-        Map<String, Object> props = new LinkedHashMap<>();
-        props.put(VERSION, version);
+    private TemplateContext props() {
+        TemplateContext props = new TemplateContext();
+        props.set(K_VERSION, version);
         return props;
     }
 
@@ -242,11 +246,15 @@ public class DownloadableTool {
     }
 
     private Path resolveJReleaserCacheDir() {
-        String home = System.getenv("JRELEASER_USER_HOME");
+        String home = System.getenv(XDG_CACHE_HOME);
+        if (isNotBlank(home)) {
+            return Paths.get(home).resolve("jreleaser");
+        }
+
+        home = System.getenv(JRELEASER_USER_HOME);
         if (isBlank(home)) {
             home = System.getProperty("user.home") + File.separator + ".jreleaser";
         }
-
         return Paths.get(home).resolve("caches");
     }
 }

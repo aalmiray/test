@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -59,13 +59,13 @@ class FtpDownloaderImpl extends AbstractDownloader implements FtpDownloader {
     }
 
     org.jreleaser.model.internal.download.FtpDownloader toModel() {
-        org.jreleaser.model.internal.download.FtpDownloader ftp = new org.jreleaser.model.internal.download.FtpDownloader()
-        ftp.name = name
-        fillProperties(ftp)
-        ftp.username = username.orNull
-        ftp.password = password.orNull
-        ftp.host = host.orNull
-        if (port.present) ftp.port = port.get()
-        ftp
+        org.jreleaser.model.internal.download.FtpDownloader downloader = new org.jreleaser.model.internal.download.FtpDownloader()
+        downloader.name = name
+        fillProperties(downloader)
+        downloader.username = username.orNull
+        downloader.password = password.orNull
+        downloader.host = host.orNull
+        if (port.present) downloader.port = port.get()
+        downloader
     }
 }

@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,7 +27,7 @@ import java.util.Objects;
  * @author Andres Almiray
  * @since 1.0.0
  */
-public class Asset {
+public class Asset implements Comparable<Asset> {
     private final Type type;
     private final Artifact artifact;
     private final Distribution distribution;
@@ -69,7 +69,7 @@ public class Asset {
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
+        if (null == o || getClass() != o.getClass()) return false;
         Asset asset = (Asset) o;
         return path.equals(asset.path);
     }
@@ -79,12 +79,22 @@ public class Asset {
         return Objects.hash(path);
     }
 
+    @Override
+    public int compareTo(Asset o) {
+        if (null == o) return -1;
+        return this.filename.compareTo(o.filename);
+    }
+
     public static Asset file(Path path) {
         return new Asset(Type.FILE, Artifact.of(path));
     }
 
     public static Asset checksum(Path path) {
         return new Asset(Type.CHECKSUM, Artifact.of(path));
+    }
+
+    public static Asset catalog(Path path) {
+        return new Asset(Type.CATALOG, Artifact.of(path));
     }
 
     public static Asset signature(Path path) {
@@ -99,6 +109,10 @@ public class Asset {
         return new Asset(Type.CHECKSUM, artifact);
     }
 
+    public static Asset catalog(Artifact artifact) {
+        return new Asset(Type.CATALOG, artifact);
+    }
+
     public static Asset signature(Artifact artifact) {
         return new Asset(Type.SIGNATURE, artifact);
     }
@@ -110,6 +124,7 @@ public class Asset {
     enum Type {
         CHECKSUM,
         FILE,
-        SIGNATURE
+        SIGNATURE,
+        CATALOG
     }
 }

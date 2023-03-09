@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,8 +35,9 @@ abstract class ListJdksTask extends DefaultTask {
     NamedDomainObjectContainer<JdkImpl> jdkContainer
 
     @TaskAction
+
     void displayConfig() {
-        jdkContainer.forEach({ jdk ->
+        jdkContainer.forEach({ JdkImpl jdk ->
             println "== JDK ${jdk.name} =="
             println "url: ${jdk.url.get()}"
             println "checksum: ${jdk.checksum.get()}"

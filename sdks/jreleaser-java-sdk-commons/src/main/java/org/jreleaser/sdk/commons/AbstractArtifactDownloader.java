@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -45,6 +45,7 @@ public abstract class AbstractArtifactDownloader<A extends org.jreleaser.model.a
         if (unpack.isEnabled() && fileType.isPresent() && fileType.get().archive()) {
             try {
                 context.getLogger().info(RB.$("downloader.unpack"), outputPath.getFileName().toString());
+                if (context.isDryrun()) return;
                 FileUtils.unpackArchive(outputPath,
                     outputPath.getParent(),
                     unpack.isSkipRootEntry(),

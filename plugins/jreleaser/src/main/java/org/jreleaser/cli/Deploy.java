@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,6 +22,8 @@ import org.jreleaser.model.internal.JReleaserContext;
 import org.jreleaser.workflow.Workflows;
 import picocli.CommandLine;
 
+import java.util.Set;
+
 import static org.jreleaser.model.api.JReleaserContext.Mode.DEPLOY;
 
 /**
@@ -29,7 +31,7 @@ import static org.jreleaser.model.api.JReleaserContext.Mode.DEPLOY;
  * @since 1.3.0
  */
 @CommandLine.Command(name = "deploy")
-public class Deploy extends AbstractModelCommand {
+public class Deploy extends AbstractModelCommand<Main> {
     @CommandLine.Option(names = {"--dry-run"})
     Boolean dryrun;
 
@@ -46,19 +48,19 @@ public class Deploy extends AbstractModelCommand {
         Exclude exclude;
 
         String[] includedDeployerTypes() {
-            return include != null ? include.includedDeployerTypes : null;
+            return null != include ? include.includedDeployerTypes : null;
         }
 
         String[] includedDeployerNames() {
-            return include != null ? include.includedDeployerNames : null;
+            return null != include ? include.includedDeployerNames : null;
         }
 
         String[] excludedDeployerTypes() {
-            return exclude != null ? exclude.excludedDeployerTypes : null;
+            return null != exclude ? exclude.excludedDeployerTypes : null;
         }
 
         String[] excludedDeployerNames() {
-            return exclude != null ? exclude.excludedDeployerNames : null;
+            return null != exclude ? exclude.excludedDeployerNames : null;
         }
     }
 
@@ -80,6 +82,15 @@ public class Deploy extends AbstractModelCommand {
         @CommandLine.Option(names = {"-xyn", "--exclude-deployer-name"},
             paramLabel = "<name>")
         String[] excludedDeployerNames;
+    }
+
+    @Override
+    protected void collectCandidateDeprecatedArgs(Set<AbstractCommand.DeprecatedArg> args) {
+        super.collectCandidateDeprecatedArgs(args);
+        args.add(new DeprecatedArg("-y", "--deployer", "1.5.0"));
+        args.add(new DeprecatedArg("-yn", "--deployer-name", "1.5.0"));
+        args.add(new DeprecatedArg("-xy", "--exclude-deployer", "1.5.0"));
+        args.add(new DeprecatedArg("-xyn", "--exclude-deployer-name", "1.5.0"));
     }
 
     @Override

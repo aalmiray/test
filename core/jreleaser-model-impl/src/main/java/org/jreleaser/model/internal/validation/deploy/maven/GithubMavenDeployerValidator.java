@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,21 +20,25 @@ package org.jreleaser.model.internal.validation.deploy.maven;
 import org.jreleaser.model.api.JReleaserContext.Mode;
 import org.jreleaser.model.internal.JReleaserContext;
 import org.jreleaser.model.internal.deploy.maven.GithubMavenDeployer;
-import org.jreleaser.model.internal.validation.common.Validator;
-import org.jreleaser.util.Env;
+import org.jreleaser.model.internal.release.BaseReleaser;
 import org.jreleaser.util.Errors;
 
-import java.util.Locale;
 import java.util.Map;
 
+import static org.jreleaser.model.internal.validation.common.Validator.checkProperty;
 import static org.jreleaser.model.internal.validation.deploy.maven.MavenDeployersValidator.validateMavenDeployer;
+import static org.jreleaser.util.CollectionUtils.listOf;
 import static org.jreleaser.util.StringUtils.isBlank;
 
 /**
  * @author Andres Almiray
  * @since 1.3.0
  */
-public abstract class GithubMavenDeployerValidator extends Validator {
+public final class GithubMavenDeployerValidator {
+    private GithubMavenDeployerValidator() {
+        // noop
+    }
+
     public static void validateGithubMavenDeployer(JReleaserContext context, Mode mode, Errors errors) {
         Map<String, GithubMavenDeployer> github = context.getModel().getDeploy().getMaven().getGithub();
         if (!github.isEmpty()) context.getLogger().debug("deploy.maven.github");
@@ -42,27 +46,46 @@ public abstract class GithubMavenDeployerValidator extends Validator {
         for (Map.Entry<String, GithubMavenDeployer> e : github.entrySet()) {
             e.getValue().setName(e.getKey());
             if (mode.validateDeploy() || mode.validateConfig()) {
-                validateGithubMavenDeployer(context, mode, e.getValue(), errors);
+                validateGithubMavenDeployer(context, e.getValue(), errors);
             }
         }
     }
 
-    private static void validateGithubMavenDeployer(JReleaserContext context, Mode mode, GithubMavenDeployer mavenDeployer, Errors errors) {
+    private static void validateGithubMavenDeployer(JReleaserContext context, GithubMavenDeployer mavenDeployer, Errors errors) {
         if (isBlank(mavenDeployer.getUrl())) {
             mavenDeployer.setUrl("https://maven.pkg.github.com/{{owner}}/{{repository}}");
         }
 
-        validateMavenDeployer(context, mode, mavenDeployer, errors);
+        validateMavenDeployer(context, mavenDeployer, errors);
+        if (!mavenDeployer.isEnabled()) return;
 
-        String baseEnvKey = mavenDeployer.getType().toLowerCase(Locale.ENGLISH);
+        BaseReleaser<?, ?> service = context.getModel().getRelease().getReleaser();
 
         mavenDeployer.setUsername(
             checkProperty(context,
-                baseEnvKey + "_" + Env.toVar(mavenDeployer.getName()) + "_USERNAME",
-                mavenDeployer.getType() + ".username",
+                listOf(
+                    "deploy.maven." + mavenDeployer.getType() + "." + mavenDeployer.getName() + ".username",
+                    "deploy.maven." + mavenDeployer.getType() + ".username",
+                    mavenDeployer.getType() + "." + mavenDeployer.getName() + ".username",
+                    mavenDeployer.getType() + ".username"),
+                "deploy.maven." + mavenDeployer.getType() + "." + mavenDeployer.getName() + ".username",
                 mavenDeployer.getUsername(),
-                errors,
-                true));
+                service.getUsername()));
+
+        mavenDeployer.setPassword(
+            checkProperty(context,
+                listOf(
+                    "deploy.maven." + mavenDeployer.getType() + "." + mavenDeployer.getName() + ".password",
+                    "deploy.maven." + mavenDeployer.getType() + "." + mavenDeployer.getName() + ".token",
+                    "deploy.maven." + mavenDeployer.getType() + ".password",
+                    "deploy.maven." + mavenDeployer.getType() + ".token",
+                    mavenDeployer.getType() + "." + mavenDeployer.getName() + ".password",
+                    mavenDeployer.getType() + "." + mavenDeployer.getName() + ".token",
+                    mavenDeployer.getType() + ".password",
+                    mavenDeployer.getType() + ".token"),
+                "deploy.maven." + mavenDeployer.getType() + "." + mavenDeployer.getName() + ".password",
+                mavenDeployer.getPassword(),
+                service.getToken()));
 
         if (isBlank(mavenDeployer.getUsername())) {
             mavenDeployer.setUsername(context.getModel().getRelease().getReleaser().getUsername());

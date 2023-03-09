@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,7 +21,6 @@ import org.jreleaser.bundle.RB;
 import org.jreleaser.model.api.JReleaserContext.Mode;
 import org.jreleaser.model.internal.JReleaserContext;
 import org.jreleaser.model.internal.announce.Announce;
-import org.jreleaser.model.internal.validation.common.Validator;
 import org.jreleaser.util.Errors;
 
 import static org.jreleaser.model.internal.validation.announce.ArticleAnnouncerValidator.validateArticle;
@@ -31,6 +30,7 @@ import static org.jreleaser.model.internal.validation.announce.DiscussionsAnnoun
 import static org.jreleaser.model.internal.validation.announce.GitterAnnouncerValidator.validateGitter;
 import static org.jreleaser.model.internal.validation.announce.GoogleChatAnnouncerValidator.validateGoogleChat;
 import static org.jreleaser.model.internal.validation.announce.HttpAnnouncerValidator.validateHttpAnnouncers;
+import static org.jreleaser.model.internal.validation.announce.LinkedinAnnouncerValidator.validateLinkedin;
 import static org.jreleaser.model.internal.validation.announce.MastodonAnnouncerValidator.validateMastodon;
 import static org.jreleaser.model.internal.validation.announce.MattermostAnnouncerValidator.validateMattermost;
 import static org.jreleaser.model.internal.validation.announce.SdkmanAnnouncerValidator.validateSdkmanAnnouncer;
@@ -41,12 +41,17 @@ import static org.jreleaser.model.internal.validation.announce.TelegramAnnouncer
 import static org.jreleaser.model.internal.validation.announce.TwitterAnnouncerValidator.validateTwitter;
 import static org.jreleaser.model.internal.validation.announce.WebhooksAnnouncerValidator.validateWebhooks;
 import static org.jreleaser.model.internal.validation.announce.ZulipAnnouncerValidator.validateZulip;
+import static org.jreleaser.model.internal.validation.common.Validator.resolveActivatable;
 
 /**
  * @author Andres Almiray
  * @since 0.1.0
  */
-public abstract class AnnouncersValidator extends Validator {
+public final class AnnouncersValidator {
+    private AnnouncersValidator() {
+        // noop
+    }
+
     public static void validateAnnouncers(JReleaserContext context, Mode mode, Errors errors) {
         Announce announce = context.getModel().getAnnounce();
         context.getLogger().debug("announce");
@@ -62,8 +67,9 @@ public abstract class AnnouncersValidator extends Validator {
         validateDiscourse(context, announce.getDiscourse(), errors);
         validateGitter(context, announce.getGitter(), errors);
         validateGoogleChat(context, announce.getGoogleChat(), errors);
+        validateLinkedin(context, announce.getLinkedin(), errors);
         validateHttpAnnouncers(context, mode, announce.getConfiguredHttp(), errors);
-        validateSmtp(context, announce.getMail(), errors);
+        validateSmtp(context, announce.getSmtp(), errors);
         validateMastodon(context, announce.getMastodon(), errors);
         validateMattermost(context, announce.getMattermost(), errors);
         validateSdkmanAnnouncer(context, announce.getSdkman(), errors);
@@ -75,6 +81,7 @@ public abstract class AnnouncersValidator extends Validator {
         validateZulip(context, announce.getZulip(), errors);
 
         boolean activeSet = announce.isActiveSet();
+        resolveActivatable(context, announce, "announce", "ALWAYS");
         announce.resolveEnabled(context.getModel().getProject());
 
         if (announce.isEnabled()) {
@@ -84,8 +91,9 @@ public abstract class AnnouncersValidator extends Validator {
                 announce.getDiscussions().isEnabled() ||
                 announce.getGitter().isEnabled() ||
                 announce.getGoogleChat().isEnabled() ||
+                announce.getLinkedin().isEnabled() ||
                 announce.getConfiguredHttp().isEnabled() ||
-                announce.getMail().isEnabled() ||
+                announce.getSmtp().isEnabled() ||
                 announce.getMastodon().isEnabled() ||
                 announce.getMattermost().isEnabled() ||
                 announce.getSdkman().isEnabled() ||

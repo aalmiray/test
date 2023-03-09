@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -50,7 +50,7 @@ import static org.jreleaser.util.StringUtils.isNotBlank;
  * @author Andres Almiray
  * @since 0.3.0
  */
-public class ModelAutoConfigurer {
+public final class ModelAutoConfigurer {
     private static final String GLOB_PREFIX = "glob:";
     private static final String REGEX_PREFIX = "regex:";
 
@@ -81,9 +81,9 @@ public class ModelAutoConfigurer {
     private String releaseName;
     private String milestoneName;
     private String branch;
-    private boolean prerelease;
+    private Boolean prerelease;
     private String prereleasePattern;
-    private boolean draft;
+    private Boolean draft;
     private boolean overwrite;
     private boolean update;
     private boolean skipTag;
@@ -95,6 +95,10 @@ public class ModelAutoConfigurer {
     private String commitAuthorEmail;
     private boolean signing;
     private boolean armored;
+
+    private ModelAutoConfigurer() {
+        // noop
+    }
 
     public ModelAutoConfigurer logger(JReleaserLogger logger) {
         this.logger = logger;
@@ -201,7 +205,7 @@ public class ModelAutoConfigurer {
         return this;
     }
 
-    public ModelAutoConfigurer prerelease(boolean prerelease) {
+    public ModelAutoConfigurer prerelease(Boolean prerelease) {
         this.prerelease = prerelease;
         return this;
     }
@@ -211,7 +215,7 @@ public class ModelAutoConfigurer {
         return this;
     }
 
-    public ModelAutoConfigurer draft(boolean draft) {
+    public ModelAutoConfigurer draft(Boolean draft) {
         this.draft = draft;
         return this;
     }
@@ -395,7 +399,7 @@ public class ModelAutoConfigurer {
             rejectedPlatforms);
     }
 
-    protected boolean resolveBoolean(String key, Boolean value) {
+    private boolean resolveBoolean(String key, Boolean value) {
         if (null != value) return value;
         String resolvedValue = Env.resolve(key, "");
         return isNotBlank(resolvedValue) && Boolean.parseBoolean(resolvedValue);
@@ -428,9 +432,9 @@ public class ModelAutoConfigurer {
         if (!updateSections.isEmpty()) logger.info("- release.updateSections: " + updateSections);
         if (skipTag) logger.info("- release.skipTag: true");
         if (skipRelease) logger.info("- release.skipRelease: true");
-        if (prerelease) logger.info("- release.prerelease: true");
+        if (null != prerelease && prerelease) logger.info("- release.prerelease: true");
         if (isNotBlank(prereleasePattern)) logger.info("- release.prerelease.pattern: {}", prereleasePattern);
-        if (draft) logger.info("- release.draft: true");
+        if (null != draft && draft) logger.info("- release.draft: true");
         if (isNotBlank(changelog)) logger.info(" - release.changelog: {}", changelog);
         if (changelogFormatted) logger.info("- release.changelog.formatted: true");
         if (isNotBlank(commitAuthorName)) logger.info("- release.commitAuthor.name: {}", commitAuthorName);
@@ -476,12 +480,12 @@ public class ModelAutoConfigurer {
         try {
             boolean grs = resolveBoolean(org.jreleaser.model.api.JReleaserContext.GIT_ROOT_SEARCH, gitRootSearch);
             Repository repository = GitSdk.of(basedir, grs).getRemote();
-            BaseReleaser service = null;
+            BaseReleaser<?, ?> service = null;
             switch (repository.getKind()) {
                 case GITHUB:
                     service = new GithubReleaser();
                     model.getRelease().setGithub((GithubReleaser) service);
-                    if (prerelease) service.getPrerelease().setEnabled(true);
+                    service.getPrerelease().setEnabled(prerelease);
                     service.getPrerelease().setPattern(prereleasePattern);
                     ((GithubReleaser) service).setDraft(draft);
                     break;
@@ -492,7 +496,7 @@ public class ModelAutoConfigurer {
                 case CODEBERG:
                     service = new CodebergReleaser();
                     model.getRelease().setCodeberg((CodebergReleaser) service);
-                    if (prerelease) service.getPrerelease().setEnabled(true);
+                    service.getPrerelease().setEnabled(prerelease);
                     service.getPrerelease().setPattern(prereleasePattern);
                     ((CodebergReleaser) service).setDraft(draft);
                     break;

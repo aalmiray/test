@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,6 +32,7 @@ import org.jreleaser.gradle.plugin.dsl.announce.DiscussionsAnnouncer
 import org.jreleaser.gradle.plugin.dsl.announce.GitterAnnouncer
 import org.jreleaser.gradle.plugin.dsl.announce.GoogleChatAnnouncer
 import org.jreleaser.gradle.plugin.dsl.announce.HttpAnnouncer
+import org.jreleaser.gradle.plugin.dsl.announce.LinkedinAnnouncer
 import org.jreleaser.gradle.plugin.dsl.announce.MastodonAnnouncer
 import org.jreleaser.gradle.plugin.dsl.announce.MattermostAnnouncer
 import org.jreleaser.gradle.plugin.dsl.announce.SdkmanAnnouncer
@@ -63,6 +64,7 @@ class AnnounceImpl implements Announce {
     final DiscussionsAnnouncerImpl discussions
     final GitterAnnouncerImpl gitter
     final GoogleChatAnnouncerImpl googleChat
+    final LinkedinAnnouncerImpl linkedin
     final SmtpAnnouncerImpl smtp
     final MastodonAnnouncerImpl mastodon
     final MattermostAnnouncerImpl mattermost
@@ -84,6 +86,7 @@ class AnnounceImpl implements Announce {
         discussions = objects.newInstance(DiscussionsAnnouncerImpl, objects)
         gitter = objects.newInstance(GitterAnnouncerImpl, objects)
         googleChat = objects.newInstance(GoogleChatAnnouncerImpl, objects)
+        linkedin = objects.newInstance(LinkedinAnnouncerImpl, objects)
         smtp = objects.newInstance(SmtpAnnouncerImpl, objects)
         mastodon = objects.newInstance(MastodonAnnouncerImpl, objects)
         mattermost = objects.newInstance(MattermostAnnouncerImpl, objects)
@@ -153,6 +156,11 @@ class AnnounceImpl implements Announce {
     @Override
     void googleChat(Action<? super GoogleChatAnnouncer> action) {
         action.execute(googleChat)
+    }
+
+    @Override
+    void linkedin(Action<? super LinkedinAnnouncer> action) {
+        action.execute(linkedin)
     }
 
     @Override
@@ -246,6 +254,11 @@ class AnnounceImpl implements Announce {
     }
 
     @Override
+    void linkedin(@DelegatesTo(strategy = Closure.DELEGATE_FIRST, value = LinkedinAnnouncer) Closure<Void> action) {
+        ConfigureUtil.configure(action, linkedin)
+    }
+
+    @Override
     void http(@DelegatesTo(strategy = Closure.DELEGATE_FIRST, value = NamedDomainObjectContainer) Closure<Void> action) {
         ConfigureUtil.configure(action, http)
     }
@@ -314,7 +327,8 @@ class AnnounceImpl implements Announce {
         if (discussions.isSet()) announce.discussions = discussions.toModel()
         if (gitter.isSet()) announce.gitter = gitter.toModel()
         if (googleChat.isSet()) announce.googleChat = googleChat.toModel()
-        if (smtp.isSet()) announce.mail = smtp.toModel()
+        if (linkedin.isSet()) announce.linkedin = linkedin.toModel()
+        if (smtp.isSet()) announce.smtp = smtp.toModel()
         if (mastodon.isSet()) announce.mastodon = mastodon.toModel()
         if (mattermost.isSet()) announce.mattermost = mattermost.toModel()
         if (sdkman.isSet()) announce.sdkman = sdkman.toModel()

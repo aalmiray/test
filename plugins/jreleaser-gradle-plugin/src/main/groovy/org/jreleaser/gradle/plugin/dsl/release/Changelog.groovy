@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@ import org.gradle.api.Action
 import org.gradle.api.file.RegularFileProperty
 import org.gradle.api.provider.Property
 import org.gradle.api.provider.SetProperty
+import org.jreleaser.gradle.plugin.dsl.common.ExtraProperties
 import org.jreleaser.model.Active
 
 /**
@@ -30,7 +31,7 @@ import org.jreleaser.model.Active
  * @since 0.1.0
  */
 @CompileStatic
-interface Changelog {
+interface Changelog extends ExtraProperties {
     Property<org.jreleaser.model.Changelog.Sort> getSort()
 
     Property<Boolean> getEnabled()
@@ -48,6 +49,10 @@ interface Changelog {
     void setFormatted(String str)
 
     Property<String> getFormat()
+
+    Property<String> getCategoryTitleFormat()
+
+    Property<String> getContributorsTitleFormat()
 
     Property<String> getContent()
 
@@ -83,13 +88,35 @@ interface Changelog {
 
     Contributors getContributors()
 
+    Append getAppend()
+
     void hide(Action<? super Hide> action)
 
     void contributors(Action<? super Contributors> action)
 
+    void append(Action<? super Append> action)
+
     void hide(@DelegatesTo(strategy = Closure.DELEGATE_FIRST, value = Hide) Closure<Void> action)
 
     void contributors(@DelegatesTo(strategy = Closure.DELEGATE_FIRST, value = Contributors) Closure<Void> action)
+
+    void append(@DelegatesTo(strategy = Closure.DELEGATE_FIRST, value = Append) Closure<Void> action)
+
+    interface Append {
+        Property<Boolean> getEnabled()
+
+        Property<String> getTitle()
+
+        RegularFileProperty getTarget()
+
+        Property<String> getContent()
+
+        RegularFileProperty getContentTemplate()
+
+        void setTarget(String target)
+
+        void setContentTemplate(String contentTemplate)
+    }
 
     interface Category {
         Property<String> getKey()

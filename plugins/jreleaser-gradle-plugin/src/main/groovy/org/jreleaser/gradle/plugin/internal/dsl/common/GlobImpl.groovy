@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ import groovy.transform.CompileStatic
 import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.internal.provider.Providers
 import org.gradle.api.model.ObjectFactory
+import org.gradle.api.provider.MapProperty
 import org.gradle.api.provider.Property
 import org.jreleaser.gradle.plugin.dsl.common.Glob
 
@@ -37,12 +38,14 @@ class GlobImpl implements Glob {
     final Property<String> pattern
     final Property<String> platform
     final DirectoryProperty directory
+    final MapProperty<String, Object> extraProperties
 
     @Inject
     GlobImpl(ObjectFactory objects) {
         pattern = objects.property(String).convention(Providers.<String> notDefined())
         platform = objects.property(String).convention(Providers.<String> notDefined())
         directory = objects.directoryProperty().convention(Providers.notDefined())
+        extraProperties = objects.mapProperty(String, Object).convention(Providers.notDefined())
     }
 
     @Override
@@ -57,6 +60,7 @@ class GlobImpl implements Glob {
         if (directory.present) {
             glob.directory = directory.asFile.get().absolutePath
         }
+        if (extraProperties.present) glob.extraProperties.putAll(extraProperties.get())
         glob
     }
 }

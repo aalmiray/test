@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -40,21 +40,33 @@ import static org.jreleaser.model.internal.JReleaserSupport.supportedAnnouncers;
  * @author Andres Almiray
  * @since 0.1.0
  */
-public class Announcers {
-    public static void announce(JReleaserContext context) throws AnnounceException {
+public final class Announcers {
+    private Announcers() {
+        // noop
+    }
+
+    public static void announce(JReleaserContext context) {
         context.getLogger().info(RB.$("announcers.header"));
+        context.getLogger().increaseIndent();
+        context.getLogger().setPrefix("announce");
+
         if (!context.getModel().getAnnounce().isEnabled()) {
             context.getLogger().info(RB.$("announcers.not.enabled"));
+            context.getLogger().decreaseIndent();
+            context.getLogger().restorePrefix();
             return;
         }
 
         Map<String, Announcer<?>> announcers = Announcers.findAnnouncers(context);
         if (announcers.isEmpty()) {
             context.getLogger().info(RB.$("announcers.not.configured"));
+            context.getLogger().decreaseIndent();
+            context.getLogger().restorePrefix();
             return;
         }
 
         if (!context.getIncludedAnnouncers().isEmpty()) {
+            boolean announced = false;
             for (String announcerName : context.getIncludedAnnouncers()) {
                 // check if the announcer name is valid
                 if (!supportedAnnouncers().contains(announcerName)) {
@@ -74,11 +86,18 @@ public class Announcers {
                     continue;
                 }
 
-                announce(context, announcer);
+                if (announce(context, announcer)) announced = true;
             }
+
+            if (!announced) {
+                context.getLogger().info(RB.$("announcers.not.triggered"));
+            }
+            context.getLogger().decreaseIndent();
+            context.getLogger().restorePrefix();
             return;
         }
 
+        boolean announced = false;
         for (Map.Entry<String, Announcer<?>> entry : announcers.entrySet()) {
             Announcer<?> announcer = entry.getValue();
 
@@ -87,13 +106,18 @@ public class Announcers {
                 continue;
             }
 
-            announce(context, announcer);
+            if (announce(context, announcer)) announced = true;
         }
+
+        if (!announced) {
+            context.getLogger().info(RB.$("announcers.not.triggered"));
+        }
+        context.getLogger().decreaseIndent();
+        context.getLogger().restorePrefix();
     }
 
-    private static void announce(JReleaserContext context, Announcer<?> announcer) {
+    private static boolean announce(JReleaserContext context, Announcer<?> announcer) {
         try {
-            context.getLogger().increaseIndent();
             context.getLogger().setPrefix(announcer.getName());
 
             if (announcer.isEnabled()) {
@@ -102,17 +126,20 @@ public class Announcers {
                 try {
                     announcer.announce();
                     fireAnnounceEvent(ExecutionEvent.success(JReleaserCommand.ANNOUNCE.toStep()), context, announcer);
+                    return true;
                 } catch (AnnounceException e) {
                     fireAnnounceEvent(ExecutionEvent.failure(JReleaserCommand.ANNOUNCE.toStep(), e), context, announcer);
                     context.getLogger().warn(e.getMessage().trim());
+                    return true;
                 }
             } else {
                 context.getLogger().debug(RB.$("announcers.announcer.disabled"));
             }
         } finally {
             context.getLogger().restorePrefix();
-            context.getLogger().decreaseIndent();
         }
+
+        return false;
     }
 
     private static void fireAnnounceEvent(ExecutionEvent event, JReleaserContext context, Announcer<?> announcer) {

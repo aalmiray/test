@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,25 +27,31 @@ import org.jreleaser.util.Errors;
 import java.util.Map;
 import java.util.Optional;
 
+import static org.jreleaser.model.internal.validation.release.BaseReleaserValidator.validateGitService;
+
 /**
  * @author Andres Almiray
  * @since 0.1.0
  */
-public abstract class GitlabReleaserValidator extends BaseReleaserValidator {
-    public static boolean validateGitlab(JReleaserContext context, Mode mode, GitlabReleaser gitlab, Errors errors) {
-        if (null == gitlab) return false;
+public final class GitlabReleaserValidator {
+    private GitlabReleaserValidator() {
+        // noop
+    }
+
+    public static boolean validateGitlab(JReleaserContext context, Mode mode, GitlabReleaser service, Errors errors) {
+        if (null == service) return false;
         context.getLogger().debug("release.gitlab");
 
-        validateGitService(context, mode, gitlab, errors);
-        gitlab.getPrerelease().disable();
+        validateGitService(context, mode, service, errors);
+        service.getPrerelease().disable();
 
-        for (Map.Entry<String, String> e : gitlab.getUploadLinks().entrySet()) {
-            Optional<? extends Uploader> uploader = context.getModel().getUpload().getUploader(e.getKey(), e.getValue());
+        for (Map.Entry<String, String> e : service.getUploadLinks().entrySet()) {
+            Optional<? extends Uploader<?>> uploader = context.getModel().getUpload().getUploader(e.getKey(), e.getValue());
             if (!uploader.isPresent()) {
                 errors.configuration(RB.$("validation_gitlab_non_matching_uploader", e.getKey(), e.getValue()));
             }
         }
 
-        return gitlab.isEnabled();
+        return service.isEnabled();
     }
 }

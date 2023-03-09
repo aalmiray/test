@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,7 +32,7 @@ import static org.jreleaser.util.StringUtils.splitValue;
  * @since 0.1.0
  */
 public interface ExtraProperties extends Serializable {
-    String getPrefix();
+    String prefix();
 
     Map<String, Object> getExtraProperties();
 
@@ -47,11 +47,11 @@ public interface ExtraProperties extends Serializable {
         }
     }
 
-    default Map<String, Object> getResolvedExtraProperties() {
-        return getResolvedExtraProperties(getPrefix());
+    default Map<String, Object> resolvedExtraProperties() {
+        return resolvedExtraProperties(prefix());
     }
 
-    default Map<String, Object> getResolvedExtraProperties(String prefix) {
+    default Map<String, Object> resolvedExtraProperties(String prefix) {
         Map<String, Object> props = new LinkedHashMap<>();
 
         getExtraProperties().forEach((key, value) -> {

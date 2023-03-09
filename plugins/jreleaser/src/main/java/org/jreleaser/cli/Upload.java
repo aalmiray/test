@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,12 +21,14 @@ import org.jreleaser.model.internal.JReleaserContext;
 import org.jreleaser.workflow.Workflows;
 import picocli.CommandLine;
 
+import java.util.Set;
+
 /**
  * @author Andres Almiray
  * @since 0.3.0
  */
 @CommandLine.Command(name = "upload")
-public class Upload extends AbstractPlatformAwareModelCommand {
+public class Upload extends AbstractPlatformAwareModelCommand<Main> {
     @CommandLine.Option(names = {"--dry-run"})
     Boolean dryrun;
 
@@ -43,27 +45,35 @@ public class Upload extends AbstractPlatformAwareModelCommand {
         Exclude exclude;
 
         String[] includedUploaderTypes() {
-            return include != null ? include.includedUploaderTypes : null;
+            return null != include ? include.includedUploaderTypes : null;
         }
 
         String[] includedUploaderNames() {
-            return include != null ? include.includedUploaderNames : null;
+            return null != include ? include.includedUploaderNames : null;
         }
 
         String[] includedDistributions() {
-            return include != null ? include.includedDistributions : null;
+            return null != include ? include.includedDistributions : null;
         }
 
         String[] excludedUploaderTypes() {
-            return exclude != null ? exclude.excludedUploaderTypes : null;
+            return null != exclude ? exclude.excludedUploaderTypes : null;
         }
 
         String[] excludedUploaderNames() {
-            return exclude != null ? exclude.excludedUploaderNames : null;
+            return null != exclude ? exclude.excludedUploaderNames : null;
         }
 
         String[] excludedDistributions() {
-            return exclude != null ? exclude.excludedDistributions : null;
+            return null != exclude ? exclude.excludedDistributions : null;
+        }
+
+        String[] includedCatalogers() {
+            return null != include ? include.includedCatalogers : null;
+        }
+
+        String[] excludedCatalogers() {
+            return null != exclude ? exclude.excludedCatalogers : null;
         }
     }
 
@@ -79,6 +89,9 @@ public class Upload extends AbstractPlatformAwareModelCommand {
         @CommandLine.Option(names = {"-d", "--distribution"},
             paramLabel = "<distribution>")
         String[] includedDistributions;
+        @CommandLine.Option(names = {"--cataloger"},
+            paramLabel = "<cataloger>")
+        String[] includedCatalogers;
     }
 
     static class Exclude {
@@ -93,6 +106,20 @@ public class Upload extends AbstractPlatformAwareModelCommand {
         @CommandLine.Option(names = {"-xd", "--exclude-distribution"},
             paramLabel = "<distribution>")
         String[] excludedDistributions;
+        @CommandLine.Option(names = {"--exclude-cataloger"},
+            paramLabel = "<cataloger>")
+        String[] excludedCatalogers;
+    }
+
+    @Override
+    protected void collectCandidateDeprecatedArgs(Set<AbstractCommand.DeprecatedArg> args) {
+        super.collectCandidateDeprecatedArgs(args);
+        args.add(new DeprecatedArg("-d", "--distribution", "1.5.0"));
+        args.add(new DeprecatedArg("-xd", "--exclude-distribution", "1.5.0"));
+        args.add(new DeprecatedArg("-u", "--uploader", "1.5.0"));
+        args.add(new DeprecatedArg("-un", "--uploader-name", "1.5.0"));
+        args.add(new DeprecatedArg("-xu", "--exclude-uploader", "1.5.0"));
+        args.add(new DeprecatedArg("-xun", "--exclude-uploader-name", "1.5.0"));
     }
 
     @Override
@@ -101,9 +128,11 @@ public class Upload extends AbstractPlatformAwareModelCommand {
             context.setIncludedUploaderTypes(collectEntries(composite.includedUploaderTypes(), true));
             context.setIncludedUploaderNames(collectEntries(composite.includedUploaderNames()));
             context.setIncludedDistributions(collectEntries(composite.includedDistributions()));
+            context.setIncludedCatalogers(collectEntries(composite.includedCatalogers(), true));
             context.setExcludedUploaderTypes(collectEntries(composite.excludedUploaderTypes(), true));
             context.setExcludedUploaderNames(collectEntries(composite.excludedUploaderNames()));
             context.setExcludedDistributions(collectEntries(composite.excludedDistributions()));
+            context.setExcludedCatalogers(collectEntries(composite.excludedCatalogers(), true));
         }
         Workflows.upload(context).execute();
     }

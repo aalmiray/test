@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,6 +24,7 @@ import org.jreleaser.model.api.common.Artifact;
 import org.jreleaser.model.api.common.Domain;
 import org.jreleaser.model.api.common.ExtraProperties;
 import org.jreleaser.model.api.common.FileSet;
+import org.jreleaser.model.api.common.Glob;
 import org.jreleaser.model.api.platform.Platform;
 
 import java.util.List;
@@ -45,6 +46,14 @@ public interface Assembler extends Domain, Activatable, ExtraProperties {
     boolean isExported();
 
     String getName();
+
+    String getTemplateDirectory();
+
+    Set<String> getSkipTemplates();
+
+    Set<? extends Artifact> getArtifacts();
+
+    List<? extends Glob> getFiles();
 
     List<? extends FileSet> getFileSets();
 

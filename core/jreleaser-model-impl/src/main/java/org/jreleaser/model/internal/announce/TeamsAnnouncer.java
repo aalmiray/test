@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,10 +17,13 @@
  */
 package org.jreleaser.model.internal.announce;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.jreleaser.bundle.RB;
 import org.jreleaser.model.Active;
+import org.jreleaser.model.Constants;
 import org.jreleaser.model.JReleaserException;
 import org.jreleaser.model.internal.JReleaserContext;
+import org.jreleaser.mustache.TemplateContext;
 
 import java.io.IOException;
 import java.io.Reader;
@@ -31,6 +34,7 @@ import static java.util.Collections.unmodifiableMap;
 import static org.jreleaser.model.Constants.HIDE;
 import static org.jreleaser.model.Constants.KEY_TAG_NAME;
 import static org.jreleaser.model.Constants.UNSET;
+import static org.jreleaser.model.JReleaserOutput.nag;
 import static org.jreleaser.model.api.announce.TeamsAnnouncer.TYPE;
 import static org.jreleaser.mustache.MustacheUtils.applyTemplate;
 import static org.jreleaser.mustache.MustacheUtils.applyTemplates;
@@ -40,11 +44,17 @@ import static org.jreleaser.util.StringUtils.isNotBlank;
  * @author Andres Almiray
  * @since 0.2.0
  */
+@Deprecated
 public final class TeamsAnnouncer extends AbstractAnnouncer<TeamsAnnouncer, org.jreleaser.model.api.announce.TeamsAnnouncer> {
+    private static final long serialVersionUID = 6059830637979259885L;
+
     private String webhook;
     private String messageTemplate;
 
+    @JsonIgnore
     private final org.jreleaser.model.api.announce.TeamsAnnouncer immutable = new org.jreleaser.model.api.announce.TeamsAnnouncer() {
+        private static final long serialVersionUID = -6163001411466953843L;
+
         @Override
         public String getType() {
             return org.jreleaser.model.api.announce.TeamsAnnouncer.TYPE;
@@ -62,7 +72,7 @@ public final class TeamsAnnouncer extends AbstractAnnouncer<TeamsAnnouncer, org.
 
         @Override
         public String getName() {
-            return name;
+            return TeamsAnnouncer.this.getName();
         }
 
         @Override
@@ -72,7 +82,7 @@ public final class TeamsAnnouncer extends AbstractAnnouncer<TeamsAnnouncer, org.
 
         @Override
         public Active getActive() {
-            return active;
+            return TeamsAnnouncer.this.getActive();
         }
 
         @Override
@@ -87,22 +97,22 @@ public final class TeamsAnnouncer extends AbstractAnnouncer<TeamsAnnouncer, org.
 
         @Override
         public String getPrefix() {
-            return TeamsAnnouncer.this.getPrefix();
+            return TeamsAnnouncer.this.prefix();
         }
 
         @Override
         public Map<String, Object> getExtraProperties() {
-            return unmodifiableMap(extraProperties);
+            return unmodifiableMap(TeamsAnnouncer.this.getExtraProperties());
         }
 
         @Override
         public Integer getConnectTimeout() {
-            return connectTimeout;
+            return TeamsAnnouncer.this.getConnectTimeout();
         }
 
         @Override
         public Integer getReadTimeout() {
-            return readTimeout;
+            return TeamsAnnouncer.this.getReadTimeout();
         }
     };
 
@@ -120,14 +130,28 @@ public final class TeamsAnnouncer extends AbstractAnnouncer<TeamsAnnouncer, org.
         super.merge(source);
         this.webhook = merge(this.webhook, source.webhook);
         this.messageTemplate = merge(this.messageTemplate, source.messageTemplate);
+
+        if (isSet()) {
+            nag("announce." + getName() + " is deprecated since 1.4.0 and will be removed in 2.0.0. Use announce.webhooks instead");
+        }
     }
 
-    public String getResolvedMessageTemplate(JReleaserContext context, Map<String, Object> extraProps) {
-        Map<String, Object> props = context.fullProps();
-        applyTemplates(props, getResolvedExtraProperties());
-        props.put(KEY_TAG_NAME, context.getModel().getRelease().getReleaser()
+    @Override
+    protected boolean isSet() {
+        return super.isSet() ||
+            isNotBlank(webhook) ||
+            isNotBlank(messageTemplate);
+    }
+
+    public String getResolvedMessageTemplate(JReleaserContext context, TemplateContext extraProps) {
+        TemplateContext props = context.fullProps();
+        applyTemplates(props, resolvedExtraProperties());
+        props.set(KEY_TAG_NAME, context.getModel().getRelease().getReleaser()
             .getEffectiveTagName(context.getModel()));
-        props.putAll(extraProps);
+        props.set(Constants.KEY_PREVIOUS_TAG_NAME,
+            context.getModel().getRelease().getReleaser()
+                .getResolvedPreviousTagName(context.getModel()));
+        props.setAll(extraProps);
 
         Path templatePath = context.getBasedir().resolve(messageTemplate);
         try {
@@ -159,5 +183,17 @@ public final class TeamsAnnouncer extends AbstractAnnouncer<TeamsAnnouncer, org.
     protected void asMap(boolean full, Map<String, Object> props) {
         props.put("webhook", isNotBlank(webhook) ? HIDE : UNSET);
         props.put("messageTemplate", messageTemplate);
+    }
+
+    public WebhookAnnouncer asWebhookAnnouncer() {
+        WebhookAnnouncer announcer = new WebhookAnnouncer();
+        announcer.setName(getName());
+        announcer.setWebhook(webhook);
+        announcer.setMessageTemplate(messageTemplate);
+        announcer.setStructuredMessage(false);
+        announcer.setConnectTimeout(getConnectTimeout());
+        announcer.setReadTimeout(getReadTimeout());
+        announcer.setExtraProperties(getExtraProperties());
+        return announcer;
     }
 }

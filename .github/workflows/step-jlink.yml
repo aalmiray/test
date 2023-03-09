@@ -1,4 +1,4 @@
-name: Jlink
+name: X-Jlink
 
 on:
   workflow_call:
@@ -6,71 +6,25 @@ on:
       project-version:
         required: true
         type: string
-      java-version:
-        default: '11'
-        required: false
-        type: string
-      java-distro:
-        default: 'zulu'
-        required: false
-        type: string
-      cache-key:
-        required: true
-        type: string
 
 jobs:
   jlink:
     name: Jlink
     runs-on: ubuntu-latest
+    env:
+      CI: true
     steps:
       - name: Checkout
         uses: actions/checkout@v3
+        with:
+          ref: 'main'
 
       - name: Setup Java
         uses: actions/setup-java@v3
         with:
-          java-version: ${{ inputs.java-version }}
-          distribution: ${{ inputs.java-distro }}
-
-      - name: Use GNU tar
-        if: ${{ runner.os == 'Windows' }}
-        shell: cmd
-        run: |
-          echo "Adding GNU tar to PATH"
-          echo C:\Program Files\Git\usr\bin>>"%GITHUB_PATH%"
-
-      - name: Cache Gradle
-        uses: actions/cache@v3
-        with:
-          path: ~/.gradle/caches
-          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle') }}-${{ hashFiles('**/gradle.properties') }}
-          restore-keys: ${{ runner.os }}-gradle-
-
-      - name: Cache Gradle wrapper
-        uses: actions/cache@v3
-        with:
-          path: ~/.gradle/wrapper
-          key: ${{ runner.os }}-gradlew-${{ hashFiles('**/gradlew') }}
-          restore-keys: ${{ runner.os }}-gradlew-
-
-      - name: Cache artifacts
-        uses: actions/cache@v3
-        id: cache-artifacts
-        with:
-          key: artifacts-${{ inputs.cache-key }}
-          path: |
-            plugins/jreleaser/build/libs/
-            plugins/jreleaser/build/dependencies/
-            plugins/jreleaser/build/distributions/
-            plugins/jreleaser-tool-provider/build/libs/*.jar
-            plugins/jreleaser-ant-tasks/build/distributions/*.zip
-
-      - name: Cache jlink
-        uses: actions/cache@v3
-        id: cache-jlink
-        with:
-          key: jlink-${{ inputs.cache-key }}
-          path: out/jreleaser/assemble/jreleaser-standalone/jlink
+          java-version: ${{ vars.JAVA_VERSION }}
+          distribution: ${{ vars.JAVA_DISTRO }}
+          cache: 'gradle'
 
       - name: Version
         if: endsWith(${{ inputs.project-version }}, '-SNAPSHOT') != true
@@ -78,15 +32,13 @@ jobs:
           echo ${{ inputs.project-version }} > VERSION
 
       - name: Build
-        if: steps.cache-artifacts.outputs.cache-hit != 'true'
-        run: ./gradlew -Prelease=true build -S
+        run: ./gradlew -Prelease=true -PreproducibleBuild=true build -S
 
       - name: Jlink
-        if: steps.cache-jlink.outputs.cache-hit != 'true'
         uses: jreleaser/release-action@v1
         with:
           version: early-access
-          arguments: assemble -s jlink
+          arguments: assemble --assembler jlink
         env:
           JRELEASER_PROJECT_VERSION: ${{ inputs.project-version }}
 
@@ -98,3 +50,27 @@ jobs:
           path: |
             out/jreleaser/trace.log
             out/jreleaser/output.properties
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          retention-days: 1
+          name: artifacts
+          path: |
+            plugins/jreleaser/build/libs/
+            plugins/jreleaser/build/dependencies/
+            plugins/jreleaser/build/distributions/
+            plugins/jreleaser-tool-provider/build/libs/*.jar
+            plugins/jreleaser-ant-tasks/build/distributions/*.zip
+
+      - name: Stop Gradle daemon
+        shell: bash
+        run: ./gradlew -stop
+
+      - name: Upload jlink
+        uses: actions/upload-artifact@v3
+        with:
+          retention-days: 1
+          name: jlink
+          path: |
+            out/jreleaser/assemble/jreleaser-standalone/jlink/*.zip

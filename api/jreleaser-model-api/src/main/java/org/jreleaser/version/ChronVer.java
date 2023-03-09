@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,8 +34,8 @@ import static org.jreleaser.util.StringUtils.requireNonBlank;
  * @since 1.0.0
  */
 public class ChronVer implements Version<ChronVer> {
-    private static final Pattern PATTERN = Pattern.compile("^([2-9][0-9]{3})\\.(0[1-9]|1[0-2])\\.(0[1-9]|[1-2][0-9]|3[0-1])(?:\\.((?:[1-9]\\d*)(?:(?:-[a-zA-Z0-9]+)+(?:\\.[1-9]\\d*)?)?))?$");
-    private static final Pattern CHANGESET = Pattern.compile("^(?:((?:[1-9]\\d*))(?:-([a-zA-Z0-9-]+[a-zA-Z0-9]?)(?:\\.([1-9]\\d*))?)?)?$");
+    private static final Pattern VERSION_PATTERN = Pattern.compile("^([2-9]\\d{3})\\.(0[1-9]|1[0-2])\\.(0[1-9]|[1-2]\\d|3[0-1])(?:\\.((?:[1-9]\\d*)(?:(?:-[a-zA-Z0-9]+)+(?:\\.[1-9]\\d*)?)?))?$");
+    private static final Pattern CHANGESET_PATTERN = Pattern.compile("^(?:((?:[1-9]\\d*))(?:-([a-zA-Z0-9-]+[a-zA-Z0-9]?)(?:\\.([1-9]\\d*))?)?)?$");
 
     private final int year;
     private final int month;
@@ -97,7 +97,7 @@ public class ChronVer implements Version<ChronVer> {
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
+        if (null == o || getClass() != o.getClass()) return false;
         ChronVer version = (ChronVer) o;
         return year == version.year &&
             month == version.month &&
@@ -134,7 +134,7 @@ public class ChronVer implements Version<ChronVer> {
     public static ChronVer of(String version) {
         requireNonBlank(version, "Argument 'version' must not be blank");
 
-        Matcher m = PATTERN.matcher(version.trim());
+        Matcher m = VERSION_PATTERN.matcher(version.trim());
 
         if (m.matches()) {
             int year = Integer.parseInt(m.group(1));
@@ -162,7 +162,7 @@ public class ChronVer implements Version<ChronVer> {
         return new ChronVer(year, month, day, Changeset.of(changeset));
     }
 
-    public final static class Changeset implements Comparable<Changeset> {
+    public static final class Changeset implements Comparable<Changeset> {
         private final String identifier;
         private final int change;
         private final String tag;
@@ -171,7 +171,7 @@ public class ChronVer implements Version<ChronVer> {
         private Changeset(String identifier) {
             if (isNotBlank(identifier)) {
                 this.identifier = identifier.trim();
-                Matcher matcher = CHANGESET.matcher(identifier);
+                Matcher matcher = CHANGESET_PATTERN.matcher(identifier);
                 if (matcher.matches()) {
                     this.change = Integer.parseInt(matcher.group(1));
                     this.tag = matcher.group(2);
@@ -239,7 +239,7 @@ public class ChronVer implements Version<ChronVer> {
         @Override
         public boolean equals(Object o) {
             if (this == o) return true;
-            if (o == null || getClass() != o.getClass()) return false;
+            if (null == o || getClass() != o.getClass()) return false;
             Changeset changeset = (Changeset) o;
             return identifier.equals(changeset.identifier);
         }
@@ -251,7 +251,7 @@ public class ChronVer implements Version<ChronVer> {
 
         @Override
         public int compareTo(Changeset other) {
-            if (other == null) return -1;
+            if (null == other) return -1;
             if (isEmpty() && other.isEmpty()) return 0;
             if (isEmpty() && !other.isEmpty()) return 1;
             if (!isEmpty() && other.isEmpty()) return -1;

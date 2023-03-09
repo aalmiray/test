@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,13 +18,13 @@
 package org.jreleaser.model.internal.assemble;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import org.jreleaser.model.Active;
 import org.jreleaser.model.Stereotype;
-import org.jreleaser.model.internal.common.AbstractModelObject;
+import org.jreleaser.model.internal.common.AbstractActivatable;
 import org.jreleaser.model.internal.common.Artifact;
 import org.jreleaser.model.internal.common.FileSet;
+import org.jreleaser.model.internal.common.Glob;
 import org.jreleaser.model.internal.platform.Platform;
-import org.jreleaser.model.internal.project.Project;
+import org.jreleaser.mustache.TemplateContext;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -37,24 +37,29 @@ import java.util.Set;
 import static org.jreleaser.model.Constants.KEY_DISTRIBUTION_NAME;
 import static org.jreleaser.model.Constants.KEY_DISTRIBUTION_STEREOTYPE;
 import static org.jreleaser.mustache.MustacheUtils.applyTemplates;
+import static org.jreleaser.util.StringUtils.isNotBlank;
 
 /**
  * @author Andres Almiray
  * @since 0.2.0
  */
-public abstract class AbstractAssembler<S extends AbstractAssembler<S, A>, A extends org.jreleaser.model.api.assemble.Assembler> extends AbstractModelObject<S> implements Assembler<A> {
+public abstract class AbstractAssembler<S extends AbstractAssembler<S, A>, A extends org.jreleaser.model.api.assemble.Assembler> extends AbstractActivatable<S> implements Assembler<A> {
+    private static final long serialVersionUID = 2073602358432833033L;
+
     @JsonIgnore
-    protected final Set<Artifact> outputs = new LinkedHashSet<>();
-    protected final Map<String, Object> extraProperties = new LinkedHashMap<>();
-    protected final List<FileSet> fileSets = new ArrayList<>();
-    protected final Platform platform = new Platform();
+    private final Set<Artifact> outputs = new LinkedHashSet<>();
+    private final Map<String, Object> extraProperties = new LinkedHashMap<>();
+    private final Set<Artifact> artifacts = new LinkedHashSet<>();
+    private final List<Glob> files = new ArrayList<>();
+    private final List<FileSet> fileSets = new ArrayList<>();
+    private final Platform platform = new Platform();
+    private final Set<String> skipTemplates = new LinkedHashSet<>();
     @JsonIgnore
-    protected final String type;
+    private final String type;
     @JsonIgnore
-    protected String name;
-    @JsonIgnore
-    protected boolean enabled;
-    protected Active active;
+    private String name;
+
+    private String templateDirectory;
     protected Boolean exported;
     private Stereotype stereotype;
 
@@ -64,22 +69,26 @@ public abstract class AbstractAssembler<S extends AbstractAssembler<S, A>, A ext
 
     @Override
     public void merge(S source) {
-        this.active = merge(this.active, source.active);
-        this.enabled = merge(this.enabled, source.enabled);
+        super.merge(source);
         this.exported = merge(this.exported, source.exported);
-        this.name = merge(this.name, source.name);
-        this.platform.merge(source.platform);
+        this.name = merge(this.name, source.getName());
+        this.platform.merge(source.getPlatform());
         this.stereotype = merge(this.stereotype, source.getStereotype());
-        setOutputs(merge(this.outputs, source.outputs));
-        setFileSets(merge(this.fileSets, source.fileSets));
-        setExtraProperties(merge(this.extraProperties, source.extraProperties));
+        this.templateDirectory = merge(this.templateDirectory, source.getTemplateDirectory());
+        setSkipTemplates(merge(this.skipTemplates, source.getSkipTemplates()));
+        setOutputs(merge(this.outputs, source.getOutputs()));
+        setArtifacts(merge(this.artifacts, source.getArtifacts()));
+        setFileSets(merge(this.fileSets, source.getFileSets()));
+        setFiles(merge(this.files, source.getFiles()));
+        setExtraProperties(merge(this.extraProperties, source.getExtraProperties()));
     }
 
-    public Map<String, Object> props() {
-        Map<String, Object> props = new LinkedHashMap<>();
-        applyTemplates(props, getResolvedExtraProperties());
-        props.put(KEY_DISTRIBUTION_NAME, name);
-        props.put(KEY_DISTRIBUTION_STEREOTYPE, getStereotype());
+    @Override
+    public TemplateContext props() {
+        TemplateContext props = new TemplateContext();
+        applyTemplates(props, resolvedExtraProperties());
+        props.set(KEY_DISTRIBUTION_NAME, name);
+        props.set(KEY_DISTRIBUTION_STEREOTYPE, getStereotype());
         return props;
     }
 
@@ -104,24 +113,6 @@ public abstract class AbstractAssembler<S extends AbstractAssembler<S, A>, A ext
     }
 
     @Override
-    public boolean isEnabled() {
-        return enabled;
-    }
-
-    public void disable() {
-        active = Active.NEVER;
-        enabled = false;
-    }
-
-    public boolean resolveEnabled(Project project) {
-        if (null == active) {
-            active = Active.NEVER;
-        }
-        enabled = active.check(project);
-        return enabled;
-    }
-
-    @Override
     public Platform getPlatform() {
         return platform;
     }
@@ -132,8 +123,41 @@ public abstract class AbstractAssembler<S extends AbstractAssembler<S, A>, A ext
     }
 
     @Override
+    public String getTemplateDirectory() {
+        return templateDirectory;
+    }
+
+    @Override
+    public void setTemplateDirectory(String templateDirectory) {
+        this.templateDirectory = templateDirectory;
+    }
+
+    @Override
+    public Set<String> getSkipTemplates() {
+        return skipTemplates;
+    }
+
+    @Override
+    public void setSkipTemplates(Set<String> skipTemplates) {
+        this.skipTemplates.clear();
+        this.skipTemplates.addAll(skipTemplates);
+    }
+
+    @Override
+    public void addSkipTemplates(Set<String> templates) {
+        this.skipTemplates.addAll(templates);
+    }
+
+    @Override
+    public void addSkipTemplate(String template) {
+        if (isNotBlank(template)) {
+            this.skipTemplates.add(template.trim());
+        }
+    }
+
+    @Override
     public boolean isExported() {
-        return exported == null || exported;
+        return null == exported || exported;
     }
 
     @Override
@@ -149,26 +173,6 @@ public abstract class AbstractAssembler<S extends AbstractAssembler<S, A>, A ext
     @Override
     public void setName(String name) {
         this.name = name;
-    }
-
-    @Override
-    public Active getActive() {
-        return active;
-    }
-
-    @Override
-    public void setActive(Active active) {
-        this.active = active;
-    }
-
-    @Override
-    public void setActive(String str) {
-        setActive(Active.of(str));
-    }
-
-    @Override
-    public boolean isActiveSet() {
-        return active != null;
     }
 
     @Override
@@ -206,8 +210,54 @@ public abstract class AbstractAssembler<S extends AbstractAssembler<S, A>, A ext
     }
 
     @Override
-    public String getPrefix() {
+    public String prefix() {
         return getType();
+    }
+
+    @Override
+    public Set<Artifact> getArtifacts() {
+        return Artifact.sortArtifacts(artifacts);
+    }
+
+    @Override
+    public void setArtifacts(Set<Artifact> artifacts) {
+        this.artifacts.clear();
+        this.artifacts.addAll(artifacts);
+    }
+
+    @Override
+    public void addArtifacts(Set<Artifact> artifacts) {
+        this.artifacts.addAll(artifacts);
+    }
+
+    @Override
+    public void addArtifact(Artifact artifact) {
+        if (null != artifact) {
+            this.artifacts.add(artifact);
+        }
+    }
+
+    @Override
+    public List<Glob> getFiles() {
+        return files;
+    }
+
+    @Override
+    public void setFiles(List<Glob> files) {
+        this.files.clear();
+        this.files.addAll(files);
+    }
+
+    @Override
+    public void addFiles(List<Glob> files) {
+        this.files.addAll(files);
+    }
+
+    @Override
+    public void addFile(Glob file) {
+        if (null != file) {
+            this.files.add(file);
+        }
     }
 
     @Override
@@ -240,16 +290,29 @@ public abstract class AbstractAssembler<S extends AbstractAssembler<S, A>, A ext
         Map<String, Object> props = new LinkedHashMap<>();
         props.put("enabled", isEnabled());
         props.put("exported", isExported());
-        props.put("active", active);
+        props.put("active", getActive());
         props.put("stereotype", stereotype);
         if (full || platform.isSet()) props.put("platform", platform.asMap(full));
         asMap(full, props);
+        props.put("templateDirectory", templateDirectory);
+        props.put("skipTemplates", skipTemplates);
+        Map<String, Map<String, Object>> mappedArtifacts = new LinkedHashMap<>();
+        int i = 0;
+        for (Artifact artifact : artifacts) {
+            mappedArtifacts.put("artifact " + (i++), artifact.asMap(full));
+        }
+        props.put("artifacts", mappedArtifacts);
+        Map<String, Map<String, Object>> mappedFiles = new LinkedHashMap<>();
+        for (i = 0; i < files.size(); i++) {
+            mappedFiles.put("file " + i, files.get(i).asMap(full));
+        }
+        props.put("files", mappedFiles);
         Map<String, Map<String, Object>> mappedFileSets = new LinkedHashMap<>();
-        for (int i = 0; i < fileSets.size(); i++) {
+        for (i = 0; i < fileSets.size(); i++) {
             mappedFileSets.put("fileSet " + i, fileSets.get(i).asMap(full));
         }
         props.put("fileSets", mappedFileSets);
-        props.put("extraProperties", getResolvedExtraProperties());
+        props.put("extraProperties", resolvedExtraProperties());
 
         Map<String, Object> map = new LinkedHashMap<>();
         map.put(getName(), props);

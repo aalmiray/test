@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -39,9 +39,9 @@ class ScpUploaderImpl extends AbstractSshUploader implements ScpUploader {
     }
 
     org.jreleaser.model.internal.upload.ScpUploader toModel() {
-        org.jreleaser.model.internal.upload.ScpUploader scp = new org.jreleaser.model.internal.upload.ScpUploader()
-        scp.name = name
-        fillProperties(scp)
-        scp
+        org.jreleaser.model.internal.upload.ScpUploader downloader = new org.jreleaser.model.internal.upload.ScpUploader()
+        downloader.name = name
+        fillProperties(downloader)
+        downloader
     }
 }

@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,17 +17,28 @@
  */
 package org.jreleaser.model.internal.announce;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import org.jreleaser.bundle.RB;
 import org.jreleaser.model.Active;
+import org.jreleaser.model.JReleaserException;
 import org.jreleaser.model.internal.JReleaserContext;
+import org.jreleaser.mustache.TemplateContext;
 
+import java.io.IOException;
+import java.io.Reader;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 import static java.util.Collections.unmodifiableMap;
 import static org.jreleaser.model.Constants.HIDE;
+import static org.jreleaser.model.Constants.KEY_PREVIOUS_TAG_NAME;
+import static org.jreleaser.model.Constants.KEY_TAG_NAME;
 import static org.jreleaser.model.Constants.UNSET;
 import static org.jreleaser.model.api.announce.MastodonAnnouncer.TYPE;
+import static org.jreleaser.mustache.MustacheUtils.applyTemplate;
 import static org.jreleaser.mustache.MustacheUtils.applyTemplates;
-import static org.jreleaser.mustache.Templates.resolveTemplate;
 import static org.jreleaser.util.StringUtils.isNotBlank;
 
 /**
@@ -35,11 +46,18 @@ import static org.jreleaser.util.StringUtils.isNotBlank;
  * @since 0.4.0
  */
 public final class MastodonAnnouncer extends AbstractAnnouncer<MastodonAnnouncer, org.jreleaser.model.api.announce.MastodonAnnouncer> {
+    private static final long serialVersionUID = 9152609285615015647L;
+
+    private final List<String> statuses = new ArrayList<>();
     private String host;
     private String accessToken;
     private String status;
+    private String statusTemplate;
 
+    @JsonIgnore
     private final org.jreleaser.model.api.announce.MastodonAnnouncer immutable = new org.jreleaser.model.api.announce.MastodonAnnouncer() {
+        private static final long serialVersionUID = -8926470689255000598L;
+
         @Override
         public String getType() {
             return org.jreleaser.model.api.announce.MastodonAnnouncer.TYPE;
@@ -61,8 +79,18 @@ public final class MastodonAnnouncer extends AbstractAnnouncer<MastodonAnnouncer
         }
 
         @Override
+        public List<String> getStatuses() {
+            return statuses;
+        }
+
+        @Override
+        public String getStatusTemplate() {
+            return statusTemplate;
+        }
+
+        @Override
         public String getName() {
-            return name;
+            return MastodonAnnouncer.this.getName();
         }
 
         @Override
@@ -72,7 +100,7 @@ public final class MastodonAnnouncer extends AbstractAnnouncer<MastodonAnnouncer
 
         @Override
         public Active getActive() {
-            return active;
+            return MastodonAnnouncer.this.getActive();
         }
 
         @Override
@@ -87,22 +115,22 @@ public final class MastodonAnnouncer extends AbstractAnnouncer<MastodonAnnouncer
 
         @Override
         public String getPrefix() {
-            return MastodonAnnouncer.this.getPrefix();
+            return MastodonAnnouncer.this.prefix();
         }
 
         @Override
         public Map<String, Object> getExtraProperties() {
-            return unmodifiableMap(extraProperties);
+            return unmodifiableMap(MastodonAnnouncer.this.getExtraProperties());
         }
 
         @Override
         public Integer getConnectTimeout() {
-            return connectTimeout;
+            return MastodonAnnouncer.this.getConnectTimeout();
         }
 
         @Override
         public Integer getReadTimeout() {
-            return readTimeout;
+            return MastodonAnnouncer.this.getReadTimeout();
         }
     };
 
@@ -121,13 +149,25 @@ public final class MastodonAnnouncer extends AbstractAnnouncer<MastodonAnnouncer
         this.host = merge(this.host, source.host);
         this.accessToken = merge(this.accessToken, source.accessToken);
         this.status = merge(this.status, source.status);
+        setStatuses(merge(this.statuses, source.statuses));
+        this.statusTemplate = merge(this.statusTemplate, source.statusTemplate);
     }
 
-    public String getResolvedStatus(JReleaserContext context) {
-        Map<String, Object> props = context.fullProps();
-        applyTemplates(props, getResolvedExtraProperties());
-        context.getModel().getRelease().getReleaser().fillProps(props, context.getModel());
-        return resolveTemplate(status, props);
+    public String getResolvedStatusTemplate(JReleaserContext context, TemplateContext extraProps) {
+        TemplateContext props = context.fullProps();
+        applyTemplates(props, resolvedExtraProperties());
+        props.set(KEY_TAG_NAME, context.getModel().getRelease().getReleaser().getEffectiveTagName(context.getModel()));
+        props.set(KEY_PREVIOUS_TAG_NAME, context.getModel().getRelease().getReleaser().getResolvedPreviousTagName(context.getModel()));
+        props.setAll(extraProps);
+
+        Path templatePath = context.getBasedir().resolve(statusTemplate);
+        try {
+            Reader reader = java.nio.file.Files.newBufferedReader(templatePath);
+            return applyTemplate(reader, props);
+        } catch (IOException e) {
+            throw new JReleaserException(RB.$("ERROR_unexpected_error_reading_template",
+                context.relativizeToBasedir(templatePath)));
+        }
     }
 
     public String getHost() {
@@ -154,10 +194,29 @@ public final class MastodonAnnouncer extends AbstractAnnouncer<MastodonAnnouncer
         this.status = status;
     }
 
+    public List<String> getStatuses() {
+        return statuses;
+    }
+
+    public void setStatuses(List<String> statuses) {
+        this.statuses.clear();
+        this.statuses.addAll(statuses);
+    }
+
+    public String getStatusTemplate() {
+        return statusTemplate;
+    }
+
+    public void setStatusTemplate(String statusTemplate) {
+        this.statusTemplate = statusTemplate;
+    }
+
     @Override
     protected void asMap(boolean full, Map<String, Object> props) {
         props.put("host", host);
         props.put("accessToken", isNotBlank(accessToken) ? HIDE : UNSET);
         props.put("status", status);
+        props.put("statuses", statuses);
+        props.put("statusTemplate", statusTemplate);
     }
 }

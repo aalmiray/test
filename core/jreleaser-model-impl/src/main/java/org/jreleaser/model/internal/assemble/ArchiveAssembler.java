@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,13 +17,17 @@
  */
 package org.jreleaser.model.internal.assemble;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.jreleaser.model.Active;
 import org.jreleaser.model.Archive;
 import org.jreleaser.model.Distribution;
 import org.jreleaser.model.Stereotype;
 import org.jreleaser.model.internal.JReleaserContext;
+import org.jreleaser.model.internal.common.ArchiveOptions;
 import org.jreleaser.model.internal.common.Artifact;
 import org.jreleaser.model.internal.common.FileSet;
+import org.jreleaser.model.internal.common.Glob;
+import org.jreleaser.mustache.TemplateContext;
 import org.jreleaser.util.PlatformUtils;
 
 import java.util.LinkedHashSet;
@@ -43,14 +47,22 @@ import static org.jreleaser.mustache.Templates.resolveTemplate;
  * @since 0.8.0
  */
 public final class ArchiveAssembler extends AbstractAssembler<ArchiveAssembler, org.jreleaser.model.api.assemble.ArchiveAssembler> {
+
+
     private final Set<Archive.Format> formats = new LinkedHashSet<>();
+    private final ArchiveOptions options = new ArchiveOptions();
 
     private String archiveName;
     private Boolean attachPlatform;
     private Distribution.DistributionType distributionType;
 
+    @JsonIgnore
     private final org.jreleaser.model.api.assemble.ArchiveAssembler immutable = new org.jreleaser.model.api.assemble.ArchiveAssembler() {
+
+
+        private Set<? extends org.jreleaser.model.api.common.Artifact> artifacts;
         private List<? extends org.jreleaser.model.api.common.FileSet> fileSets;
+        private List<? extends org.jreleaser.model.api.common.Glob> files;
         private Set<? extends org.jreleaser.model.api.common.Artifact> outputs;
 
         @Override
@@ -69,8 +81,13 @@ public final class ArchiveAssembler extends AbstractAssembler<ArchiveAssembler, 
         }
 
         @Override
+        public org.jreleaser.model.api.common.ArchiveOptions getOptions() {
+            return options.asImmutable();
+        }
+
+        @Override
         public org.jreleaser.model.api.platform.Platform getPlatform() {
-            return platform.asImmutable();
+            return ArchiveAssembler.this.getPlatform().asImmutable();
         }
 
         @Override
@@ -80,7 +97,7 @@ public final class ArchiveAssembler extends AbstractAssembler<ArchiveAssembler, 
 
         @Override
         public String getType() {
-            return type;
+            return ArchiveAssembler.this.getType();
         }
 
         @Override
@@ -95,13 +112,33 @@ public final class ArchiveAssembler extends AbstractAssembler<ArchiveAssembler, 
 
         @Override
         public String getName() {
-            return name;
+            return ArchiveAssembler.this.getName();
+        }
+
+        @Override
+        public String getTemplateDirectory() {
+            return ArchiveAssembler.this.getTemplateDirectory();
+        }
+
+        @Override
+        public Set<String> getSkipTemplates() {
+            return unmodifiableSet(ArchiveAssembler.this.getSkipTemplates());
+        }
+
+        @Override
+        public Set<? extends org.jreleaser.model.api.common.Artifact> getArtifacts() {
+            if (null == artifacts) {
+                artifacts = ArchiveAssembler.this.getArtifacts().stream()
+                    .map(Artifact::asImmutable)
+                    .collect(toSet());
+            }
+            return artifacts;
         }
 
         @Override
         public List<? extends org.jreleaser.model.api.common.FileSet> getFileSets() {
             if (null == fileSets) {
-                fileSets = ArchiveAssembler.this.fileSets.stream()
+                fileSets = ArchiveAssembler.this.getFileSets().stream()
                     .map(FileSet::asImmutable)
                     .collect(toList());
             }
@@ -109,9 +146,19 @@ public final class ArchiveAssembler extends AbstractAssembler<ArchiveAssembler, 
         }
 
         @Override
+        public List<? extends org.jreleaser.model.api.common.Glob> getFiles() {
+            if (null == files) {
+                files = ArchiveAssembler.this.getFiles().stream()
+                    .map(Glob::asImmutable)
+                    .collect(toList());
+            }
+            return files;
+        }
+
+        @Override
         public Set<? extends org.jreleaser.model.api.common.Artifact> getOutputs() {
             if (null == outputs) {
-                outputs = ArchiveAssembler.this.outputs.stream()
+                outputs = ArchiveAssembler.this.getOutputs().stream()
                     .map(Artifact::asImmutable)
                     .collect(toSet());
             }
@@ -120,7 +167,7 @@ public final class ArchiveAssembler extends AbstractAssembler<ArchiveAssembler, 
 
         @Override
         public Active getActive() {
-            return active;
+            return ArchiveAssembler.this.getActive();
         }
 
         @Override
@@ -135,12 +182,12 @@ public final class ArchiveAssembler extends AbstractAssembler<ArchiveAssembler, 
 
         @Override
         public String getPrefix() {
-            return ArchiveAssembler.this.getPrefix();
+            return ArchiveAssembler.this.prefix();
         }
 
         @Override
         public Map<String, Object> getExtraProperties() {
-            return unmodifiableMap(extraProperties);
+            return unmodifiableMap(ArchiveAssembler.this.getExtraProperties());
         }
     };
 
@@ -169,15 +216,16 @@ public final class ArchiveAssembler extends AbstractAssembler<ArchiveAssembler, 
     @Override
     public void merge(ArchiveAssembler source) {
         super.merge(source);
-        this.archiveName = merge(source.archiveName, source.archiveName);
-        this.distributionType = merge(source.distributionType, source.distributionType);
-        this.attachPlatform = merge(source.attachPlatform, source.attachPlatform);
+        this.archiveName = merge(this.archiveName, source.archiveName);
+        this.distributionType = merge(this.distributionType, source.distributionType);
+        this.attachPlatform = merge(this.attachPlatform, source.attachPlatform);
         setFormats(merge(this.formats, source.formats));
+        setOptions(source.options);
     }
 
     public String getResolvedArchiveName(JReleaserContext context) {
-        Map<String, Object> props = context.fullProps();
-        props.putAll(props());
+        TemplateContext props = context.fullProps();
+        props.setAll(props());
         String result = resolveTemplate(archiveName, props);
         if (isAttachPlatform()) {
             result += "-" + getPlatform().applyReplacements(PlatformUtils.getCurrentFull());
@@ -194,11 +242,11 @@ public final class ArchiveAssembler extends AbstractAssembler<ArchiveAssembler, 
     }
 
     public boolean isAttachPlatformSet() {
-        return attachPlatform != null;
+        return null != attachPlatform;
     }
 
     public boolean isAttachPlatform() {
-        return attachPlatform != null && attachPlatform;
+        return null != attachPlatform && attachPlatform;
     }
 
     public void setAttachPlatform(Boolean attachPlatform) {
@@ -222,11 +270,20 @@ public final class ArchiveAssembler extends AbstractAssembler<ArchiveAssembler, 
         this.formats.add(Archive.Format.of(str));
     }
 
+    public ArchiveOptions getOptions() {
+        return options;
+    }
+
+    public void setOptions(ArchiveOptions options) {
+        this.options.merge(options);
+    }
+
     @Override
     protected void asMap(boolean full, Map<String, Object> props) {
         props.put("archiveName", archiveName);
         props.put("distributionType", distributionType);
         props.put("attachPlatform", isAttachPlatform());
         props.put("formats", formats);
+        props.put("options", options.asMap(full));
     }
 }

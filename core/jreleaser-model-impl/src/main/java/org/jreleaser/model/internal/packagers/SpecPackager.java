@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
  */
 package org.jreleaser.model.internal.packagers;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.jreleaser.model.Active;
 import org.jreleaser.model.Distribution;
 import org.jreleaser.model.Stereotype;
@@ -34,6 +35,7 @@ import static java.util.Collections.unmodifiableList;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.Collections.unmodifiableSet;
 import static org.jreleaser.model.Distribution.DistributionType.BINARY;
+import static org.jreleaser.model.Distribution.DistributionType.FLAT_BINARY;
 import static org.jreleaser.model.Distribution.DistributionType.JAVA_BINARY;
 import static org.jreleaser.model.Distribution.DistributionType.JLINK;
 import static org.jreleaser.model.Distribution.DistributionType.NATIVE_IMAGE;
@@ -57,6 +59,7 @@ import static org.jreleaser.util.StringUtils.isFalse;
  */
 public final class SpecPackager extends AbstractRepositoryPackager<org.jreleaser.model.api.packagers.SpecPackager, SpecPackager> {
     private static final Map<org.jreleaser.model.Distribution.DistributionType, Set<String>> SUPPORTED = new LinkedHashMap<>();
+    private static final long serialVersionUID = 3054130455318535496L;
 
     static {
         Set<String> extensions = setOf(
@@ -69,10 +72,11 @@ public final class SpecPackager extends AbstractRepositoryPackager<org.jreleaser
             TAR.extension(),
             ZIP.extension());
 
+        SUPPORTED.put(NATIVE_IMAGE, extensions);
         SUPPORTED.put(BINARY, extensions);
         SUPPORTED.put(JAVA_BINARY, extensions);
         SUPPORTED.put(JLINK, extensions);
-        SUPPORTED.put(NATIVE_IMAGE, extensions);
+        SUPPORTED.put(FLAT_BINARY, emptySet());
     }
 
     private final List<String> requires = new ArrayList<>();
@@ -81,7 +85,10 @@ public final class SpecPackager extends AbstractRepositoryPackager<org.jreleaser
     private String packageName;
     private String release;
 
+    @JsonIgnore
     private final org.jreleaser.model.api.packagers.SpecPackager immutable = new org.jreleaser.model.api.packagers.SpecPackager() {
+        private static final long serialVersionUID = -3139422195483595734L;
+
         @Override
         public String getPackageName() {
             return packageName;
@@ -109,27 +116,27 @@ public final class SpecPackager extends AbstractRepositoryPackager<org.jreleaser
 
         @Override
         public org.jreleaser.model.api.common.CommitAuthor getCommitAuthor() {
-            return commitAuthor.asImmutable();
+            return SpecPackager.this.getCommitAuthor().asImmutable();
         }
 
         @Override
         public String getTemplateDirectory() {
-            return templateDirectory;
+            return SpecPackager.this.getTemplateDirectory();
         }
 
         @Override
         public List<String> getSkipTemplates() {
-            return unmodifiableList(skipTemplates);
+            return unmodifiableList(SpecPackager.this.getSkipTemplates());
         }
 
         @Override
         public String getType() {
-            return type;
+            return SpecPackager.this.getType();
         }
 
         @Override
         public String getDownloadUrl() {
-            return downloadUrl;
+            return SpecPackager.this.getDownloadUrl();
         }
 
         @Override
@@ -164,7 +171,7 @@ public final class SpecPackager extends AbstractRepositoryPackager<org.jreleaser
 
         @Override
         public Active getActive() {
-            return active;
+            return SpecPackager.this.getActive();
         }
 
         @Override
@@ -179,12 +186,12 @@ public final class SpecPackager extends AbstractRepositoryPackager<org.jreleaser
 
         @Override
         public String getPrefix() {
-            return SpecPackager.this.getPrefix();
+            return SpecPackager.this.prefix();
         }
 
         @Override
         public Map<String, Object> getExtraProperties() {
-            return unmodifiableMap(extraProperties);
+            return unmodifiableMap(SpecPackager.this.getExtraProperties());
         }
     };
 
@@ -254,7 +261,7 @@ public final class SpecPackager extends AbstractRepositoryPackager<org.jreleaser
     }
 
     public PackagerRepository getPackagerRepository() {
-        return repository;
+        return getRepository();
     }
 
     @Override
@@ -279,6 +286,8 @@ public final class SpecPackager extends AbstractRepositoryPackager<org.jreleaser
     }
 
     public static final class SpecRepository extends PackagerRepository {
+        private static final long serialVersionUID = -4727714362653863706L;
+
         public SpecRepository() {
             super("spec", "spec");
         }

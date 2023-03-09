@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@
 package org.jreleaser.sdk.sdkman;
 
 import org.jreleaser.logging.SimpleJReleaserLoggerAdapter;
+import org.jreleaser.test.WireMockExtension;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
@@ -30,16 +31,12 @@ import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.options;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-/**
- * @author Andres Almiray
- * @since 0.1.0
- */
-public class DefaultSdkmanCommandTest {
+class DefaultSdkmanCommandTest {
     @RegisterExtension
     WireMockExtension api = new WireMockExtension(options().dynamicPort());
 
     @Test
-    public void testStructuredAnnouncement() throws SdkmanException {
+    void testStructuredAnnouncement() throws SdkmanException {
         // given:
         stubFor(put(urlEqualTo(ApiEndpoints.DEFAULT_ENDPOINT))
             .willReturn(okJson("{\"status\": 202, \"message\":\"success\"}")));
@@ -51,6 +48,9 @@ public class DefaultSdkmanCommandTest {
             .consumerToken("CONSUMER_TOKEN")
             .candidate("jreleaser")
             .version("1.0.0")
+            .connectTimeout(20)
+            .readTimeout(60)
+            .dryrun(false)
             .build();
 
         // when:
@@ -64,7 +64,7 @@ public class DefaultSdkmanCommandTest {
     }
 
     @Test
-    public void testError() {
+    void testError() {
         // given:
         stubFor(post(urlEqualTo(ApiEndpoints.DEFAULT_ENDPOINT))
             .willReturn(aResponse().withStatus(400)));

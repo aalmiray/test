@@ -67,7 +67,41 @@ goto fail
 :execute
 @rem Setup the command line
 
-set CLASSPATH=%APP_HOME%\gradle\wrapper\gradle-wrapper.jar
+set WRAPPER_JAR="%APP_HOME%\gradle\wrapper\gradle-wrapper.jar"
+
+@REM Extension to allow automatically downloading the gradle-wrapper.jar from
+@REM https://services.gradle.org/distributions/
+@REM This allows using the gradle wrapper in projects that prohibit checking in binary data.
+@REM Copied and modified from the Maven wrapper
+set GRADLEWD_SOURCE="%APP_HOME%\gradle\wrapper\GradleWrapperDownloader.java"
+set GRADLEWD_CLASS="%APP_HOME%\gradle\wrapper\GradleWrapperDownloader.class"
+if exist %WRAPPER_JAR% (
+    if "%GRADLEW_VERBOSE%" == "true" (
+        echo "Found %WRAPPER_JAR%"
+    )
+) else (
+    if "%GRADLEW_VERBOSE%" == "true" (
+        echo "Couldn't find %WRAPPER_JAR%, downloading it ..."
+    )
+
+    if exist "%GRADLEWD_SOURCE%" (
+        if not exist "%GRADLEWD_CLASS%" (
+            if "%GRADLEW_VERBOSE%" == "true" (
+              echo " - Compiling GradleWrapperDownloader.java ..."
+            )
+            "%JAVA_HOME%/bin/javac.exe" -encoding UTF-8 "%GRADLEWD_SOURCE%"
+        )
+        if exist "%GRADLEWD_CLASS%" (
+            if "%GRADLEW_VERBOSE%" == "true" (
+              echo " - Running GradleWrapperDownloader.java ..."
+            )
+            "%JAVA_HOME%/bin/java.exe" -classpath gradle\wrapper -Dfile.encoding=UTF-8 GradleWrapperDownloader "%APP_HOME%"
+        )
+    )
+)
+@REM End of extension
+
+set CLASSPATH=%WRAPPER_JAR%
 
 
 @rem Execute Gradle

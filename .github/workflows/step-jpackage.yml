@@ -1,4 +1,4 @@
-name: JPackage
+name: X-JPackage
 
 on:
   workflow_call:
@@ -6,17 +6,9 @@ on:
       project-version:
         required: true
         type: string
-      java-version:
-        default: '11'
-        required: false
-        type: string
-      java-distro:
-        default: 'zulu'
-        required: false
-        type: string
-      cache-key:
-        required: true
-        type: string
+
+permissions:
+  contents: read
 
 jobs:
   jpackage:
@@ -24,62 +16,40 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        os: [ubuntu-latest, macOS-latest, windows-latest]
+        - { os: ubuntu-latest,  platform: linux-x86_64 }
+        - { os: macOS-latest,   platform: osx-x86_64 }
+        - { os: windows-latest, platform: windows-x86_64 }
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
         uses: actions/checkout@v3
+        with:
+          ref: 'main'
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: artifacts
+          path: plugins
+
+      - name: Download jlink
+        uses: actions/download-artifact@v3
+        with:
+          name: jlink
+          path: out/jreleaser/assemble/jreleaser-standalone/jlink
+
+      - name: Expand jlink
+        shell: bash
+        run: |
+          cd out/jreleaser/assemble/jreleaser-standalone/jlink
+          unzip -q -d work-${{ matrix.platform }} jreleaser-standalone-${{ inputs.project-version }}-${{ matrix.platform }}.zip
 
       - name: Setup Java
         uses: actions/setup-java@v3
         with:
-          java-version: ${{ inputs.java-version }}
-          distribution: ${{ inputs.java-distro }}
-
-      - name: Use GNU tar
-        if: ${{ runner.os == 'Windows' }}
-        shell: cmd
-        run: |
-          echo "Adding GNU tar to PATH"
-          echo C:\Program Files\Git\usr\bin>>"%GITHUB_PATH%"
-
-      - name: Cache Gradle
-        uses: actions/cache@v3
-        with:
-          path: ~/.gradle/caches
-          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle') }}-${{ hashFiles('**/gradle.properties') }}
-          restore-keys: ${{ runner.os }}-gradle-
-
-      - name: Cache Gradle wrapper
-        uses: actions/cache@v3
-        with:
-          path: ~/.gradle/wrapper
-          key: ${{ runner.os }}-gradlew-${{ hashFiles('**/gradlew') }}
-          restore-keys: ${{ runner.os }}-gradlew-
-
-      - name: Download artifacts
-        uses: actions/cache@v3
-        with:
-          key: artifacts-${{ inputs.cache-key }}
-          path: plugins
-
-      - name: Download jlink
-        uses: actions/cache@v3
-        with:
-          key: jlink-${{ inputs.cache-key }}
-          path: out/jreleaser/assemble/jreleaser-standalone/jlink
-
-      - name: Cache jpackage
-        uses: actions/cache@v3
-        id: cache-jpackage
-        with:
-          key: jpackage-${{ runner.os }}-${{ inputs.cache-key }}
-          path: |
-            out/jreleaser/assemble/jreleaser-installer/jpackage/*.pkg
-            out/jreleaser/assemble/jreleaser-installer/jpackage/*.msi
-            out/jreleaser/assemble/jreleaser-installer/jpackage/*.exe
-            out/jreleaser/assemble/jreleaser-installer/jpackage/*.deb
-            out/jreleaser/assemble/jreleaser-installer/jpackage/*.rpm
+          java-version: ${{ vars.JAVA_VERSION }}
+          distribution: ${{ vars.JAVA_DISTRO }}
+          cache: 'gradle'
 
       - name: Version
         if: endsWith(${{ inputs.project-version }}, '-SNAPSHOT') != true
@@ -87,15 +57,14 @@ jobs:
           echo ${{ inputs.project-version }} > VERSION
 
       - name: Build
-        if: steps.cache-jpackage.outputs.cache-hit != 'true'
+        shell: bash
         run: ./gradlew :jreleaser:copyJdksFromCache :jreleaser:setupJdks
 
       - name: Jpackage
         uses: jreleaser/release-action@v1
-        if: steps.cache-jpackage.outputs.cache-hit != 'true'
         with:
           version: early-access
-          arguments: assemble -s jpackage -scp
+          arguments: assemble --assembler jpackage --select-current-platform
         env:
           JRELEASER_PROJECT_VERSION: ${{ inputs.project-version }}
 
@@ -107,3 +76,19 @@ jobs:
           path: |
             out/jreleaser/trace.log
             out/jreleaser/output.properties
+
+      - name: Stop Gradle daemon
+        shell: bash
+        run: ./gradlew -stop
+
+      - name: Upload jpackage
+        uses: actions/upload-artifact@v3
+        with:
+          retention-days: 1
+          name: jpackage
+          path: |
+            out/jreleaser/assemble/jreleaser-installer/jpackage/*.pkg
+            out/jreleaser/assemble/jreleaser-installer/jpackage/*.msi
+            out/jreleaser/assemble/jreleaser-installer/jpackage/*.exe
+            out/jreleaser/assemble/jreleaser-installer/jpackage/*.deb
+            out/jreleaser/assemble/jreleaser-installer/jpackage/*.rpm

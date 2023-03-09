@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@
 package org.jreleaser.sdk.sdkman;
 
 import org.jreleaser.logging.SimpleJReleaserLoggerAdapter;
+import org.jreleaser.test.WireMockExtension;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
@@ -31,16 +32,12 @@ import static org.jreleaser.sdk.sdkman.ApiEndpoints.ANNOUNCE_ENDPOINT;
 import static org.jreleaser.sdk.sdkman.ApiEndpoints.RELEASE_ENDPOINT;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-/**
- * @author Andres Almiray
- * @since 0.1.0
- */
-public class MinorReleaseSdkmanCommandTest {
+class MinorReleaseSdkmanCommandTest {
     @RegisterExtension
     WireMockExtension api = new WireMockExtension(options().dynamicPort());
 
     @Test
-    public void testMinorReleaseWithAnnouncement() throws SdkmanException {
+    void testMinorReleaseWithAnnouncement() throws SdkmanException {
         // given:
         stubFor(post(urlEqualTo(RELEASE_ENDPOINT))
             .willReturn(okJson("{\"status\": 201, \"message\":\"success\"}")));
@@ -55,6 +52,9 @@ public class MinorReleaseSdkmanCommandTest {
             .candidate("jreleaser")
             .version("1.0.0")
             .url("https://host/jreleaser-1.0.0.zip")
+            .connectTimeout(20)
+            .readTimeout(60)
+            .dryrun(false)
             .build();
 
         // when:
@@ -74,7 +74,7 @@ public class MinorReleaseSdkmanCommandTest {
     }
 
     @Test
-    public void testError() {
+    void testError() {
         // given:
         stubFor(post(urlEqualTo(RELEASE_ENDPOINT))
             .willReturn(aResponse().withStatus(500)));

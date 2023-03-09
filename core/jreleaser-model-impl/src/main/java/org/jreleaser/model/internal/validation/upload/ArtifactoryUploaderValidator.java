@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,21 +18,27 @@
 package org.jreleaser.model.internal.validation.upload;
 
 import org.jreleaser.bundle.RB;
-import org.jreleaser.model.Active;
 import org.jreleaser.model.api.JReleaserContext.Mode;
 import org.jreleaser.model.internal.JReleaserContext;
 import org.jreleaser.model.internal.upload.ArtifactoryUploader;
-import org.jreleaser.model.internal.validation.common.Validator;
-import org.jreleaser.util.Env;
 import org.jreleaser.util.Errors;
 
 import java.util.Map;
+
+import static org.jreleaser.model.internal.validation.common.Validator.checkProperty;
+import static org.jreleaser.model.internal.validation.common.Validator.resolveActivatable;
+import static org.jreleaser.model.internal.validation.common.Validator.validateTimeout;
+import static org.jreleaser.util.CollectionUtils.listOf;
 
 /**
  * @author Andres Almiray
  * @since 0.3.0
  */
-public abstract class ArtifactoryUploaderValidator extends Validator {
+public final class ArtifactoryUploaderValidator {
+    private ArtifactoryUploaderValidator() {
+        // noop
+    }
+
     public static void validateArtifactory(JReleaserContext context, Mode mode, Errors errors) {
         Map<String, ArtifactoryUploader> artifactory = context.getModel().getUpload().getArtifactory();
         if (!artifactory.isEmpty()) context.getLogger().debug("upload.artifactory");
@@ -40,90 +46,112 @@ public abstract class ArtifactoryUploaderValidator extends Validator {
         for (Map.Entry<String, ArtifactoryUploader> e : artifactory.entrySet()) {
             e.getValue().setName(e.getKey());
             if (mode.validateConfig()) {
-                validateArtifactory(context, mode, e.getValue(), errors);
+                validateArtifactory(context, e.getValue(), errors);
             }
         }
     }
 
-    private static void validateArtifactory(JReleaserContext context, Mode mode, ArtifactoryUploader artifactory, Errors errors) {
-        context.getLogger().debug("upload.artifactory.{}", artifactory.getName());
+    private static void validateArtifactory(JReleaserContext context, ArtifactoryUploader uploader, Errors errors) {
+        context.getLogger().debug("upload.artifactory.{}", uploader.getName());
 
-        if (!artifactory.isActiveSet()) {
-            artifactory.setActive(Active.NEVER);
-        }
-        if (!artifactory.resolveEnabled(context.getModel().getProject())) {
+        resolveActivatable(context, uploader,
+            listOf("upload.artifactory." + uploader.getName(), "upload.artifactory"),
+            "NEVER");
+        if (!uploader.resolveEnabledWithSnapshot(context.getModel().getProject())) {
             context.getLogger().debug(RB.$("validation.disabled"));
             return;
         }
 
-        if (!artifactory.isArtifacts() && !artifactory.isFiles() && !artifactory.isSignatures()) {
-            errors.warning(RB.$("WARNING.validation.uploader.no.artifacts", artifactory.getType(), artifactory.getName()));
+        if (!uploader.isArtifacts() && !uploader.isFiles() && !uploader.isSignatures()) {
+            errors.warning(RB.$("WARNING.validation.uploader.no.artifacts", uploader.getType(), uploader.getName()));
             context.getLogger().debug(RB.$("validation.disabled.no.artifacts"));
-            artifactory.disable();
+            uploader.disable();
             return;
         }
 
-        if (artifactory.getRepositories().isEmpty()) {
-            errors.configuration(RB.$("validation_artifactory_no_repositories", "artifactory." + artifactory.getName()));
+        if (uploader.getRepositories().isEmpty()) {
+            errors.configuration(RB.$("validation_artifactory_no_repositories", "artifactory." + uploader.getName()));
             context.getLogger().debug(RB.$("validation.disabled.no.repositories"));
-            artifactory.disable();
+            uploader.disable();
             return;
         }
 
-        artifactory.setHost(
+        String baseKey1 = "upload.artifactory." + uploader.getName();
+        String baseKey2 = "upload.artifactory";
+        String baseKey3 = "artifactory." + uploader.getName();
+        String baseKey4 = "artifactory";
+
+        uploader.setHost(
             checkProperty(context,
-                "ARTIFACTORY_" + Env.toVar(artifactory.getName()) + "_HOST",
-                "artifactory.host",
-                artifactory.getHost(),
+                listOf(
+                    baseKey1 + ".host",
+                    baseKey2 + ".host",
+                    baseKey3 + ".host",
+                    baseKey4 + ".host"),
+                baseKey1 + ".host",
+                uploader.getHost(),
                 errors));
 
-        switch (artifactory.resolveAuthorization()) {
+        switch (uploader.resolveAuthorization()) {
             case BEARER:
-                artifactory.setPassword(
+                uploader.setPassword(
                     checkProperty(context,
-                        "ARTIFACTORY_" + Env.toVar(artifactory.getName()) + "_PASSWORD",
-                        "artifactory.password",
-                        artifactory.getPassword(),
+                        listOf(
+                            baseKey1 + ".password",
+                            baseKey2 + ".password",
+                            baseKey3 + ".password",
+                            baseKey4 + ".password"),
+                        baseKey1 + ".password",
+                        uploader.getPassword(),
                         errors,
                         context.isDryrun()));
                 break;
             case BASIC:
-                artifactory.setUsername(
+                uploader.setUsername(
                     checkProperty(context,
-                        "ARTIFACTORY_" + Env.toVar(artifactory.getName()) + "_USERNAME",
-                        "artifactory.username",
-                        artifactory.getUsername(),
+                        listOf(
+                            baseKey1 + ".username",
+                            baseKey2 + ".username",
+                            baseKey3 + ".username",
+                            baseKey4 + ".username"),
+                        baseKey1 + ".username",
+                        uploader.getUsername(),
                         errors,
                         context.isDryrun()));
 
-                artifactory.setPassword(
+                uploader.setPassword(
                     checkProperty(context,
-                        "ARTIFACTORY_" + Env.toVar(artifactory.getName()) + "_PASSWORD",
-                        "artifactory.password",
-                        artifactory.getPassword(),
+                        listOf(
+                            baseKey1 + ".password",
+                            baseKey2 + ".password",
+                            baseKey3 + ".password",
+                            baseKey4 + ".password"),
+                        baseKey1 + ".password",
+                        uploader.getPassword(),
                         errors,
                         context.isDryrun()));
                 break;
             case NONE:
-                errors.configuration(RB.$("validation_value_cannot_be", "artifactory." + artifactory.getName() + ".authorization", "NONE"));
+                errors.configuration(RB.$("validation_value_cannot_be", baseKey1 + ".authorization", "NONE"));
                 context.getLogger().debug(RB.$("validation.disabled.error"));
-                artifactory.disable();
+                uploader.disable();
                 break;
         }
 
-        validateTimeout(artifactory);
+        validateTimeout(uploader);
 
-        for (ArtifactoryUploader.ArtifactoryRepository repository : artifactory.getRepositories()) {
+        for (ArtifactoryUploader.ArtifactoryRepository repository : uploader.getRepositories()) {
+            resolveActivatable(context, repository, baseKey1 + ".repository", "");
             if (!repository.isActiveSet()) {
-                repository.setActive(artifactory.getActive());
+                repository.setActive(uploader.getActive());
             }
-            repository.resolveEnabled(context.getModel().getProject());
+            repository.resolveEnabledWithSnapshot(context.getModel().getProject());
         }
 
-        if (artifactory.getRepositories().stream().noneMatch(ArtifactoryUploader.ArtifactoryRepository::isEnabled)) {
-            errors.warning(RB.$("validation_artifactory_disabled_repositories", "artifactory." + artifactory.getName()));
+        if (uploader.getRepositories().stream().noneMatch(ArtifactoryUploader.ArtifactoryRepository::isEnabled)) {
+            errors.warning(RB.$("validation_artifactory_disabled_repositories", baseKey1));
             context.getLogger().debug(RB.$("validation.disabled.no.repositories"));
-            artifactory.disable();
+            uploader.disable();
         }
     }
 }

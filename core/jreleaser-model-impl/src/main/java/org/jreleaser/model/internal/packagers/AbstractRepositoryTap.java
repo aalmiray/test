@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,9 +18,8 @@
 package org.jreleaser.model.internal.packagers;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import org.jreleaser.model.Active;
-import org.jreleaser.model.internal.common.AbstractModelObject;
-import org.jreleaser.model.internal.project.Project;
+import org.jreleaser.model.internal.common.AbstractActivatable;
+import org.jreleaser.mustache.TemplateContext;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -34,23 +33,23 @@ import static org.jreleaser.util.StringUtils.isNotBlank;
  * @author Andres Almiray
  * @since 0.1.0
  */
-public abstract class AbstractRepositoryTap<S extends AbstractRepositoryTap<S>> extends AbstractModelObject<S> implements RepositoryTap {
-    protected Active active;
-    @JsonIgnore
-    protected boolean enabled;
-    @JsonIgnore
-    protected String basename;
-    @JsonIgnore
-    protected String tapName;
-    protected String owner;
-    protected String name;
-    protected String tagName;
-    protected String branch;
-    protected String username;
-    protected String token;
-    protected String commitMessage;
+public abstract class AbstractRepositoryTap<S extends AbstractRepositoryTap<S>> extends AbstractActivatable<S> implements RepositoryTap {
+    private static final long serialVersionUID = -5502324290729964526L;
 
-    public AbstractRepositoryTap(String basename, String tapName) {
+    @JsonIgnore
+    private final String basename;
+    @JsonIgnore
+    private String tapName;
+    private String owner;
+    private String name;
+    private String tagName;
+    private String branch;
+    private String branchPush;
+    private String username;
+    private String token;
+    private String commitMessage;
+
+    protected AbstractRepositoryTap(String basename, String tapName) {
         this.basename = basename;
         this.tapName = tapName;
     }
@@ -64,56 +63,21 @@ public abstract class AbstractRepositoryTap<S extends AbstractRepositoryTap<S>> 
         this.tapName = tapName;
     }
 
+    protected String getTapName() {
+        return tapName;
+    }
+
     @Override
     public void merge(S source) {
-        this.active = merge(this.active, source.active);
-        this.enabled = merge(this.enabled, source.enabled);
-        this.owner = merge(this.owner, source.owner);
-        this.name = merge(this.name, source.name);
-        this.tagName = merge(this.tagName, source.tagName);
-        this.branch = merge(this.branch, source.branch);
-        this.username = merge(this.username, source.username);
-        this.token = merge(this.token, source.token);
-        this.commitMessage = merge(this.commitMessage, source.commitMessage);
-    }
-
-    @Override
-    public boolean isEnabled() {
-        return enabled;
-    }
-
-    @Override
-    public void disable() {
-        active = Active.NEVER;
-        enabled = false;
-    }
-
-    public boolean resolveEnabled(Project project) {
-        if (null == active) {
-            active = Active.RELEASE;
-        }
-        enabled = active.check(project);
-        return enabled;
-    }
-
-    @Override
-    public Active getActive() {
-        return active;
-    }
-
-    @Override
-    public void setActive(Active active) {
-        this.active = active;
-    }
-
-    @Override
-    public void setActive(String str) {
-        setActive(Active.of(str));
-    }
-
-    @Override
-    public boolean isActiveSet() {
-        return active != null;
+        super.merge(source);
+        this.owner = merge(this.owner, source.getOwner());
+        this.name = merge(this.name, source.getName());
+        this.tagName = merge(this.tagName, source.getTagName());
+        this.branch = merge(this.branch, source.getBranch());
+        this.branchPush = merge(this.branchPush, source.getBranchPush());
+        this.username = merge(this.username, source.getUsername());
+        this.token = merge(this.token, source.getToken());
+        this.commitMessage = merge(this.commitMessage, source.getCommitMessage());
     }
 
     @Override
@@ -121,6 +85,7 @@ public abstract class AbstractRepositoryTap<S extends AbstractRepositoryTap<S>> 
         return owner + "/" + getResolvedName();
     }
 
+    @Override
     public String getResolvedName() {
         if (isNotBlank(name)) {
             return name;
@@ -128,11 +93,13 @@ public abstract class AbstractRepositoryTap<S extends AbstractRepositoryTap<S>> 
         return tapName;
     }
 
-    public String getResolvedCommitMessage(Map<String, Object> props) {
+    @Override
+    public String getResolvedCommitMessage(TemplateContext props) {
         return resolveTemplate(commitMessage, props);
     }
 
-    public String getResolvedTagName(Map<String, Object> props) {
+    @Override
+    public String getResolvedTagName(TemplateContext props) {
         return resolveTemplate(tagName, props);
     }
 
@@ -141,6 +108,7 @@ public abstract class AbstractRepositoryTap<S extends AbstractRepositoryTap<S>> 
         return owner;
     }
 
+    @Override
     public void setOwner(String owner) {
         this.owner = owner;
     }
@@ -150,6 +118,7 @@ public abstract class AbstractRepositoryTap<S extends AbstractRepositoryTap<S>> 
         return name;
     }
 
+    @Override
     public void setName(String name) {
         this.name = name;
     }
@@ -159,6 +128,7 @@ public abstract class AbstractRepositoryTap<S extends AbstractRepositoryTap<S>> 
         return tagName;
     }
 
+    @Override
     public void setTagName(String tagName) {
         this.tagName = tagName;
     }
@@ -168,8 +138,19 @@ public abstract class AbstractRepositoryTap<S extends AbstractRepositoryTap<S>> 
         return branch;
     }
 
+    @Override
     public void setBranch(String branch) {
         this.branch = branch;
+    }
+
+    @Override
+    public String getBranchPush() {
+        return branchPush;
+    }
+
+    @Override
+    public void setBranchPush(String branchPush) {
+        this.branchPush = branchPush;
     }
 
     @Override
@@ -177,6 +158,7 @@ public abstract class AbstractRepositoryTap<S extends AbstractRepositoryTap<S>> 
         return username;
     }
 
+    @Override
     public void setUsername(String username) {
         this.username = username;
     }
@@ -186,6 +168,7 @@ public abstract class AbstractRepositoryTap<S extends AbstractRepositoryTap<S>> 
         return token;
     }
 
+    @Override
     public void setToken(String token) {
         this.token = token;
     }
@@ -195,6 +178,7 @@ public abstract class AbstractRepositoryTap<S extends AbstractRepositoryTap<S>> 
         return commitMessage;
     }
 
+    @Override
     public void setCommitMessage(String commitMessage) {
         this.commitMessage = commitMessage;
     }
@@ -203,11 +187,12 @@ public abstract class AbstractRepositoryTap<S extends AbstractRepositoryTap<S>> 
     public Map<String, Object> asMap(boolean full) {
         Map<String, Object> map = new LinkedHashMap<>();
         map.put("enabled", isEnabled());
-        map.put("active", active);
+        map.put("active", getActive());
         map.put("owner", owner);
         map.put("name", getResolvedName());
         map.put("tagName", tagName);
         map.put("branch", branch);
+        map.put("branchPush", branchPush);
         map.put("username", username);
         map.put("token", isNotBlank(token) ? HIDE : UNSET);
         map.put("commitMessage", commitMessage);

@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,10 +32,10 @@ import static org.hamcrest.Matchers.equalTo;
  * @author Andres Almiray
  * @since 0.2.0
  */
-public class SemanticVersionTest {
+class SemanticVersionTest {
     @ParameterizedTest
     @MethodSource("version_parsing")
-    public void testVersionParsing(String input, int major, int minor, int patch, String tag, String build) {
+    void testVersionParsing(String input, int major, int minor, int patch, String tag, String build) {
         // given:
         SemanticVersion version = SemanticVersion.of(input);
 
@@ -50,7 +50,7 @@ public class SemanticVersionTest {
 
     @ParameterizedTest
     @MethodSource("same_version")
-    public void testVersionIdentity(String input) {
+    void testVersionIdentity(String input) {
         // given:
         SemanticVersion version = SemanticVersion.of(input);
 
@@ -59,12 +59,12 @@ public class SemanticVersionTest {
         assertThat(version.hashCode(), equalTo(version.hashCode()));
         Assertions.assertTrue(ComparatorUtils.greaterThanOrEqualTo(version, version));
         Assertions.assertTrue(ComparatorUtils.lessThanOrEqualTo(version, version));
-        assertThat(version.compareTo(version), equalTo(0));
+        assertThat(version.compareTo(SemanticVersion.of(input)), equalTo(0));
     }
 
     @ParameterizedTest
     @MethodSource("version_comparison")
-    public void testVersionComparison(String input1, String input2) {
+    void testVersionComparison(String input1, String input2) {
         // given:
         SemanticVersion v1 = SemanticVersion.of(input1);
         SemanticVersion v2 = SemanticVersion.of(input2);

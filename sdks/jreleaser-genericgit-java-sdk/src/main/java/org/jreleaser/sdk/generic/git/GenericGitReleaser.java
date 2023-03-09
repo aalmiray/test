@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,6 +33,7 @@ import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * @author Andres Almiray
@@ -40,7 +41,9 @@ import java.util.Optional;
  */
 @org.jreleaser.infra.nativeimage.annotations.NativeImage
 public class GenericGitReleaser extends AbstractReleaser<org.jreleaser.model.api.release.GenericGitReleaser> {
-    public GenericGitReleaser(JReleaserContext context, List<Asset> assets) {
+    private static final long serialVersionUID = -5681665139072711463L;
+
+    public GenericGitReleaser(JReleaserContext context, Set<Asset> assets) {
         super(context, assets);
     }
 

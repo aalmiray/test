@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@
 package org.jreleaser.model.api.assemble;
 
 import org.jreleaser.model.Archive;
+import org.jreleaser.model.api.common.ArchiveOptions;
 import org.jreleaser.model.api.common.Artifact;
 import org.jreleaser.model.api.common.Domain;
 import org.jreleaser.model.api.common.Executable;
@@ -37,17 +38,15 @@ public interface JavaArchiveAssembler extends Assembler {
 
     Set<Archive.Format> getFormats();
 
-    String getTemplateDirectory();
-
-    Artifact getMainJar();
+    ArchiveOptions getOptions();
 
     Java getJava();
+
+    Artifact getMainJar();
 
     Executable getExecutable();
 
     List<? extends Glob> getJars();
-
-    List<? extends Glob> getFiles();
 
     interface Java extends Domain {
         String getMainClass();

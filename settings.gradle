@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,16 +27,22 @@ buildscript {
         classpath "org.kordamp.gradle:groovy-project-gradle-plugin:$kordampPluginVersion"
         classpath "org.kordamp.gradle:plugin-gradle-plugin:$kordampPluginVersion"
         classpath "org.kordamp.gradle:checkstyle-gradle-plugin:$kordampPluginVersion"
+        classpath "org.kordamp.gradle:jacoco-gradle-plugin:$kordampPluginVersion"
+        classpath "org.kordamp.gradle:spotbugs-gradle-plugin:$kordampPluginVersion"
+        classpath "org.kordamp.gradle:errorprone-gradle-plugin:$kordampPluginVersion"
+        classpath "org.kordamp.gradle:sonar-gradle-plugin:$kordampPluginVersion"
         classpath "org.kordamp.gradle:kordamp-parentbuild:$kordampBuildVersion"
         classpath "org.jreleaser:jdks-gradle-plugin:$jdksPluginVersion"
         classpath 'de.undercouch:gradle-download-task:4.1.1'
+        classpath "info.solidsoft.gradle.pitest:gradle-pitest-plugin:$pitestPluginVersion"
         classpath "org.ow2.asm:asm:$asmVersion"
         classpath "org.ow2.asm:asm-commons:$asmVersion"
         classpath "org.ow2.asm:asm-analysis:$asmVersion"
         classpath "org.ow2.asm:asm-tree:$asmVersion"
-        classpath 'org.ajoberstar.grgit:grgit-core:4.1.1'
+        classpath "org.moditect:moditect-gradle-plugin:$moditectPluginVersion"
     }
 }
+
 apply plugin: 'org.kordamp.gradle.kordamp-parentbuild'
 
 rootProject.name = 'jreleaser'
@@ -51,15 +57,25 @@ projects {
         path(':') {
             id 'org.kordamp.gradle.java-project'
             id 'org.kordamp.gradle.checkstyle'
+            id 'org.kordamp.gradle.coveralls'
+            id 'org.kordamp.gradle.spotbugs'
+            id 'org.kordamp.gradle.errorprone'
+            id 'org.kordamp.gradle.sonar'
+            id 'info.solidsoft.pitest.aggregator'
         }
         dirs(['infra', 'api', 'core', 'sdks', 'plugins']) {
             id 'java-library'
+            id 'info.solidsoft.pitest'
         }
     }
 }
 
 enforce {
     mergeStrategy = 'append'
+
+    rule(enforcer.rules.RequireJavaVersion) { r ->
+        r.version.set('[11,12)')
+    }
 
     rule(enforcer.rules.EnforceBytecodeVersion) { r ->
         r.exclude("org.graalvm.sdk:graal-sdk:$graalVersion")
@@ -69,44 +85,55 @@ enforce {
         r.exclude("org.graalvm.compiler:compiler:$graalVersion")
         r.exclude("org.graalvm.truffle:truffle-api:$graalVersion")
         r.exclude("org.graalvm.nativeimage:objectfile:$graalVersion")
+        r.exclude("org.kordamp.gradle:base-gradle-plugin:$kordampPluginVersion")
+        r.exclude("com.puppycrawl.tools:checkstyle:10.4")
     }
 
     rule(enforcer.rules.ForceDependencies) { r ->
-        r.dependencies.addAll "org.apache.maven:maven-artifact:$mavenVersion",
-            "org.apache.maven.shared:maven-shared-utils:$mavenSharedVersion",
-            "org.codehaus.plexus:plexus-utils:$plexusVersion",
-            "org.codehaus.plexus:plexus-classworlds:$classworldsVersion",
-            "org.codehaus.plexus:plexus-component-annotations:2.1.0",
-            "com.fasterxml.jackson:jackson-bom:$jacksonVersion",
+        r.dependencies.addAll "com.fasterxml.jackson.core:jackson-annotations:$jacksonVersion",
             "com.fasterxml.jackson.core:jackson-core:$jacksonVersion",
             "com.fasterxml.jackson.core:jackson-databind:$jacksonDatabindVersion",
-            "com.fasterxml.jackson.core:jackson-annotations:$jacksonVersion",
-            "com.fasterxml.jackson.jaxrs:jackson-jaxrs-json-provider:$jacksonVersion",
             "com.fasterxml.jackson.dataformat:jackson-dataformat-cbor:$jacksonVersion",
+            "com.fasterxml.jackson.jaxrs:jackson-jaxrs-json-provider:$jacksonVersion",
+            "com.fasterxml.jackson:jackson-bom:$jacksonVersion",
+            "com.github.ben-manes.caffeine:caffeine:$caffeineVersion",
+            "com.github.luben:zstd-jni:$zstdVersion",
+            "com.google.code.findbugs:jsr305:$jsr305Version",
+            "com.google.errorprone:error_prone_annotations:$errorproneVersion",
+            "com.google.guava:guava:$guavaVersion",
+            "com.googlecode.javaewah:JavaEWAH:$javaEWAHVersion",
+            "com.sun.mail:jakarta.mail:$mailApiVersion",
             "commons-codec:commons-codec:$commonsCodecVersion",
-            "org.apache.commons:commons-compress:$commonsCompressVersion",
-            "org.hamcrest:hamcrest-core:$hamcrestVersion",
-            "org.slf4j:slf4j-api:$slf4jVersion",
-            "org.apache.commons:commons-lang3:$commonsLang3Version",
             "commons-io:commons-io:$commonsIoVersion",
-            "org.opentest4j:opentest4j:$opentest4jVersion",
-            "jakarta.activation:jakarta.activation-api:$jakartaActivatinVersion",
-            "org.yaml:snakeyaml:$snakeYamlVersion",
             "info.picocli:picocli:$picocliVersion",
+            "jakarta.activation:jakarta.activation-api:$jakartaActivatinVersion",
+            "junit:junit:$junitVersion",
+            "net.bytebuddy:byte-buddy:$bytebuddyVersion",
+            "net.minidev:json-smart:$jsonSmartVersion",
+            "org.apache.commons:commons-compress:$commonsCompressVersion",
+            "org.apache.commons:commons-lang3:$commonsLang3Version",
+            "org.apache.httpcomponents:httpclient:$httpclientVersion",
+            "org.apache.httpcomponents:httpcore:$httpcoreVersion",
+            "org.apache.maven.shared:maven-shared-utils:$mavenSharedVersion",
+            "org.apache.maven:maven-artifact:$mavenVersion",
+            "org.apache.maven:maven-core:$mavenVersion",
+            "org.apache.maven:maven-model:$mavenVersion",
+            "org.apache.maven:maven-plugin-api:$mavenVersion",
             "org.bouncycastle:bcpg-jdk15on:$bouncyCastleVersion",
             "org.bouncycastle:bcpkix-jdk15on:$bouncyCastleVersion",
             "org.bouncycastle:bcprov-jdk15on:$bouncyCastleVersion",
             "org.bouncycastle:bcutil-jdk15on:$bouncyCastleVersion",
-            "org.apache.maven:maven-core:$mavenVersion",
-            "org.apache.maven:maven-plugin-api:$mavenVersion",
-            "org.apache.maven:maven-model:$mavenVersion",
-            "org.junit.jupiter:junit-jupiter-api:$junit5Version",
-            "net.minidev:json-smart:$jsonSmartVersion",
-            "org.ow2.asm:asm:$asmVersion",
-            "junit:junit:$junitVersion",
+            "org.checkerframework:checker-qual:$checkerqualVersion",
+            "org.codehaus.plexus:plexus-classworlds:$classworldsVersion",
+            "org.codehaus.plexus:plexus-component-annotations:$plexusAnnotationsVersion",
+            "org.codehaus.plexus:plexus-utils:$plexusVersion",
+            "org.hamcrest:hamcrest-core:$hamcrestVersion",
             "org.hamcrest:hamcrest:$hamcrestVersion",
-            "org.apache.httpcomponents:httpclient:$httpclientVersion",
-            "com.sun.mail:jakarta.mail:$mailApiVersion",
-            "net.bytebuddy:byte-buddy:$bytebuddyVersion"
+            "org.junit:junit-bom:$junit5Version",
+            "org.junit.jupiter:junit-jupiter-api:$junit5Version",
+            "org.opentest4j:opentest4j:$opentest4jVersion",
+            "org.ow2.asm:asm:$asmVersion",
+            "org.slf4j:slf4j-api:$slf4jVersion",
+            "org.yaml:snakeyaml:$snakeYamlVersion"
     }
 }

@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,8 @@
  */
 package org.jreleaser.model.internal.common;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -27,10 +29,15 @@ import static java.util.Collections.unmodifiableMap;
  * @since 0.1.0
  */
 public final class CommitAuthor extends AbstractModelObject<CommitAuthor> implements Domain {
+    private static final long serialVersionUID = 8282090922077012974L;
+
     private String email;
     private String name;
 
+    @JsonIgnore
     private final org.jreleaser.model.api.common.CommitAuthor immutable = new org.jreleaser.model.api.common.CommitAuthor() {
+        private static final long serialVersionUID = -4344080671093237233L;
+
         @Override
         public String getName() {
             return name;

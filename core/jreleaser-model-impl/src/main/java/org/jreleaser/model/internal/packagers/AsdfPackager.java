@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,22 +17,24 @@
  */
 package org.jreleaser.model.internal.packagers;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.jreleaser.model.Active;
 import org.jreleaser.model.Distribution;
 import org.jreleaser.model.Stereotype;
 import org.jreleaser.model.internal.common.Artifact;
 import org.jreleaser.util.PlatformUtils;
 
-import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
 import static java.util.Collections.emptySet;
+import static java.util.Collections.unmodifiableList;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.Collections.unmodifiableSet;
 import static org.jreleaser.model.Distribution.DistributionType.BINARY;
+import static org.jreleaser.model.Distribution.DistributionType.FLAT_BINARY;
 import static org.jreleaser.model.Distribution.DistributionType.JAVA_BINARY;
 import static org.jreleaser.model.Distribution.DistributionType.JLINK;
 import static org.jreleaser.model.Distribution.DistributionType.NATIVE_IMAGE;
@@ -54,6 +56,7 @@ import static org.jreleaser.util.StringUtils.isFalse;
  */
 public final class AsdfPackager extends AbstractRepositoryPackager<org.jreleaser.model.api.packagers.AsdfPackager, AsdfPackager> {
     private static final Map<org.jreleaser.model.Distribution.DistributionType, Set<String>> SUPPORTED = new LinkedHashMap<>();
+    private static final long serialVersionUID = 2289622050226719068L;
 
     static {
         Set<String> extensions = setOf(
@@ -64,17 +67,21 @@ public final class AsdfPackager extends AbstractRepositoryPackager<org.jreleaser
             TAR.extension(),
             ZIP.extension());
 
+        SUPPORTED.put(NATIVE_IMAGE, extensions);
         SUPPORTED.put(BINARY, extensions);
         SUPPORTED.put(JAVA_BINARY, extensions);
         SUPPORTED.put(JLINK, extensions);
-        SUPPORTED.put(NATIVE_IMAGE, extensions);
+        SUPPORTED.put(FLAT_BINARY, emptySet());
     }
 
     private final AsdfRepository repository = new AsdfRepository();
 
     private String toolCheck;
 
+    @JsonIgnore
     private final org.jreleaser.model.api.packagers.AsdfPackager immutable = new org.jreleaser.model.api.packagers.AsdfPackager() {
+        private static final long serialVersionUID = 2602907890530867272L;
+
         @Override
         public String getToolCheck() {
             return toolCheck;
@@ -92,27 +99,27 @@ public final class AsdfPackager extends AbstractRepositoryPackager<org.jreleaser
 
         @Override
         public org.jreleaser.model.api.common.CommitAuthor getCommitAuthor() {
-            return commitAuthor.asImmutable();
+            return AsdfPackager.this.getCommitAuthor().asImmutable();
         }
 
         @Override
         public String getTemplateDirectory() {
-            return templateDirectory;
+            return AsdfPackager.this.getTemplateDirectory();
         }
 
         @Override
         public List<String> getSkipTemplates() {
-            return Collections.unmodifiableList(skipTemplates);
+            return unmodifiableList(AsdfPackager.this.getSkipTemplates());
         }
 
         @Override
         public String getType() {
-            return type;
+            return AsdfPackager.this.getType();
         }
 
         @Override
         public String getDownloadUrl() {
-            return downloadUrl;
+            return AsdfPackager.this.getDownloadUrl();
         }
 
         @Override
@@ -147,7 +154,7 @@ public final class AsdfPackager extends AbstractRepositoryPackager<org.jreleaser
 
         @Override
         public Active getActive() {
-            return active;
+            return AsdfPackager.this.getActive();
         }
 
         @Override
@@ -162,12 +169,12 @@ public final class AsdfPackager extends AbstractRepositoryPackager<org.jreleaser
 
         @Override
         public String getPrefix() {
-            return AsdfPackager.this.getPrefix();
+            return AsdfPackager.this.prefix();
         }
 
         @Override
         public Map<String, Object> getExtraProperties() {
-            return unmodifiableMap(extraProperties);
+            return unmodifiableMap(AsdfPackager.this.getExtraProperties());
         }
     };
 
@@ -216,7 +223,7 @@ public final class AsdfPackager extends AbstractRepositoryPackager<org.jreleaser
     }
 
     public PackagerRepository getPackagerRepository() {
-        return repository;
+        return getRepository();
     }
 
     @Override
@@ -242,6 +249,8 @@ public final class AsdfPackager extends AbstractRepositoryPackager<org.jreleaser
     }
 
     public static final class AsdfRepository extends PackagerRepository {
+        private static final long serialVersionUID = -3477982615763115685L;
+
         public AsdfRepository() {
             super("asdf", "asdf");
         }

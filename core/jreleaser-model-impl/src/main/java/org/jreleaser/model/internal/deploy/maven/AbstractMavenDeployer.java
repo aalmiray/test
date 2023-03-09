@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,11 +18,10 @@
 package org.jreleaser.model.internal.deploy.maven;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import org.jreleaser.model.Active;
 import org.jreleaser.model.Http;
-import org.jreleaser.model.internal.common.AbstractModelObject;
+import org.jreleaser.model.internal.common.AbstractActivatable;
 import org.jreleaser.model.internal.common.ExtraProperties;
-import org.jreleaser.model.internal.project.Project;
+import org.jreleaser.mustache.TemplateContext;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -39,25 +38,24 @@ import static org.jreleaser.util.StringUtils.isNotBlank;
  * @author Andres Almiray
  * @since 1.3.0
  */
-public abstract class AbstractMavenDeployer<S extends AbstractMavenDeployer<S, A>, A extends org.jreleaser.model.api.deploy.maven.MavenDeployer> extends AbstractModelObject<S> implements MavenDeployer<A>, ExtraProperties {
+public abstract class AbstractMavenDeployer<S extends AbstractMavenDeployer<S, A>, A extends org.jreleaser.model.api.deploy.maven.MavenDeployer> extends AbstractActivatable<S> implements MavenDeployer<A>, ExtraProperties {
+    private static final long serialVersionUID = -1018438777546427061L;
+
     @JsonIgnore
-    protected final String type;
-    protected final Map<String, Object> extraProperties = new LinkedHashMap<>();
-    protected final List<String> stagingRepositories = new ArrayList<>();
+    private final String type;
+    private final Map<String, Object> extraProperties = new LinkedHashMap<>();
+    private final List<String> stagingRepositories = new ArrayList<>();
     @JsonIgnore
-    protected String name;
-    @JsonIgnore
-    protected boolean enabled;
-    protected Active active;
-    protected int connectTimeout;
-    protected int readTimeout;
+    private String name;
+    private int connectTimeout;
+    private int readTimeout;
     protected Boolean sign;
     protected Boolean verifyPom;
     protected Boolean applyMavenCentralRules;
-    protected String url;
-    protected String username;
-    protected String password;
-    protected Http.Authorization authorization;
+    private String url;
+    private String username;
+    private String password;
+    private Http.Authorization authorization;
 
     protected AbstractMavenDeployer(String type) {
         this.type = type;
@@ -65,51 +63,28 @@ public abstract class AbstractMavenDeployer<S extends AbstractMavenDeployer<S, A
 
     @Override
     public void merge(S source) {
-        this.active = merge(this.active, source.active);
-        this.enabled = merge(this.enabled, source.enabled);
-        this.name = merge(this.name, source.name);
-        this.connectTimeout = merge(this.connectTimeout, source.connectTimeout);
-        this.readTimeout = merge(this.readTimeout, source.readTimeout);
+        super.merge(source);
+        this.name = merge(this.name, source.getName());
+        this.connectTimeout = merge(this.getConnectTimeout(), source.getConnectTimeout());
+        this.readTimeout = merge(this.getReadTimeout(), source.getReadTimeout());
         this.sign = merge(this.sign, source.sign);
         this.verifyPom = merge(this.verifyPom, source.verifyPom);
         this.applyMavenCentralRules = merge(this.applyMavenCentralRules, source.applyMavenCentralRules);
-        this.url = merge(this.url, source.url);
-        this.username = merge(this.username, source.username);
-        this.password = merge(this.password, source.password);
-        this.authorization = merge(this.authorization, source.authorization);
-        setExtraProperties(merge(this.extraProperties, source.extraProperties));
-        setStagingRepositories(merge(this.stagingRepositories, source.stagingRepositories));
+        this.url = merge(this.url, source.getUrl());
+        this.username = merge(this.username, source.getUsername());
+        this.password = merge(this.password, source.getPassword());
+        this.authorization = merge(this.authorization, source.getAuthorization());
+        setExtraProperties(merge(this.extraProperties, source.getExtraProperties()));
+        setStagingRepositories(merge(this.stagingRepositories, source.getStagingRepositories()));
     }
 
     @Override
-    public String getPrefix() {
-        return type;
+    public String prefix() {
+        return getType();
     }
 
     @Override
-    public boolean isEnabled() {
-        return enabled;
-    }
-
-    public void disable() {
-        active = Active.NEVER;
-        enabled = false;
-    }
-
-    @Override
-    public boolean resolveEnabled(Project project) {
-        if (null == active) {
-            active = Active.NEVER;
-        }
-        enabled = active.check(project);
-        if (project.isSnapshot() && !isSnapshotAllowed()) {
-            enabled = false;
-        }
-        return enabled;
-    }
-
-    @Override
-    public boolean isSnapshotAllowed() {
+    public boolean isSnapshotSupported() {
         return false;
     }
 
@@ -121,26 +96,6 @@ public abstract class AbstractMavenDeployer<S extends AbstractMavenDeployer<S, A
     @Override
     public void setName(String name) {
         this.name = name;
-    }
-
-    @Override
-    public Active getActive() {
-        return active;
-    }
-
-    @Override
-    public void setActive(Active active) {
-        this.active = active;
-    }
-
-    @Override
-    public void setActive(String str) {
-        setActive(Active.of(str));
-    }
-
-    @Override
-    public boolean isActiveSet() {
-        return active != null;
     }
 
     @Override
@@ -186,7 +141,7 @@ public abstract class AbstractMavenDeployer<S extends AbstractMavenDeployer<S, A
 
     @Override
     public boolean isSign() {
-        return sign != null && sign;
+        return null != sign && sign;
     }
 
     @Override
@@ -196,12 +151,12 @@ public abstract class AbstractMavenDeployer<S extends AbstractMavenDeployer<S, A
 
     @Override
     public boolean isSignSet() {
-        return sign != null;
+        return null != sign;
     }
 
     @Override
     public boolean isVerifyPom() {
-        return verifyPom != null && verifyPom;
+        return null != verifyPom && verifyPom;
     }
 
     @Override
@@ -211,12 +166,12 @@ public abstract class AbstractMavenDeployer<S extends AbstractMavenDeployer<S, A
 
     @Override
     public boolean isVerifyPomSet() {
-        return verifyPom != null;
+        return null != verifyPom;
     }
 
     @Override
     public boolean isApplyMavenCentralRules() {
-        return applyMavenCentralRules != null && applyMavenCentralRules;
+        return null != applyMavenCentralRules && applyMavenCentralRules;
     }
 
     @Override
@@ -226,7 +181,7 @@ public abstract class AbstractMavenDeployer<S extends AbstractMavenDeployer<S, A
 
     @Override
     public boolean isApplyMavenCentralRulesSet() {
-        return applyMavenCentralRules != null;
+        return null != applyMavenCentralRules;
     }
 
     @Override
@@ -291,7 +246,7 @@ public abstract class AbstractMavenDeployer<S extends AbstractMavenDeployer<S, A
 
         Map<String, Object> props = new LinkedHashMap<>();
         props.put("enabled", isEnabled());
-        props.put("active", active);
+        props.put("active", getActive());
         props.put("connectTimeout", connectTimeout);
         props.put("readTimeout", readTimeout);
         props.put("authorization", authorization);
@@ -303,7 +258,7 @@ public abstract class AbstractMavenDeployer<S extends AbstractMavenDeployer<S, A
         props.put("applyMavenCentralRules", isApplyMavenCentralRules());
         props.put("stagingRepositories", stagingRepositories);
         asMap(full, props);
-        props.put("extraProperties", getResolvedExtraProperties());
+        props.put("extraProperties", resolvedExtraProperties());
 
         Map<String, Object> map = new LinkedHashMap<>();
         map.put(this.getName(), props);
@@ -312,10 +267,11 @@ public abstract class AbstractMavenDeployer<S extends AbstractMavenDeployer<S, A
 
     protected abstract void asMap(boolean full, Map<String, Object> props);
 
-    public String getResolvedUrl(Map<String, Object> props) {
-        props.put("username", username);
-        props.put("owner", username);
-        props.putAll(getExtraProperties());
+    @Override
+    public String getResolvedUrl(TemplateContext props) {
+        props.set("username", username);
+        props.set("owner", username);
+        props.setAll(getExtraProperties());
         return resolveTemplate(url, props);
     }
 

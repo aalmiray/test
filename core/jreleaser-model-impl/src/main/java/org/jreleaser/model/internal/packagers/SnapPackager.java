@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
  */
 package org.jreleaser.model.internal.packagers;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.jreleaser.model.Active;
 import org.jreleaser.model.Distribution;
 import org.jreleaser.model.Stereotype;
@@ -39,6 +40,7 @@ import static java.util.Collections.unmodifiableMap;
 import static java.util.Collections.unmodifiableSet;
 import static java.util.stream.Collectors.toList;
 import static org.jreleaser.model.Distribution.DistributionType.BINARY;
+import static org.jreleaser.model.Distribution.DistributionType.FLAT_BINARY;
 import static org.jreleaser.model.Distribution.DistributionType.JAVA_BINARY;
 import static org.jreleaser.model.Distribution.DistributionType.JLINK;
 import static org.jreleaser.model.Distribution.DistributionType.NATIVE_IMAGE;
@@ -66,6 +68,7 @@ import static org.jreleaser.util.StringUtils.isFalse;
  */
 public final class SnapPackager extends AbstractRepositoryPackager<org.jreleaser.model.api.packagers.SnapPackager, SnapPackager> {
     private static final Map<org.jreleaser.model.Distribution.DistributionType, Set<String>> SUPPORTED = new LinkedHashMap<>();
+    private static final long serialVersionUID = 4351951573944850125L;
 
     static {
         Set<String> extensions = setOf(
@@ -77,12 +80,13 @@ public final class SnapPackager extends AbstractRepositoryPackager<org.jreleaser
             TXZ.extension(),
             TAR.extension());
 
+        SUPPORTED.put(NATIVE_IMAGE, extensions);
         SUPPORTED.put(BINARY, extensions);
         SUPPORTED.put(JAVA_BINARY, extensions);
         SUPPORTED.put(JLINK, extensions);
-        SUPPORTED.put(NATIVE_IMAGE, extensions);
         SUPPORTED.put(NATIVE_PACKAGE, setOf(DEB.extension(), RPM.extension()));
         SUPPORTED.put(SINGLE_JAR, setOf(JAR.extension()));
+        SUPPORTED.put(FLAT_BINARY, emptySet());
     }
 
     private final Set<String> localPlugs = new LinkedHashSet<>();
@@ -90,7 +94,7 @@ public final class SnapPackager extends AbstractRepositoryPackager<org.jreleaser
     private final List<Plug> plugs = new ArrayList<>();
     private final List<Slot> slots = new ArrayList<>();
     private final List<Architecture> architectures = new ArrayList<>();
-    private final SnapRepository repository = new SnapRepository();
+    private final SnapRepository snap = new SnapRepository();
 
     private String packageName;
     private String base = "core20";
@@ -99,7 +103,10 @@ public final class SnapPackager extends AbstractRepositoryPackager<org.jreleaser
     private String exportedLogin;
     private Boolean remoteBuild;
 
+    @JsonIgnore
     private final org.jreleaser.model.api.packagers.SnapPackager immutable = new org.jreleaser.model.api.packagers.SnapPackager() {
+        private static final long serialVersionUID = -8321640926545215502L;
+
         private List<? extends org.jreleaser.model.api.packagers.SnapPackager.Architecture> architectures;
         private List<? extends org.jreleaser.model.api.packagers.SnapPackager.Slot> slots;
         private List<? extends org.jreleaser.model.api.packagers.SnapPackager.Plug> plugs;
@@ -176,7 +183,7 @@ public final class SnapPackager extends AbstractRepositoryPackager<org.jreleaser
 
         @Override
         public org.jreleaser.model.api.packagers.PackagerRepository getSnap() {
-            return repository.asImmutable();
+            return snap.asImmutable();
         }
 
         @Override
@@ -186,27 +193,27 @@ public final class SnapPackager extends AbstractRepositoryPackager<org.jreleaser
 
         @Override
         public org.jreleaser.model.api.common.CommitAuthor getCommitAuthor() {
-            return commitAuthor.asImmutable();
+            return SnapPackager.this.getCommitAuthor().asImmutable();
         }
 
         @Override
         public String getTemplateDirectory() {
-            return templateDirectory;
+            return SnapPackager.this.getTemplateDirectory();
         }
 
         @Override
         public List<String> getSkipTemplates() {
-            return unmodifiableList(skipTemplates);
+            return unmodifiableList(SnapPackager.this.getSkipTemplates());
         }
 
         @Override
         public String getType() {
-            return type;
+            return SnapPackager.this.getType();
         }
 
         @Override
         public String getDownloadUrl() {
-            return downloadUrl;
+            return SnapPackager.this.getDownloadUrl();
         }
 
         @Override
@@ -241,7 +248,7 @@ public final class SnapPackager extends AbstractRepositoryPackager<org.jreleaser
 
         @Override
         public Active getActive() {
-            return active;
+            return SnapPackager.this.getActive();
         }
 
         @Override
@@ -256,12 +263,12 @@ public final class SnapPackager extends AbstractRepositoryPackager<org.jreleaser
 
         @Override
         public String getPrefix() {
-            return SnapPackager.this.getPrefix();
+            return SnapPackager.this.prefix();
         }
 
         @Override
         public Map<String, Object> getExtraProperties() {
-            return unmodifiableMap(extraProperties);
+            return unmodifiableMap(SnapPackager.this.getExtraProperties());
         }
     };
 
@@ -288,7 +295,7 @@ public final class SnapPackager extends AbstractRepositoryPackager<org.jreleaser
         setPlugs(merge(this.plugs, source.plugs));
         setSlots(merge(this.slots, source.slots));
         setArchitectures(merge(this.architectures, source.architectures));
-        setSnap(source.repository);
+        setSnap(source.snap);
     }
 
     public String getPackageName() {
@@ -387,7 +394,7 @@ public final class SnapPackager extends AbstractRepositoryPackager<org.jreleaser
     }
 
     public boolean isRemoteBuild() {
-        return remoteBuild != null && remoteBuild;
+        return null != remoteBuild && remoteBuild;
     }
 
     public void setRemoteBuild(Boolean remoteBuild) {
@@ -395,15 +402,15 @@ public final class SnapPackager extends AbstractRepositoryPackager<org.jreleaser
     }
 
     public boolean isRemoteBuildSet() {
-        return remoteBuild != null;
+        return null != remoteBuild;
     }
 
     public SnapRepository getSnap() {
-        return repository;
+        return snap;
     }
 
     public void setSnap(SnapRepository repository) {
-        this.repository.merge(repository);
+        this.snap.merge(repository);
     }
 
     @Override
@@ -415,7 +422,7 @@ public final class SnapPackager extends AbstractRepositoryPackager<org.jreleaser
         props.put("confinement", confinement);
         props.put("exportedLogin", exportedLogin);
         props.put("remoteBuild", isRemoteBuild());
-        props.put("snap", repository.asMap(full));
+        props.put("snap", snap.asMap(full));
         props.put("localPlugs", localPlugs);
         props.put("localSlots", localSlots);
 
@@ -444,7 +451,7 @@ public final class SnapPackager extends AbstractRepositoryPackager<org.jreleaser
     }
 
     public PackagerRepository getPackagerRepository() {
-        return repository;
+        return getSnap();
     }
 
     @Override
@@ -478,12 +485,17 @@ public final class SnapPackager extends AbstractRepositoryPackager<org.jreleaser
     }
 
     public static final class Slot extends AbstractModelObject<Slot> implements Domain {
+        private static final long serialVersionUID = 8422045649925759163L;
+
         private final Map<String, String> attributes = new LinkedHashMap<>();
         private final List<String> reads = new ArrayList<>();
         private final List<String> writes = new ArrayList<>();
         private String name;
 
+        @JsonIgnore
         private final org.jreleaser.model.api.packagers.SnapPackager.Slot immutable = new org.jreleaser.model.api.packagers.SnapPackager.Slot() {
+            private static final long serialVersionUID = -3518924698578544847L;
+
             @Override
             public String getName() {
                 return name;
@@ -591,12 +603,17 @@ public final class SnapPackager extends AbstractRepositoryPackager<org.jreleaser
     }
 
     public static final class Plug extends AbstractModelObject<Plug> implements Domain {
+        private static final long serialVersionUID = -2210365052943258689L;
+
         private final Map<String, String> attributes = new LinkedHashMap<>();
         private final List<String> reads = new ArrayList<>();
         private final List<String> writes = new ArrayList<>();
         private String name;
 
+        @JsonIgnore
         private final org.jreleaser.model.api.packagers.SnapPackager.Plug immutable = new org.jreleaser.model.api.packagers.SnapPackager.Plug() {
+            private static final long serialVersionUID = -5689359361910963388L;
+
             @Override
             public String getName() {
                 return name;
@@ -704,17 +721,24 @@ public final class SnapPackager extends AbstractRepositoryPackager<org.jreleaser
     }
 
     public static final class SnapRepository extends PackagerRepository {
+        private static final long serialVersionUID = 4117738159449060256L;
+
         public SnapRepository() {
             super("snap", "snap");
         }
     }
 
     public static final class Architecture extends AbstractModelObject<Architecture> implements Domain {
+        private static final long serialVersionUID = 1878739013053454056L;
+
         private final List<String> buildOn = new ArrayList<>();
         private final List<String> runOn = new ArrayList<>();
         private Boolean ignoreError;
 
+        @JsonIgnore
         private final org.jreleaser.model.api.packagers.SnapPackager.Architecture immutable = new org.jreleaser.model.api.packagers.SnapPackager.Architecture() {
+            private static final long serialVersionUID = 7707062117835809382L;
+
             @Override
             public List<String> getBuildOn() {
                 return unmodifiableList(buildOn);
@@ -774,7 +798,7 @@ public final class SnapPackager extends AbstractRepositoryPackager<org.jreleaser
         }
 
         public boolean isIgnoreError() {
-            return ignoreError != null && ignoreError;
+            return null != ignoreError && ignoreError;
         }
 
         public void setIgnoreError(Boolean ignoreError) {
@@ -782,7 +806,7 @@ public final class SnapPackager extends AbstractRepositoryPackager<org.jreleaser
         }
 
         public boolean isIgnoreErrorSet() {
-            return ignoreError != null;
+            return null != ignoreError;
         }
 
         @Override

@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,11 +20,9 @@ package org.jreleaser.model.internal.signing;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.jreleaser.model.Active;
 import org.jreleaser.model.internal.JReleaserContext;
+import org.jreleaser.model.internal.common.AbstractActivatable;
 import org.jreleaser.model.internal.common.AbstractModelObject;
-import org.jreleaser.model.internal.common.Activatable;
 import org.jreleaser.model.internal.common.Domain;
-import org.jreleaser.model.internal.project.Project;
-import org.jreleaser.util.Env;
 
 import java.io.File;
 import java.nio.file.Path;
@@ -45,14 +43,14 @@ import static org.jreleaser.util.StringUtils.isNotBlank;
  * @author Andres Almiray
  * @since 0.1.0
  */
-public final class Signing extends AbstractModelObject<Signing> implements Domain, Activatable {
+public final class Signing extends AbstractActivatable<Signing> implements Domain {
+    private static final long serialVersionUID = -7440879442726925285L;
+
     private final Command command = new Command();
     private final Cosign cosign = new Cosign();
 
-    private Active active;
-    @JsonIgnore
-    private boolean enabled;
     private Boolean armored;
+    private Boolean verify;
     private String publicKey;
     private String secretKey;
     private String passphrase;
@@ -60,11 +58,20 @@ public final class Signing extends AbstractModelObject<Signing> implements Domai
     private Boolean artifacts;
     private Boolean files;
     private Boolean checksums;
+    private Boolean catalogs;
 
+    @JsonIgnore
     private final org.jreleaser.model.api.signing.Signing immutable = new org.jreleaser.model.api.signing.Signing() {
+        private static final long serialVersionUID = -3565614952776622685L;
+
         @Override
         public boolean isArmored() {
             return Signing.this.isArmored();
+        }
+
+        @Override
+        public boolean isVerify() {
+            return Signing.this.isVerify();
         }
 
         @Override
@@ -103,6 +110,11 @@ public final class Signing extends AbstractModelObject<Signing> implements Domai
         }
 
         @Override
+        public boolean isCatalogs() {
+            return Signing.this.isCatalogs();
+        }
+
+        @Override
         public Command getCommand() {
             return command.asImmutable();
         }
@@ -114,7 +126,7 @@ public final class Signing extends AbstractModelObject<Signing> implements Domai
 
         @Override
         public Active getActive() {
-            return active;
+            return Signing.this.getActive();
         }
 
         @Override
@@ -134,9 +146,9 @@ public final class Signing extends AbstractModelObject<Signing> implements Domai
 
     @Override
     public void merge(Signing source) {
-        this.active = merge(this.active, source.active);
-        this.enabled = merge(this.enabled, source.enabled);
+        super.merge(source);
         this.armored = merge(this.armored, source.armored);
+        this.verify = merge(this.verify, source.verify);
         this.publicKey = merge(this.publicKey, source.publicKey);
         this.secretKey = merge(this.secretKey, source.secretKey);
         this.passphrase = merge(this.passphrase, source.passphrase);
@@ -144,26 +156,9 @@ public final class Signing extends AbstractModelObject<Signing> implements Domai
         this.artifacts = merge(this.artifacts, source.artifacts);
         this.files = merge(this.files, source.files);
         this.checksums = merge(this.checksums, source.checksums);
+        this.catalogs = merge(this.catalogs, source.catalogs);
         setCommand(source.command);
         setCosign(source.cosign);
-    }
-
-    @Override
-    public boolean isEnabled() {
-        return enabled;
-    }
-
-    public void disable() {
-        active = Active.NEVER;
-        enabled = false;
-    }
-
-    public boolean resolveEnabled(Project project) {
-        if (null == active) {
-            setActive(Env.resolveOrDefault("signing.active", "", "NEVER"));
-        }
-        enabled = active.check(project);
-        return enabled;
     }
 
     public org.jreleaser.model.Signing.Mode resolveMode() {
@@ -173,28 +168,8 @@ public final class Signing extends AbstractModelObject<Signing> implements Domai
         return mode;
     }
 
-    @Override
-    public Active getActive() {
-        return active;
-    }
-
-    @Override
-    public void setActive(Active active) {
-        this.active = active;
-    }
-
-    @Override
-    public void setActive(String str) {
-        setActive(Active.of(str));
-    }
-
-    @Override
-    public boolean isActiveSet() {
-        return active != null;
-    }
-
     public boolean isArmored() {
-        return armored != null && armored;
+        return null != armored && armored;
     }
 
     public void setArmored(Boolean armored) {
@@ -202,7 +177,19 @@ public final class Signing extends AbstractModelObject<Signing> implements Domai
     }
 
     public boolean isArmoredSet() {
-        return armored != null;
+        return null != armored;
+    }
+
+    public boolean isVerify() {
+        return null == verify || verify;
+    }
+
+    public void setVerify(Boolean verify) {
+        this.verify = verify;
+    }
+
+    public boolean isVerifySet() {
+        return null != verify;
     }
 
     public String getPublicKey() {
@@ -242,11 +229,11 @@ public final class Signing extends AbstractModelObject<Signing> implements Domai
     }
 
     public boolean isArtifactsSet() {
-        return artifacts != null;
+        return null != artifacts;
     }
 
     public boolean isArtifacts() {
-        return artifacts == null || artifacts;
+        return null == artifacts || artifacts;
     }
 
     public void setArtifacts(Boolean artifacts) {
@@ -254,7 +241,7 @@ public final class Signing extends AbstractModelObject<Signing> implements Domai
     }
 
     public boolean isFiles() {
-        return files == null || files;
+        return null == files || files;
     }
 
     public void setFiles(Boolean files) {
@@ -262,19 +249,31 @@ public final class Signing extends AbstractModelObject<Signing> implements Domai
     }
 
     public boolean isFilesSet() {
-        return files != null;
+        return null != files;
     }
 
     public boolean isChecksumsSet() {
-        return checksums != null;
+        return null != checksums;
     }
 
     public boolean isChecksums() {
-        return checksums == null || checksums;
+        return null == checksums || checksums;
     }
 
     public void setChecksums(Boolean checksums) {
         this.checksums = checksums;
+    }
+
+    public boolean isCatalogsSet() {
+        return null != catalogs;
+    }
+
+    public boolean isCatalogs() {
+        return null == catalogs || catalogs;
+    }
+
+    public void setCatalogs(Boolean catalogs) {
+        this.catalogs = catalogs;
     }
 
     public Command getCommand() {
@@ -299,12 +298,14 @@ public final class Signing extends AbstractModelObject<Signing> implements Domai
 
         Map<String, Object> props = new LinkedHashMap<>();
         props.put("enabled", isEnabled());
-        props.put("active", active);
+        props.put("active", getActive());
         props.put("armored", isArmored());
+        props.put("verify", isVerify());
         props.put("mode", mode);
         props.put("artifacts", isArtifacts());
         props.put("files", isFiles());
         props.put("checksums", isChecksums());
+        props.put("catalogs", isCatalogs());
         props.put("passphrase", isNotBlank(passphrase) ? HIDE : UNSET);
 
         if (mode == org.jreleaser.model.Signing.Mode.COMMAND) {
@@ -329,6 +330,8 @@ public final class Signing extends AbstractModelObject<Signing> implements Domai
     }
 
     public static class Command extends AbstractModelObject<Command> implements Domain {
+        private static final long serialVersionUID = 6761158529249184059L;
+
         private final List<String> args = new ArrayList<>();
 
         private String executable;
@@ -337,7 +340,10 @@ public final class Signing extends AbstractModelObject<Signing> implements Domai
         private String publicKeyring;
         private Boolean defaultKeyring;
 
+        @JsonIgnore
         private final org.jreleaser.model.api.signing.Signing.Command immutable = new org.jreleaser.model.api.signing.Signing.Command() {
+            private static final long serialVersionUID = -8636071040086599491L;
+
             @Override
             public String getExecutable() {
                 return executable;
@@ -421,11 +427,11 @@ public final class Signing extends AbstractModelObject<Signing> implements Domai
         }
 
         public boolean isDefaultKeyringSet() {
-            return defaultKeyring != null;
+            return null != defaultKeyring;
         }
 
         public boolean isDefaultKeyring() {
-            return defaultKeyring == null || defaultKeyring;
+            return null == defaultKeyring || defaultKeyring;
         }
 
         public void setDefaultKeyring(Boolean defaultKeyring) {
@@ -457,11 +463,16 @@ public final class Signing extends AbstractModelObject<Signing> implements Domai
     }
 
     public static class Cosign extends AbstractModelObject<Cosign> implements Domain {
+        private static final long serialVersionUID = 5608123183696686008L;
+
         private String version;
         private String privateKeyFile;
         private String publicKeyFile;
 
+        @JsonIgnore
         private final org.jreleaser.model.api.signing.Signing.Cosign immutable = new org.jreleaser.model.api.signing.Signing.Cosign() {
+            private static final long serialVersionUID = 3675807300391748445L;
+
             @Override
             public String getVersion() {
                 return version;

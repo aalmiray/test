@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,7 +31,7 @@ import org.jreleaser.model.internal.common.Java;
 import org.jreleaser.model.internal.packagers.Packager;
 import org.jreleaser.model.internal.packagers.Packagers;
 import org.jreleaser.model.internal.platform.Platform;
-import org.jreleaser.model.internal.project.Project;
+import org.jreleaser.mustache.TemplateContext;
 import org.jreleaser.version.SemanticVersion;
 
 import java.util.ArrayList;
@@ -65,8 +65,8 @@ import static org.jreleaser.model.Constants.KEY_DISTRIBUTION_NAME;
 import static org.jreleaser.model.Constants.KEY_DISTRIBUTION_STEREOTYPE;
 import static org.jreleaser.model.Constants.KEY_DISTRIBUTION_TAGS_BY_COMMA;
 import static org.jreleaser.model.Constants.KEY_DISTRIBUTION_TAGS_BY_SPACE;
+import static org.jreleaser.model.JReleaserOutput.nag;
 import static org.jreleaser.mustache.MustacheUtils.applyTemplates;
-import static org.jreleaser.util.CollectionUtils.safePut;
 import static org.jreleaser.util.StringUtils.isBlank;
 import static org.jreleaser.util.StringUtils.isNotBlank;
 
@@ -75,6 +75,8 @@ import static org.jreleaser.util.StringUtils.isNotBlank;
  * @since 0.1.0
  */
 public final class Distribution extends Packagers<Distribution> implements Domain, Activatable, ExtraProperties {
+    private static final long serialVersionUID = -1492592986871135365L;
+
     private final List<String> tags = new ArrayList<>();
     private final Map<String, Object> extraProperties = new LinkedHashMap<>();
     private final Set<Artifact> artifacts = new LinkedHashSet<>();
@@ -82,14 +84,14 @@ public final class Distribution extends Packagers<Distribution> implements Domai
     private final Platform platform = new Platform();
     private final Executable executable = new Executable();
 
-    private Active active;
-    @JsonIgnore
-    private boolean enabled;
     private String name;
     private org.jreleaser.model.Distribution.DistributionType type = org.jreleaser.model.Distribution.DistributionType.JAVA_BINARY;
     private Stereotype stereotype;
 
+    @JsonIgnore
     private final org.jreleaser.model.api.distributions.Distribution immutable = new org.jreleaser.model.api.distributions.Distribution() {
+        private static final long serialVersionUID = -3718386189666939473L;
+
         private Set<? extends org.jreleaser.model.api.common.Artifact> artifacts;
 
         @Override
@@ -139,7 +141,7 @@ public final class Distribution extends Packagers<Distribution> implements Domai
 
         @Override
         public Active getActive() {
-            return active;
+            return Distribution.this.getActive();
         }
 
         @Override
@@ -149,7 +151,7 @@ public final class Distribution extends Packagers<Distribution> implements Domai
 
         @Override
         public String getPrefix() {
-            return Distribution.this.getPrefix();
+            return Distribution.this.prefix();
         }
 
         @Override
@@ -223,11 +225,17 @@ public final class Distribution extends Packagers<Distribution> implements Domai
         }
 
         @Override
+        public org.jreleaser.model.api.packagers.WingetPackager getWinget() {
+            return winget.asImmutable();
+        }
+
+        @Override
         public Map<String, Object> asMap(boolean full) {
             return Collections.unmodifiableMap(Distribution.this.asMap(full));
         }
     };
 
+    @Override
     public org.jreleaser.model.api.distributions.Distribution asImmutable() {
         return immutable;
     }
@@ -235,8 +243,6 @@ public final class Distribution extends Packagers<Distribution> implements Domai
     @Override
     public void merge(Distribution source) {
         super.merge(source);
-        this.active = merge(this.active, source.active);
-        this.enabled = merge(this.enabled, source.enabled);
         this.name = merge(this.name, source.name);
         this.type = merge(this.type, source.type);
         this.stereotype = merge(this.stereotype, source.stereotype);
@@ -248,78 +254,40 @@ public final class Distribution extends Packagers<Distribution> implements Domai
         setArtifacts(merge(this.artifacts, source.artifacts));
     }
 
-    public Map<String, Object> props() {
-        Map<String, Object> props = new LinkedHashMap<>();
-        applyTemplates(props, getResolvedExtraProperties());
-        props.put(KEY_DISTRIBUTION_NAME, name);
-        props.put(KEY_DISTRIBUTION_STEREOTYPE, getStereotype());
-        props.put(KEY_DISTRIBUTION_EXECUTABLE, executable.getName());
-        props.put(KEY_DISTRIBUTION_EXECUTABLE_NAME, executable.getName());
-        props.put(KEY_DISTRIBUTION_EXECUTABLE_UNIX, executable.resolveExecutable("linux"));
-        props.put(KEY_DISTRIBUTION_EXECUTABLE_WINDOWS, executable.resolveExecutable("windows"));
-        safePut(KEY_DISTRIBUTION_EXECUTABLE_EXTENSION_UNIX, executable.resolveUnixExtension(), props, true);
-        safePut(KEY_DISTRIBUTION_EXECUTABLE_EXTENSION_WINDOWS, executable.resolveWindowsExtension(), props, true);
-        props.put(KEY_DISTRIBUTION_TAGS_BY_SPACE, String.join(" ", tags));
-        props.put(KEY_DISTRIBUTION_TAGS_BY_COMMA, String.join(",", tags));
-        props.putAll(java.getResolvedExtraProperties());
-        safePut(KEY_DISTRIBUTION_JAVA_GROUP_ID, java.getGroupId(), props, true);
-        safePut(KEY_DISTRIBUTION_JAVA_ARTIFACT_ID, java.getArtifactId(), props, true);
-        safePut(KEY_DISTRIBUTION_JAVA_MAIN_CLASS, java.getMainClass(), props, true);
+    public TemplateContext props() {
+        TemplateContext props = new TemplateContext();
+        applyTemplates(props, resolvedExtraProperties());
+        props.set(KEY_DISTRIBUTION_NAME, name);
+        props.set(KEY_DISTRIBUTION_STEREOTYPE, getStereotype());
+        props.set(KEY_DISTRIBUTION_EXECUTABLE, executable.getName());
+        props.set(KEY_DISTRIBUTION_EXECUTABLE_NAME, executable.getName());
+        props.set(KEY_DISTRIBUTION_EXECUTABLE_UNIX, executable.resolveExecutable("linux"));
+        props.set(KEY_DISTRIBUTION_EXECUTABLE_WINDOWS, executable.resolveExecutable("windows"));
+        props.set(KEY_DISTRIBUTION_EXECUTABLE_EXTENSION_UNIX, executable.resolveUnixExtension(), "");
+        props.set(KEY_DISTRIBUTION_EXECUTABLE_EXTENSION_WINDOWS, executable.resolveWindowsExtension(), "");
+        props.set(KEY_DISTRIBUTION_TAGS_BY_SPACE, String.join(" ", tags));
+        props.set(KEY_DISTRIBUTION_TAGS_BY_COMMA, String.join(",", tags));
+        props.setAll(java.resolvedExtraProperties());
+        props.set(KEY_DISTRIBUTION_JAVA_GROUP_ID, java.getGroupId(), "");
+        props.set(KEY_DISTRIBUTION_JAVA_ARTIFACT_ID, java.getArtifactId(), "");
+        props.set(KEY_DISTRIBUTION_JAVA_MAIN_CLASS, java.getMainClass(), "");
         if (isNotBlank(java.getVersion())) {
-            props.put(KEY_DISTRIBUTION_JAVA_VERSION, java.getVersion());
+            props.set(KEY_DISTRIBUTION_JAVA_VERSION, java.getVersion());
             SemanticVersion jv = SemanticVersion.of(java.getVersion());
-            safePut(KEY_DISTRIBUTION_JAVA_VERSION_MAJOR, jv.getMajor(), props, true);
-            safePut(KEY_DISTRIBUTION_JAVA_VERSION_MINOR, jv.getMinor(), props, true);
-            safePut(KEY_DISTRIBUTION_JAVA_VERSION_PATCH, jv.getPatch(), props, true);
-            safePut(KEY_DISTRIBUTION_JAVA_VERSION_TAG, jv.getTag(), props, true);
-            safePut(KEY_DISTRIBUTION_JAVA_VERSION_BUILD, jv.getBuild(), props, true);
+            props.set(KEY_DISTRIBUTION_JAVA_VERSION_MAJOR, jv.getMajor(), "");
+            props.set(KEY_DISTRIBUTION_JAVA_VERSION_MINOR, jv.getMinor(), "");
+            props.set(KEY_DISTRIBUTION_JAVA_VERSION_PATCH, jv.getPatch(), "");
+            props.set(KEY_DISTRIBUTION_JAVA_VERSION_TAG, jv.getTag(), "");
+            props.set(KEY_DISTRIBUTION_JAVA_VERSION_BUILD, jv.getBuild(), "");
         } else {
-            props.put(KEY_DISTRIBUTION_JAVA_VERSION, "");
-            props.put(KEY_DISTRIBUTION_JAVA_VERSION_MAJOR, "");
-            props.put(KEY_DISTRIBUTION_JAVA_VERSION_MINOR, "");
-            props.put(KEY_DISTRIBUTION_JAVA_VERSION_PATCH, "");
-            props.put(KEY_DISTRIBUTION_JAVA_VERSION_TAG, "");
-            props.put(KEY_DISTRIBUTION_JAVA_VERSION_BUILD, "");
+            props.set(KEY_DISTRIBUTION_JAVA_VERSION, "");
+            props.set(KEY_DISTRIBUTION_JAVA_VERSION_MAJOR, "");
+            props.set(KEY_DISTRIBUTION_JAVA_VERSION_MINOR, "");
+            props.set(KEY_DISTRIBUTION_JAVA_VERSION_PATCH, "");
+            props.set(KEY_DISTRIBUTION_JAVA_VERSION_TAG, "");
+            props.set(KEY_DISTRIBUTION_JAVA_VERSION_BUILD, "");
         }
         return props;
-    }
-
-    @Override
-    public boolean isEnabled() {
-        return enabled;
-    }
-
-    public void disable() {
-        active = Active.NEVER;
-        enabled = false;
-    }
-
-    public boolean resolveEnabled(Project project) {
-        if (null == active) {
-            active = Active.NEVER;
-        }
-        enabled = active.check(project);
-        return enabled;
-    }
-
-    @Override
-    public Active getActive() {
-        return active;
-    }
-
-    @Override
-    public void setActive(Active active) {
-        this.active = active;
-    }
-
-    @Override
-    public void setActive(String str) {
-        setActive(Active.of(str));
-    }
-
-    @Override
-    public boolean isActiveSet() {
-        return active != null;
     }
 
     public Platform getPlatform() {
@@ -331,7 +299,7 @@ public final class Distribution extends Packagers<Distribution> implements Domai
     }
 
     @Override
-    public String getPrefix() {
+    public String prefix() {
         return "distribution";
     }
 
@@ -340,7 +308,12 @@ public final class Distribution extends Packagers<Distribution> implements Domai
     }
 
     public void setType(org.jreleaser.model.Distribution.DistributionType type) {
-        this.type = type;
+        if (type == org.jreleaser.model.Distribution.DistributionType.NATIVE_IMAGE) {
+            nag("NATIVE_IMAGE is deprecated since 1.4.0 and will be removed in 2.0.0. Use BINARY instead");
+            this.type = org.jreleaser.model.Distribution.DistributionType.BINARY;
+        } else {
+            this.type = type;
+        }
     }
 
     public void setType(String type) {
@@ -455,14 +428,6 @@ public final class Distribution extends Packagers<Distribution> implements Domai
         return resolvePackager(name);
     }
 
-    public <T extends Packager<?>> T getPackager(String name) {
-        T packager = findPackager(name);
-        if (null != packager) {
-            return packager;
-        }
-        throw new JReleaserException(RB.$("ERROR_packager_not_configured", name));
-    }
-
     private <T extends Packager<?>> T resolvePackager(String name) {
         switch (name.toLowerCase(Locale.ENGLISH).trim()) {
             case org.jreleaser.model.api.packagers.AppImagePackager.TYPE:
@@ -491,6 +456,8 @@ public final class Distribution extends Packagers<Distribution> implements Domai
                 return (T) getSnap();
             case org.jreleaser.model.api.packagers.SpecPackager.TYPE:
                 return (T) getSpec();
+            case org.jreleaser.model.api.packagers.WingetPackager.TYPE:
+                return (T) getWinget();
             default:
                 throw new JReleaserException(RB.$("ERROR_unsupported_packager", name));
         }
@@ -502,7 +469,7 @@ public final class Distribution extends Packagers<Distribution> implements Domai
 
         Map<String, Object> props = new LinkedHashMap<>();
         props.put("enabled", isEnabled());
-        props.put("active", active);
+        props.put("active", getActive());
         props.put("type", type);
         props.put("executable", executable.asMap(full));
         if (full || platform.isSet()) props.put("platform", platform.asMap(full));
@@ -516,7 +483,7 @@ public final class Distribution extends Packagers<Distribution> implements Domai
 
         props.put("tags", tags);
         props.put("stereotype", stereotype);
-        props.put("extraProperties", getResolvedExtraProperties());
+        props.put("extraProperties", resolvedExtraProperties());
         if (java.isEnabled()) {
             props.put("java", java.asMap(full));
         }

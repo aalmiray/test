@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,16 +22,16 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.jreleaser.model.internal.JReleaserContext;
 import org.jreleaser.model.internal.distributions.Distribution;
 import org.jreleaser.model.internal.packagers.JbangPackager;
-import org.jreleaser.model.internal.project.Project;
 import org.jreleaser.model.internal.release.BaseReleaser;
 import org.jreleaser.model.spi.packagers.PackagerProcessingException;
+import org.jreleaser.mustache.TemplateContext;
 import org.jreleaser.util.JsonUtils;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Map;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.jreleaser.model.Constants.KEY_JBANG_ALIAS_NAME;
 import static org.jreleaser.model.Constants.KEY_JBANG_CATALOG_REPO_CLONE_URL;
 import static org.jreleaser.model.Constants.KEY_JBANG_CATALOG_REPO_URL;
@@ -57,24 +57,23 @@ public class JbangPackagerProcessor extends AbstractRepositoryPackagerProcessor<
     }
 
     @Override
-    protected void doPackageDistribution(Distribution distribution, Map<String, Object> props, Path packageDirectory) throws PackagerProcessingException {
+    protected void doPackageDistribution(Distribution distribution, TemplateContext props, Path packageDirectory) throws PackagerProcessingException {
         super.doPackageDistribution(distribution, props, packageDirectory);
-        copyPreparedFiles(distribution, props);
+        copyPreparedFiles(props);
     }
 
     @Override
-    protected boolean verifyAndAddArtifacts(Map<String, Object> props,
-                                            Distribution distribution) throws PackagerProcessingException {
+    protected boolean verifyAndAddArtifacts(TemplateContext props, Distribution distribution) {
         return true;
     }
 
     @Override
-    protected void fillPackagerProperties(Map<String, Object> props, Distribution distribution) throws PackagerProcessingException {
+    protected void fillPackagerProperties(TemplateContext props, Distribution distribution) {
         BaseReleaser<?, ?> releaser = context.getModel().getRelease().getReleaser();
 
-        props.put(KEY_JBANG_CATALOG_REPO_URL,
+        props.set(KEY_JBANG_CATALOG_REPO_URL,
             releaser.getResolvedRepoUrl(context.getModel(), packager.getCatalog().getOwner(), packager.getCatalog().getResolvedName()));
-        props.put(KEY_JBANG_CATALOG_REPO_CLONE_URL,
+        props.set(KEY_JBANG_CATALOG_REPO_CLONE_URL,
             releaser.getResolvedRepoCloneUrl(context.getModel(), packager.getCatalog().getOwner(), packager.getCatalog().getResolvedName()));
 
         String aliasName = sanitizeAlias(packager.getAlias());
@@ -85,10 +84,10 @@ public class JbangPackagerProcessor extends AbstractRepositoryPackagerProcessor<
         }
         scriptName = sanitizeScriptName(scriptName);
 
-        props.put(KEY_JBANG_ALIAS_NAME, aliasName);
-        props.put(KEY_JBANG_SCRIPT_NAME, scriptName);
+        props.set(KEY_JBANG_ALIAS_NAME, aliasName);
+        props.set(KEY_JBANG_SCRIPT_NAME, scriptName);
 
-        String jbangDistributionGA = (String) packager.getResolvedExtraProperties().get(KEY_JBANG_DISTRIBUTION_GA);
+        String jbangDistributionGA = (String) packager.resolvedExtraProperties().get(KEY_JBANG_DISTRIBUTION_GA);
         if (isBlank(jbangDistributionGA)) {
             if (context.getModel().getProject().isSnapshot()) {
                 // if single
@@ -120,7 +119,7 @@ public class JbangPackagerProcessor extends AbstractRepositoryPackagerProcessor<
                     distribution.getJava().getArtifactId();
             }
         }
-        props.put(KEY_JBANG_DISTRIBUTION_GA, jbangDistributionGA);
+        props.set(KEY_JBANG_DISTRIBUTION_GA, jbangDistributionGA);
     }
 
     private String sanitizeAlias(String alias) {
@@ -135,7 +134,7 @@ public class JbangPackagerProcessor extends AbstractRepositoryPackagerProcessor<
     }
 
     private String sanitizeScriptName(String scriptName) {
-        scriptName = scriptName.replaceAll("-", "_");
+        scriptName = scriptName.replace("-", "_");
         StringBuilder b = new StringBuilder();
         for (int i = 0; i < scriptName.length(); i++) {
             char ch = scriptName.charAt(i);
@@ -147,16 +146,15 @@ public class JbangPackagerProcessor extends AbstractRepositoryPackagerProcessor<
     }
 
     @Override
-    protected void writeFile(Project project,
-                             Distribution distribution,
+    protected void writeFile(Distribution distribution,
                              String content,
-                             Map<String, Object> props,
+                             TemplateContext props,
                              Path outputDirectory,
                              String fileName)
         throws PackagerProcessingException {
         fileName = trimTplExtension(fileName);
 
-        String scriptName = (String) props.get(KEY_JBANG_SCRIPT_NAME);
+        String scriptName = props.get(KEY_JBANG_SCRIPT_NAME);
         Path outputFile = "jbang.java".equals(fileName) ?
             outputDirectory.resolve(scriptName.concat(".java")) :
             outputDirectory.resolve(fileName);
@@ -165,7 +163,7 @@ public class JbangPackagerProcessor extends AbstractRepositoryPackagerProcessor<
     }
 
     @Override
-    protected void prepareWorkingCopy(Map<String, Object> props, Path directory, Distribution distribution) throws PackagerProcessingException, IOException {
+    protected void prepareWorkingCopy(TemplateContext props, Path directory, Distribution distribution) throws IOException {
         Path catalog = directory.resolve("jbang-catalog.json");
 
         if (catalog.toFile().exists()) {
@@ -183,7 +181,7 @@ public class JbangPackagerProcessor extends AbstractRepositoryPackagerProcessor<
             JsonNode merged = JsonUtils.merge(previous, current);
 
             // write merged catalog
-            Files.write(catalog, merged.toPrettyString().getBytes());
+            Files.write(catalog, merged.toPrettyString().getBytes(UTF_8));
         } else {
             // copy all files
             super.prepareWorkingCopy(props, directory, distribution);

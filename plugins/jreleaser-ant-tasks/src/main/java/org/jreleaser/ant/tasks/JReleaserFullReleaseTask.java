@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -38,6 +38,8 @@ public class JReleaserFullReleaseTask extends AbstractPackagerAwareJReleaserTask
     private final List<String> excludedUploaderNames = new ArrayList<>();
     private final List<String> announcers = new ArrayList<>();
     private final List<String> excludedAnnouncers = new ArrayList<>();
+    private final List<String> catalogers = new ArrayList<>();
+    private final List<String> excludedCatalogers = new ArrayList<>();
 
     public void setDeployerTypes(String deployerTypes) {
         this.deployerTypes.addAll(expandAndCollect(deployerTypes));
@@ -139,18 +141,40 @@ public class JReleaserFullReleaseTask extends AbstractPackagerAwareJReleaserTask
         }
     }
 
+    public void setCatalogers(String catalogers) {
+        this.catalogers.addAll(expandAndCollect(catalogers));
+    }
+
+    public void setExcludedCatalogers(String excludedCatalogers) {
+        this.excludedCatalogers.addAll(expandAndCollect(excludedCatalogers));
+    }
+
+    public void setCatalogers(List<String> catalogers) {
+        if (null != catalogers) {
+            this.catalogers.addAll(catalogers);
+        }
+    }
+
+    public void setExcludedCatalogers(List<String> excludedCatalogers) {
+        if (null != excludedCatalogers) {
+            this.excludedCatalogers.addAll(excludedCatalogers);
+        }
+    }
+
     @Override
     protected void doExecute(JReleaserContext context) {
-        context.setIncludedDeployerTypes(deployerTypes);
-        context.setExcludedDeployerTypes(excludedDeployerTypes);
+        context.setIncludedDeployerTypes(collectEntries(deployerTypes, true));
+        context.setExcludedDeployerTypes(collectEntries(excludedDeployerTypes, true));
         context.setIncludedDeployerNames(deployerNames);
         context.setExcludedDeployerNames(excludedDeployerNames);
-        context.setIncludedUploaderTypes(uploaderTypes);
-        context.setExcludedUploaderTypes(excludedUploaderTypes);
+        context.setIncludedUploaderTypes(collectEntries(uploaderTypes, true));
+        context.setExcludedUploaderTypes(collectEntries(excludedUploaderTypes, true));
         context.setIncludedUploaderNames(uploaderNames);
         context.setExcludedUploaderNames(excludedUploaderNames);
-        context.setIncludedAnnouncers(announcers);
-        context.setExcludedAnnouncers(excludedAnnouncers);
+        context.setIncludedAnnouncers(collectEntries(announcers, true));
+        context.setExcludedAnnouncers(collectEntries(excludedAnnouncers, true));
+        context.setIncludedCatalogers(collectEntries(catalogers, true));
+        context.setExcludedCatalogers(collectEntries(excludedCatalogers, true));
         Workflows.fullRelease(setupContext(context)).execute();
     }
 }

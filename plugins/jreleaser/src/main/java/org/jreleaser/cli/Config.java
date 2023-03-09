@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,18 +17,20 @@
  */
 package org.jreleaser.cli;
 
-import org.jreleaser.cli.internal.JReleaserModelPrinter;
+import org.jreleaser.cli.internal.CliJReleaserModelPrinter;
 import org.jreleaser.engine.context.ModelValidator;
 import org.jreleaser.model.api.JReleaserContext.Mode;
 import org.jreleaser.model.internal.JReleaserContext;
 import picocli.CommandLine;
+
+import java.util.Set;
 
 /**
  * @author Andres Almiray
  * @since 0.1.0
  */
 @CommandLine.Command(name = "config")
-public class Config extends AbstractPlatformAwareModelCommand {
+public class Config extends AbstractPlatformAwareModelCommand<Main> {
     @CommandLine.Option(names = {"-f", "--full"})
     boolean full;
 
@@ -50,9 +52,16 @@ public class Config extends AbstractPlatformAwareModelCommand {
     }
 
     @Override
+    protected void collectCandidateDeprecatedArgs(Set<AbstractCommand.DeprecatedArg> args) {
+        super.collectCandidateDeprecatedArgs(args);
+        args.add(new DeprecatedArg("-a", "--assembly", "1.5.0"));
+        args.add(new DeprecatedArg("-d", "--download", "1.5.0"));
+    }
+
+    @Override
     protected void doExecute(JReleaserContext context) {
         ModelValidator.validate(context);
-        new JReleaserModelPrinter(parent.out).print(context.getModel().asMap(full));
+        new CliJReleaserModelPrinter(parent().getOut()).print(context.getModel().asMap(full));
         context.report();
     }
 
@@ -66,18 +75,18 @@ public class Config extends AbstractPlatformAwareModelCommand {
     }
 
     private boolean download() {
-        return exclusive != null && exclusive.download;
+        return null != exclusive && exclusive.download;
     }
 
     private boolean assembly() {
-        return exclusive != null && exclusive.assembly;
+        return null != exclusive && exclusive.assembly;
     }
 
     private boolean changelog() {
-        return exclusive != null && exclusive.changelog;
+        return null != exclusive && exclusive.changelog;
     }
 
     private boolean announce() {
-        return exclusive != null && exclusive.announce;
+        return null != exclusive && exclusive.announce;
     }
 }

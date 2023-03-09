@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,12 +22,14 @@ import org.jreleaser.model.internal.JReleaserContext;
 import org.jreleaser.workflow.Workflows;
 import picocli.CommandLine;
 
+import java.util.Set;
+
 /**
  * @author Andres Almiray
  * @since 0.2.0
  */
 @CommandLine.Command(name = "assemble")
-public class Assemble extends AbstractPlatformAwareModelCommand {
+public class Assemble extends AbstractPlatformAwareModelCommand<Main> {
     @CommandLine.ArgGroup
     Composite composite;
 
@@ -41,19 +43,19 @@ public class Assemble extends AbstractPlatformAwareModelCommand {
         Exclude exclude;
 
         String[] includedAssemblers() {
-            return include != null ? include.includedAssemblers : null;
+            return null != include ? include.includedAssemblers : null;
         }
 
         String[] includedDistributions() {
-            return include != null ? include.includedDistributions : null;
+            return null != include ? include.includedDistributions : null;
         }
 
         String[] excludedAssemblers() {
-            return exclude != null ? exclude.excludedAssemblers : null;
+            return null != exclude ? exclude.excludedAssemblers : null;
         }
 
         String[] excludedDistributions() {
-            return exclude != null ? exclude.excludedDistributions : null;
+            return null != exclude ? exclude.excludedDistributions : null;
         }
     }
 
@@ -75,6 +77,15 @@ public class Assemble extends AbstractPlatformAwareModelCommand {
         @CommandLine.Option(names = {"-xd", "--exclude-distribution"},
             paramLabel = "<distribution>")
         String[] excludedDistributions;
+    }
+
+    @Override
+    protected void collectCandidateDeprecatedArgs(Set<AbstractCommand.DeprecatedArg> args) {
+        super.collectCandidateDeprecatedArgs(args);
+        args.add(new DeprecatedArg("-s", "--assembler", "1.5.0"));
+        args.add(new DeprecatedArg("-xs", "--exclude-assembler", "1.5.0"));
+        args.add(new DeprecatedArg("-d", "--distribution", "1.5.0"));
+        args.add(new DeprecatedArg("-xd", "--exclude-distribution", "1.5.0"));
     }
 
     @Override

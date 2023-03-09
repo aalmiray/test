@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,6 @@ package org.jreleaser.gradle.plugin.dsl.assemble
 
 import groovy.transform.CompileStatic
 import org.gradle.api.Action
-import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.provider.Property
 import org.jreleaser.gradle.plugin.dsl.common.Artifact
 import org.jreleaser.gradle.plugin.dsl.common.Glob
@@ -34,10 +33,6 @@ import org.jreleaser.gradle.plugin.dsl.common.Java
 interface JavaAssembler extends Assembler {
     Property<String> getExecutable()
 
-    DirectoryProperty getTemplateDirectory()
-
-    void setTemplateDirectory(String templateDirectory)
-
     Java getJava()
 
     void java(Action<? super Java> action)
@@ -46,13 +41,9 @@ interface JavaAssembler extends Assembler {
 
     void jars(Action<? super Glob> action)
 
-    void files(Action<? super Glob> action)
-
     void java(@DelegatesTo(strategy = Closure.DELEGATE_FIRST, value = Java) Closure<Void> action)
 
     void mainJar(@DelegatesTo(strategy = Closure.DELEGATE_FIRST, value = Artifact) Closure<Void> action)
 
     void jars(@DelegatesTo(strategy = Closure.DELEGATE_FIRST, value = Glob) Closure<Void> action)
-
-    void files(@DelegatesTo(strategy = Closure.DELEGATE_FIRST, value = Glob) Closure<Void> action)
 }

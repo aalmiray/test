@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ package org.jreleaser.workflow;
 
 import org.jreleaser.bundle.RB;
 import org.jreleaser.engine.context.ModelValidator;
+import org.jreleaser.extensions.api.ExtensionManagerHolder;
 import org.jreleaser.extensions.api.workflow.WorkflowListenerException;
 import org.jreleaser.model.JReleaserException;
 import org.jreleaser.model.api.hooks.ExecutionEvent;
@@ -45,7 +46,17 @@ class WorkflowImpl implements Workflow {
         this.items.addAll(items);
     }
 
+    @Override
     public void execute() {
+        try {
+            doExecute();
+        } finally {
+            ExtensionManagerHolder.cleanup();
+            context.getLogger().close();
+        }
+    }
+
+    private void doExecute() {
         RuntimeException stepException = null;
         Throwable listenerException = null;
         Throwable startSessionException = null;
@@ -61,6 +72,8 @@ class WorkflowImpl implements Workflow {
         logFilters("workflow.excluded.assemblers", context.getExcludedAssemblers());
         logFilters("workflow.included.distributions", context.getIncludedDistributions());
         logFilters("workflow.excluded.distributions", context.getExcludedDistributions());
+        logFilters("workflow.included.catalogers", context.getIncludedCatalogers());
+        logFilters("workflow.excluded.catalogers", context.getExcludedCatalogers());
         logFilters("workflow.included.packagers", context.getIncludedPackagers());
         logFilters("workflow.excluded.packagers", context.getExcludedPackagers());
         logFilters("workflow.included.deployer.types", context.getIncludedDeployerTypes());
@@ -85,8 +98,8 @@ class WorkflowImpl implements Workflow {
         }
 
         if (null == startSessionException) {
-            boolean failure = false;
             for (WorkflowItem item : items) {
+                boolean failure = false;
                 try {
                     context.fireWorkflowEvent(ExecutionEvent.before(item.getCommand().toStep()));
                 } catch (WorkflowListenerException beforeException) {
@@ -107,6 +120,7 @@ class WorkflowImpl implements Workflow {
 
                     try {
                         context.fireWorkflowEvent(ExecutionEvent.failure(item.getCommand().toStep(), e));
+                        break;
                     } catch (WorkflowListenerException failureException) {
                         context.getLogger().error(RB.$("listener.failure", failureException.getListener().getClass().getName()));
                         context.getLogger().trace(failureException);
@@ -115,7 +129,6 @@ class WorkflowImpl implements Workflow {
                             break;
                         }
                     }
-                    break;
                 }
 
                 if (!failure) {

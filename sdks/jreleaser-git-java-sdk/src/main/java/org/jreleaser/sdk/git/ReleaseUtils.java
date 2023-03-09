@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
  */
 package org.jreleaser.sdk.git;
 
+import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.transport.UsernamePasswordCredentialsProvider;
 import org.jreleaser.bundle.RB;
 import org.jreleaser.model.internal.JReleaserContext;
@@ -33,11 +34,11 @@ import java.io.IOException;
 @org.jreleaser.infra.nativeimage.annotations.NativeImage
 public final class ReleaseUtils {
     private ReleaseUtils() {
-
+        // noop
     }
 
     public static void createTag(JReleaserContext context) throws ReleaseException {
-        BaseReleaser service = context.getModel().getRelease().getReleaser();
+        BaseReleaser<?, ?> service = context.getModel().getRelease().getReleaser();
 
         try {
             GitSdk git = GitSdk.of(context);
@@ -80,11 +81,13 @@ public final class ReleaseUtils {
                 context.getModel().getRelease().getReleaser().getUsername(),
                 context.getModel().getRelease().getReleaser().getToken());
 
-            gitSdk.open().push()
-                .setDryRun(context.isDryrun())
-                .setPushTags()
-                .setCredentialsProvider(credentialsProvider)
-                .call();
+            try (Git git = gitSdk.open()) {
+                git.push()
+                    .setDryRun(context.isDryrun())
+                    .setPushTags()
+                    .setCredentialsProvider(credentialsProvider)
+                    .call();
+            }
         } catch (Exception e) {
             context.getLogger().trace(e);
             throw new ReleaseException(e);

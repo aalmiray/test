@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,7 +29,7 @@ import org.jreleaser.sdk.commons.AbstractArtifactUploader;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.List;
+import java.util.Set;
 
 import static org.jreleaser.sdk.ssh.SshUtils.close;
 import static org.jreleaser.sdk.ssh.SshUtils.createDirectories;
@@ -65,13 +65,13 @@ public class SftpArtifactUploader extends AbstractArtifactUploader<org.jreleaser
 
     @Override
     public void upload(String name) throws UploadException {
-        List<Artifact> artifacts = collectArtifacts();
+        Set<Artifact> artifacts = collectArtifacts();
         if (artifacts.isEmpty()) {
             context.getLogger().info(RB.$("artifacts.no.match"));
         }
 
         SSHClient ssh = createSSHClient(context, uploader);
-        SFTPClient sftp = createSFTPClient(context, uploader, ssh);
+        SFTPClient sftp = createSFTPClient(uploader, ssh);
 
         try {
             for (Artifact artifact : artifacts) {

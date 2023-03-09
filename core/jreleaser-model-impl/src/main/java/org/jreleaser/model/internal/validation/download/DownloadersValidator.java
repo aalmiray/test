@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,9 +21,9 @@ import org.jreleaser.bundle.RB;
 import org.jreleaser.model.api.JReleaserContext.Mode;
 import org.jreleaser.model.internal.JReleaserContext;
 import org.jreleaser.model.internal.download.Download;
-import org.jreleaser.model.internal.validation.common.Validator;
 import org.jreleaser.util.Errors;
 
+import static org.jreleaser.model.internal.validation.common.Validator.resolveActivatable;
 import static org.jreleaser.model.internal.validation.download.FtpDownloaderValidator.validateFtpDownloader;
 import static org.jreleaser.model.internal.validation.download.HttpDownloaderValidator.validateHttpDownloader;
 import static org.jreleaser.model.internal.validation.download.ScpDownloaderValidator.validateScpDownloader;
@@ -33,7 +33,11 @@ import static org.jreleaser.model.internal.validation.download.SftpDownloaderVal
  * @author Andres Almiray
  * @since 1.1.0
  */
-public abstract class DownloadersValidator extends Validator {
+public final class DownloadersValidator {
+    private DownloadersValidator() {
+        // noop
+    }
+
     public static void validateDownloaders(JReleaserContext context, Mode mode, Errors errors) {
         Download download = context.getModel().getDownload();
         context.getLogger().debug("download");
@@ -45,6 +49,7 @@ public abstract class DownloadersValidator extends Validator {
 
         if (mode.validateConfig() || mode.validateDownload()) {
             boolean activeSet = download.isActiveSet();
+            resolveActivatable(context, download, "download", "ALWAYS");
             download.resolveEnabled(context.getModel().getProject());
 
             if (download.isEnabled()) {

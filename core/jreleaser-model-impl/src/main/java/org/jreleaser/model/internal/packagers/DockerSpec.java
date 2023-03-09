@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
  */
 package org.jreleaser.model.internal.packagers;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.jreleaser.model.Active;
 import org.jreleaser.model.internal.common.Artifact;
 import org.jreleaser.model.internal.common.Domain;
@@ -31,17 +32,24 @@ import static java.util.Collections.unmodifiableList;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.Collections.unmodifiableSet;
 import static java.util.stream.Collectors.toSet;
+import static org.jreleaser.model.Constants.KEY_PLATFORM;
+import static org.jreleaser.util.StringUtils.isNotBlank;
 
 /**
  * @author Andres Almiray
  * @since 0.4.0
  */
 public final class DockerSpec extends AbstractDockerConfiguration<DockerSpec> implements Domain {
+    private static final long serialVersionUID = 5373884037924711407L;
+
     private final Map<String, Object> matchers = new LinkedHashMap<>();
     private Artifact artifact;
     private String name;
 
+    @JsonIgnore
     private final org.jreleaser.model.api.packagers.DockerSpec immutable = new org.jreleaser.model.api.packagers.DockerSpec() {
+        private static final long serialVersionUID = -932413489796274177L;
+
         private Set<? extends org.jreleaser.model.api.packagers.DockerPackager.Registry> registries;
 
         @Override
@@ -61,48 +69,48 @@ public final class DockerSpec extends AbstractDockerConfiguration<DockerSpec> im
 
         @Override
         public String getTemplateDirectory() {
-            return templateDirectory;
+            return DockerSpec.this.getTemplateDirectory();
         }
 
         @Override
         public List<String> getSkipTemplates() {
-            return unmodifiableList(skipTemplates);
+            return unmodifiableList(DockerSpec.this.getSkipTemplates());
         }
 
         @Override
         public String getBaseImage() {
-            return baseImage;
+            return DockerSpec.this.getBaseImage();
         }
 
         @Override
         public Map<String, String> getLabels() {
-            return unmodifiableMap(labels);
+            return unmodifiableMap(DockerSpec.this.getLabels());
         }
 
         @Override
         public Set<String> getImageNames() {
-            return unmodifiableSet(imageNames);
+            return unmodifiableSet(DockerSpec.this.getImageNames());
         }
 
         @Override
         public List<String> getBuildArgs() {
-            return unmodifiableList(buildArgs);
+            return unmodifiableList(DockerSpec.this.getBuildArgs());
         }
 
         @Override
         public List<String> getPreCommands() {
-            return unmodifiableList(preCommands);
+            return unmodifiableList(DockerSpec.this.getPreCommands());
         }
 
         @Override
         public List<String> getPostCommands() {
-            return unmodifiableList(postCommands);
+            return unmodifiableList(DockerSpec.this.getPostCommands());
         }
 
         @Override
         public Set<? extends org.jreleaser.model.api.packagers.DockerPackager.Registry> getRegistries() {
             if (null == registries) {
-                registries = DockerSpec.this.registries.stream()
+                registries = DockerSpec.this.getRegistries().stream()
                     .map(DockerConfiguration.Registry::asImmutable)
                     .collect(toSet());
             }
@@ -116,7 +124,7 @@ public final class DockerSpec extends AbstractDockerConfiguration<DockerSpec> im
 
         @Override
         public Active getActive() {
-            return active;
+            return DockerSpec.this.getActive();
         }
 
         @Override
@@ -131,12 +139,17 @@ public final class DockerSpec extends AbstractDockerConfiguration<DockerSpec> im
 
         @Override
         public String getPrefix() {
-            return DockerSpec.this.getPrefix();
+            return DockerSpec.this.prefix();
+        }
+
+        @Override
+        public Buildx getBuildx() {
+            return DockerSpec.this.getBuildx().asImmutable();
         }
 
         @Override
         public Map<String, Object> getExtraProperties() {
-            return unmodifiableMap(extraProperties);
+            return unmodifiableMap(DockerSpec.this.getExtraProperties());
         }
     };
 
@@ -193,7 +206,7 @@ public final class DockerSpec extends AbstractDockerConfiguration<DockerSpec> im
     @Override
     protected void asMap(boolean full, Map<String, Object> props) {
         props.put("matchers", matchers);
-        if (artifact != null) {
+        if (null != artifact) {
             props.put("artifact", artifact.asMap(full));
         }
     }
@@ -203,8 +216,8 @@ public final class DockerSpec extends AbstractDockerConfiguration<DockerSpec> im
 
         for (Map.Entry<String, Object> e : matchers.entrySet()) {
             String key = e.getKey();
-            if ("platform".equals(key)) {
-                matched &= PlatformUtils.isCompatible(String.valueOf(e.getValue()), artifact.getPlatform());
+            if (KEY_PLATFORM.equals(key)) {
+                matched &= isNotBlank(artifact.getPlatform()) && PlatformUtils.isCompatible(String.valueOf(e.getValue()), artifact.getPlatform());
             } else if (artifact.getExtraProperties().containsKey(key)) {
                 matched &= e.getValue().equals(artifact.getExtraProperties().get(key));
             }

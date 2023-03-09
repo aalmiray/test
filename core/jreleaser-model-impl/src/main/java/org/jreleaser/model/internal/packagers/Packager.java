@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,6 +24,7 @@ import org.jreleaser.model.internal.common.Artifact;
 import org.jreleaser.model.internal.common.Domain;
 import org.jreleaser.model.internal.common.ExtraProperties;
 import org.jreleaser.model.internal.distributions.Distribution;
+import org.jreleaser.model.internal.project.Project;
 
 import java.util.List;
 import java.util.Set;
@@ -49,6 +50,8 @@ public interface Packager<A extends org.jreleaser.model.api.packagers.Packager> 
 
     List<Artifact> resolveCandidateArtifacts(JReleaserContext context, Distribution distribution);
 
+    List<Artifact> resolveNonOptionalArtifacts(JReleaserContext context, Distribution distribution);
+
     boolean isSnapshotSupported();
 
     boolean isContinueOnError();
@@ -62,4 +65,6 @@ public interface Packager<A extends org.jreleaser.model.api.packagers.Packager> 
     void fail();
 
     A asImmutable();
+
+    boolean resolveEnabled(Project project, Distribution distribution);
 }

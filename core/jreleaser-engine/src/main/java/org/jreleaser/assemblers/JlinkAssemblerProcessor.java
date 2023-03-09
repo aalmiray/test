@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,14 +19,14 @@ package org.jreleaser.assemblers;
 
 import org.jreleaser.bundle.RB;
 import org.jreleaser.model.Archive;
-import org.jreleaser.model.Constants;
 import org.jreleaser.model.internal.JReleaserContext;
 import org.jreleaser.model.internal.assemble.JlinkAssembler;
 import org.jreleaser.model.internal.common.Artifact;
-import org.jreleaser.model.internal.project.Project;
 import org.jreleaser.model.spi.assemble.AssemblerProcessingException;
+import org.jreleaser.mustache.TemplateContext;
 import org.jreleaser.sdk.command.Command;
 import org.jreleaser.util.FileUtils;
+import org.jreleaser.util.IoUtils;
 import org.jreleaser.util.PlatformUtils;
 import org.jreleaser.util.StringUtils;
 import org.jreleaser.version.SemanticVersion;
@@ -37,7 +37,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
-import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.stream.Stream;
@@ -46,8 +45,12 @@ import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toSet;
 import static org.jreleaser.assemblers.AssemblerUtils.copyJars;
 import static org.jreleaser.assemblers.AssemblerUtils.readJavaVersion;
+import static org.jreleaser.model.Constants.KEY_ARCHIVE_FORMAT;
+import static org.jreleaser.model.Constants.KEY_DISTRIBUTION_ASSEMBLE_DIRECTORY;
+import static org.jreleaser.model.Constants.KEY_DISTRIBUTION_EXECUTABLE;
 import static org.jreleaser.mustache.Templates.resolveTemplate;
-import static org.jreleaser.templates.TemplateUtils.trimTplExtension;
+import static org.jreleaser.util.FileType.BAT;
+import static org.jreleaser.util.FileType.JAR;
 import static org.jreleaser.util.FileUtils.listFilesAndConsume;
 import static org.jreleaser.util.FileUtils.listFilesAndProcess;
 import static org.jreleaser.util.StringUtils.isBlank;
@@ -57,13 +60,19 @@ import static org.jreleaser.util.StringUtils.isNotBlank;
  * @author Andres Almiray
  * @since 0.2.0
  */
-public class JlinkAssemblerProcessor extends AbstractJavaAssemblerProcessor<org.jreleaser.model.api.assemble.JlinkAssembler, JlinkAssembler> {
+public class JlinkAssemblerProcessor extends AbstractAssemblerProcessor<org.jreleaser.model.api.assemble.JlinkAssembler, JlinkAssembler> {
     public JlinkAssemblerProcessor(JReleaserContext context) {
         super(context);
     }
 
     @Override
-    protected void doAssemble(Map<String, Object> props) throws AssemblerProcessingException {
+    protected void fillAssemblerProperties(TemplateContext props) {
+        super.fillAssemblerProperties(props);
+        props.set(KEY_DISTRIBUTION_EXECUTABLE, assembler.getExecutable());
+    }
+
+    @Override
+    protected void doAssemble(TemplateContext props) throws AssemblerProcessingException {
         // verify jdk
         Path jdkPath = assembler.getJdk().getEffectivePath(context, assembler);
         SemanticVersion jdkVersion = SemanticVersion.of(readJavaVersion(jdkPath));
@@ -82,8 +91,11 @@ public class JlinkAssemblerProcessor extends AbstractJavaAssemblerProcessor<org.
             }
         }
 
-        Path assembleDirectory = (Path) props.get(Constants.KEY_DISTRIBUTION_ASSEMBLE_DIRECTORY);
-        Path inputsDirectory = assembleDirectory.resolve("inputs");
+        Path assembleDirectory = props.get(KEY_DISTRIBUTION_ASSEMBLE_DIRECTORY);
+        Path inputsDirectory = assembleDirectory.resolve(INPUTS_DIRECTORY);
+
+        // copy templates
+        copyTemplates(context, props, inputsDirectory);
 
         // run jlink x jdk
         String imageName = assembler.getResolvedImageName(context);
@@ -96,13 +108,13 @@ public class JlinkAssemblerProcessor extends AbstractJavaAssemblerProcessor<org.
 
             String platform = targetJdk.getPlatform();
             // copy jars to assembly
-            Path jarsDirectory = inputsDirectory.resolve("jars");
-            Path universalJarsDirectory = jarsDirectory.resolve("universal");
+            Path jarsDirectory = inputsDirectory.resolve(JARS_DIRECTORY);
+            Path universalJarsDirectory = jarsDirectory.resolve(UNIVERSAL_DIRECTORY);
             context.getLogger().debug(RB.$("assembler.copy.jars"), context.relativizeToBasedir(universalJarsDirectory));
-            Set<Path> jars = copyJars(context, assembler, universalJarsDirectory, "");
+            copyJars(context, assembler, universalJarsDirectory, "");
             Path platformJarsDirectory = jarsDirectory.resolve(platform);
             context.getLogger().debug(RB.$("assembler.copy.jars"), context.relativizeToBasedir(platformJarsDirectory));
-            jars.addAll(copyJars(context, assembler, platformJarsDirectory, platform));
+            copyJars(context, assembler, platformJarsDirectory, platform);
 
             // resolve module names
             Set<String> moduleNames = new TreeSet<>(resolveModuleNames(context, jdkPath, jarsDirectory, platform, props));
@@ -117,23 +129,23 @@ public class JlinkAssemblerProcessor extends AbstractJavaAssemblerProcessor<org.
             context.getLogger().debug(RB.$("assembler.module.names"), moduleNames);
 
             String str = targetJdk.getExtraProperties()
-                .getOrDefault("archiveFormat", "ZIP")
+                .getOrDefault(KEY_ARCHIVE_FORMAT, assembler.getArchiveFormat())
                 .toString();
             Archive.Format archiveFormat = Archive.Format.of(str);
 
-            jlink(assembleDirectory, jdkPath, targetJdk, moduleNames, imageName, archiveFormat);
+            jlink(props, assembleDirectory, jdkPath, targetJdk, moduleNames, imageName, archiveFormat);
         }
     }
 
-    private Artifact jlink(Path assembleDirectory, Path jdkPath, Artifact targetJdk, Set<String> moduleNames, String imageName, Archive.Format archiveFormat) throws AssemblerProcessingException {
+    private void jlink(TemplateContext props, Path assembleDirectory, Path jdkPath, Artifact targetJdk, Set<String> moduleNames, String imageName, Archive.Format archiveFormat) throws AssemblerProcessingException {
         String platform = targetJdk.getPlatform();
         String platformReplaced = assembler.getPlatform().applyReplacements(platform);
         String finalImageName = imageName + "-" + platformReplaced;
         context.getLogger().info("- {}", finalImageName);
 
-        Path inputsDirectory = assembleDirectory.resolve("inputs");
-        Path jarsDirectory = inputsDirectory.resolve("jars");
-        Path workDirectory = assembleDirectory.resolve("work-" + platform);
+        Path inputsDirectory = assembleDirectory.resolve(INPUTS_DIRECTORY);
+        Path jarsDirectory = inputsDirectory.resolve(JARS_DIRECTORY);
+        Path workDirectory = assembleDirectory.resolve(WORK_DIRECTORY + "-" + platform);
         Path imageDirectory = workDirectory.resolve(finalImageName).toAbsolutePath();
         try {
             FileUtils.deleteFiles(imageDirectory);
@@ -146,7 +158,7 @@ public class JlinkAssemblerProcessor extends AbstractJavaAssemblerProcessor<org.
         String modulePath = maybeQuote(targetJdk.getEffectivePath(context, assembler).resolve("jmods").toAbsolutePath().toString());
         if (isNotBlank(moduleName) || assembler.isCopyJars()) {
             modulePath += File.pathSeparator + maybeQuote(jarsDirectory
-                .resolve("universal")
+                .resolve(UNIVERSAL_DIRECTORY)
                 .toAbsolutePath().toString());
 
             try {
@@ -160,7 +172,7 @@ public class JlinkAssemblerProcessor extends AbstractJavaAssemblerProcessor<org.
         }
 
         Path jlinkExecutable = jdkPath
-            .resolve("bin")
+            .resolve(BIN_DIRECTORY)
             .resolve(PlatformUtils.isWindows() ? "jlink.exe" : "jlink")
             .toAbsolutePath();
 
@@ -186,12 +198,12 @@ public class JlinkAssemblerProcessor extends AbstractJavaAssemblerProcessor<org.
             // copy jars & launcher
 
             if (assembler.isCopyJars()) {
-                Path outputJarsDirectory = imageDirectory.resolve("jars");
+                Path outputJarsDirectory = imageDirectory.resolve(JARS_DIRECTORY);
 
                 try {
                     Files.createDirectory(outputJarsDirectory);
                     FileUtils.copyFiles(context.getLogger(),
-                        jarsDirectory.resolve("universal"),
+                        jarsDirectory.resolve(UNIVERSAL_DIRECTORY),
                         outputJarsDirectory);
                     FileUtils.copyFiles(context.getLogger(),
                         jarsDirectory.resolve(platform),
@@ -202,18 +214,19 @@ public class JlinkAssemblerProcessor extends AbstractJavaAssemblerProcessor<org.
                 }
             }
 
+            Path binDirectory = imageDirectory.resolve(BIN_DIRECTORY);
             try {
-                if (PlatformUtils.isWindows(platform)) {
-                    Files.copy(inputsDirectory.resolve(assembler.getExecutable().concat(".bat")),
-                        imageDirectory.resolve("bin").resolve(assembler.getExecutable().concat(".bat")));
-                } else {
-                    Path launcher = imageDirectory.resolve("bin").resolve(assembler.getExecutable());
-                    Files.copy(inputsDirectory.resolve(assembler.getExecutable()), launcher);
-                    FileUtils.grantExecutableAccess(launcher);
+                Files.createDirectories(binDirectory);
+
+                Set<Path> launchers = listFilesAndProcess(inputsDirectory.resolve(BIN_DIRECTORY), files -> files.collect(toSet()));
+                for (Path srcLauncher : launchers) {
+                    Path destLauncher = binDirectory.resolve(srcLauncher.getFileName());
+                    Files.copy(srcLauncher, destLauncher);
+                    FileUtils.grantExecutableAccess(destLauncher);
                 }
             } catch (IOException e) {
                 throw new AssemblerProcessingException(RB.$("ERROR_assembler_copy_launcher",
-                    context.relativizeToBasedir(imageDirectory.resolve("bin"))), e);
+                    context.relativizeToBasedir(binDirectory)), e);
             }
         }
 
@@ -221,45 +234,37 @@ public class JlinkAssemblerProcessor extends AbstractJavaAssemblerProcessor<org.
             Path imageArchive = assembleDirectory.resolve(finalImageName + "." + archiveFormat.extension());
             FileUtils.copyFiles(context.getLogger(),
                 context.getBasedir(),
-                imageDirectory, path -> path.getFileName().startsWith("LICENSE"));
+                imageDirectory, path -> path.getFileName().startsWith(LICENSE));
+            // copy all templates, filter existing launchers
+            FileUtils.copyFiles(context.getLogger(), inputsDirectory, imageDirectory, path -> {
+                if (!BIN_DIRECTORY.equals(path.getParent().getFileName().toString())) return true;
+                String fileName = path.getFileName().toString();
+                // don't copy jars twice
+                if (fileName.endsWith(JAR.extension()) && JARS_DIRECTORY.equals(path.getParent().getParent().getFileName().toString())) {
+                    return false;
+                }
+                Path candidateBinary = imageDirectory.resolve(BIN_DIRECTORY).resolve(fileName);
+                return !Files.exists(candidateBinary);
+            });
+            copyArtifacts(context, imageDirectory, platform, true);
             copyFiles(context, imageDirectory);
             copyFileSets(context, imageDirectory);
 
-            switch (archiveFormat) {
-                case ZIP:
-                    FileUtils.zip(workDirectory, imageArchive);
-                    break;
-                case TAR:
-                    FileUtils.tar(workDirectory, imageArchive);
-                    break;
-                case TGZ:
-                case TAR_GZ:
-                    FileUtils.tgz(workDirectory, imageArchive);
-                    break;
-                case TXZ:
-                case TAR_XZ:
-                    FileUtils.xz(workDirectory, imageArchive);
-                    break;
-                case TBZ2:
-                case TAR_BZ2:
-                    FileUtils.bz2(workDirectory, imageArchive);
-            }
+            FileUtils.packArchive(workDirectory, imageArchive, assembler.getOptions().toOptions());
 
             context.getLogger().debug("- {}", imageArchive.getFileName());
-
-            return Artifact.of(imageArchive, platform);
         } catch (IOException e) {
             throw new AssemblerProcessingException(RB.$("ERROR_unexpected_error"), e);
         }
     }
 
-    private Set<String> resolveModuleNames(JReleaserContext context, Path jdkPath, Path jarsDirectory, String platform, Map<String, Object> props) throws AssemblerProcessingException {
+    private Set<String> resolveModuleNames(JReleaserContext context, Path jdkPath, Path jarsDirectory, String platform, TemplateContext props) throws AssemblerProcessingException {
         if (!assembler.getModuleNames().isEmpty()) {
             return assembler.getModuleNames();
         }
 
         Path jdepsExecutable = jdkPath
-            .resolve("bin")
+            .resolve(BIN_DIRECTORY)
             .resolve(PlatformUtils.isWindows() ? "jdeps.exe" : "jdeps")
             .toAbsolutePath();
 
@@ -283,7 +288,7 @@ public class JlinkAssemblerProcessor extends AbstractJavaAssemblerProcessor<org.
         } else if (!assembler.getJdeps().getTargets().isEmpty()) {
             cmd.arg("--class-path");
             if (assembler.getJdeps().isUseWildcardInPath()) {
-                cmd.arg("universal" +
+                cmd.arg(UNIVERSAL_DIRECTORY +
                     File.separator + "*" +
                     File.pathSeparator +
                     platform +
@@ -296,6 +301,8 @@ public class JlinkAssemblerProcessor extends AbstractJavaAssemblerProcessor<org.
                 .map(target -> resolveTemplate(target, props))
                 .filter(StringUtils::isNotBlank)
                 .map(AssemblerUtils::maybeAdjust)
+                .map(context::relativizeToBasedir)
+                .map(p -> p.toAbsolutePath().normalize().toString())
                 .forEach(cmd::arg);
         } else {
             calculateJarPath(jarsDirectory, platform, cmd, false);
@@ -305,7 +312,7 @@ public class JlinkAssemblerProcessor extends AbstractJavaAssemblerProcessor<org.
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         executeCommandCapturing(jarsDirectory, cmd, out);
 
-        String output = out.toString().trim();
+        String output = IoUtils.toString(out).trim();
         long lineCount = Arrays.stream(output.split(System.lineSeparator()))
             .map(String::trim)
             .count();
@@ -322,7 +329,7 @@ public class JlinkAssemblerProcessor extends AbstractJavaAssemblerProcessor<org.
             if (join) {
                 StringBuilder pathBuilder = new StringBuilder();
 
-                String s = listFilesAndProcess(jarsDirectory.resolve("universal"), files ->
+                String s = listFilesAndProcess(jarsDirectory.resolve(UNIVERSAL_DIRECTORY), files ->
                     files.map(jarsDirectory::relativize)
                         .map(Object::toString)
                         .collect(joining(File.pathSeparator)));
@@ -340,7 +347,7 @@ public class JlinkAssemblerProcessor extends AbstractJavaAssemblerProcessor<org.
 
                 cmd.arg(pathBuilder.toString());
             } else {
-                listFilesAndConsume(jarsDirectory.resolve("universal"), files ->
+                listFilesAndConsume(jarsDirectory.resolve(UNIVERSAL_DIRECTORY), files ->
                     files.map(jarsDirectory::relativize)
                         .map(Object::toString)
                         .forEach(cmd::arg));
@@ -356,24 +363,13 @@ public class JlinkAssemblerProcessor extends AbstractJavaAssemblerProcessor<org.
     }
 
     @Override
-    protected void writeFile(Project project, String content, Map<String, Object> props, String fileName)
-        throws AssemblerProcessingException {
-        fileName = trimTplExtension(fileName);
+    protected Path resolveOutputFile(TemplateContext props, Path targetDirectory, String fileName) throws AssemblerProcessingException {
+        String executableName = assembler.getExecutable();
 
-        Path outputDirectory = (Path) props.get(Constants.KEY_DISTRIBUTION_ASSEMBLE_DIRECTORY);
-        Path inputsDirectory = outputDirectory.resolve("inputs");
-        try {
-            Files.createDirectories(inputsDirectory);
-        } catch (IOException e) {
-            throw new AssemblerProcessingException(RB.$("ERROR_assembler_create_directories"), e);
-        }
-
-        Path outputFile = "launcher.bat".equals(fileName) ?
-            inputsDirectory.resolve(assembler.getExecutable().concat(".bat")) :
-            "launcher".equals(fileName) ?
-                inputsDirectory.resolve(assembler.getExecutable()) :
-                inputsDirectory.resolve(fileName);
-
-        writeFile(content, outputFile);
+        return "bin/launcher.bat".equals(fileName) ?
+            targetDirectory.resolve(BIN_DIRECTORY).resolve(executableName.concat(BAT.extension())) :
+            "bin/launcher".equals(fileName) ?
+                targetDirectory.resolve(BIN_DIRECTORY).resolve(executableName) :
+                targetDirectory.resolve(fileName);
     }
 }

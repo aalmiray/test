@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,8 @@ package org.jreleaser.packagers;
 
 import org.eclipse.jgit.api.CommitCommand;
 import org.eclipse.jgit.api.Git;
+import org.eclipse.jgit.api.errors.NoHeadException;
+import org.eclipse.jgit.revwalk.RevCommit;
 import org.eclipse.jgit.transport.UsernamePasswordCredentialsProvider;
 import org.jreleaser.bundle.RB;
 import org.jreleaser.model.internal.JReleaserContext;
@@ -28,28 +30,30 @@ import org.jreleaser.model.internal.packagers.RepositoryTap;
 import org.jreleaser.model.internal.release.BaseReleaser;
 import org.jreleaser.model.spi.packagers.PackagerProcessingException;
 import org.jreleaser.model.spi.release.Repository;
+import org.jreleaser.mustache.TemplateContext;
 import org.jreleaser.sdk.git.JReleaserGpgSigner;
 import org.jreleaser.util.FileUtils;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Map;
 import java.util.function.Predicate;
 
 import static org.jreleaser.model.Constants.KEY_DISTRIBUTION_PACKAGE_DIRECTORY;
+import static org.jreleaser.mustache.Templates.resolveTemplate;
 import static org.jreleaser.util.StringUtils.isNotBlank;
 
 /**
  * @author Andres Almiray
  * @since 0.1.0
  */
-abstract class AbstractRepositoryPackagerProcessor<T extends RepositoryPackager<?>> extends AbstractTemplatePackagerProcessor<T> {
+public abstract class AbstractRepositoryPackagerProcessor<T extends RepositoryPackager<?>> extends AbstractTemplatePackagerProcessor<T> {
     protected AbstractRepositoryPackagerProcessor(JReleaserContext context) {
         super(context);
     }
 
-    protected void doPublishDistribution(Distribution distribution, Map<String, Object> props) throws PackagerProcessingException {
+    @Override
+    protected void doPublishDistribution(Distribution distribution, TemplateContext props) throws PackagerProcessingException {
         RepositoryTap tap = packager.getRepositoryTap();
         if (!tap.isEnabled()) {
             context.getLogger().info(RB.$("repository.disabled"), tap.getCanonicalRepoName());
@@ -79,12 +83,34 @@ abstract class AbstractRepositoryPackagerProcessor<T extends RepositoryPackager<
             context.getLogger().debug(RB.$("repository.clone"), repository.getHttpUrl());
             Path directory = Files.createTempDirectory("jreleaser-" + tap.getResolvedName());
 
+            String pullBranch = tap.getBranch();
+            String pushBranch = resolveTemplate(tap.getBranchPush(), props);
+
             Git git = Git.cloneRepository()
                 .setCredentialsProvider(credentialsProvider)
-                .setBranch(tap.getBranch())
+                .setBranch(pullBranch)
                 .setDirectory(directory.toFile())
                 .setURI(repository.getHttpUrl())
                 .call();
+
+            boolean emptyRepository = true;
+            try {
+                for (RevCommit commit : git.log().call()) {
+                    emptyRepository = false;
+                    break;
+                }
+            } catch (NoHeadException ignored) {
+                // ok
+            }
+
+            boolean mustBranch = !pushBranch.equals(pullBranch);
+            if (mustBranch && !emptyRepository) {
+                context.getLogger().debug(RB.$("repository.branching", pushBranch));
+                git.checkout()
+                    .setName(pushBranch)
+                    .setCreateBranch(true)
+                    .call();
+            }
 
             prepareWorkingCopy(props, directory, distribution);
 
@@ -93,7 +119,7 @@ abstract class AbstractRepositoryPackagerProcessor<T extends RepositoryPackager<
                 .addFilepattern(".")
                 .call();
 
-            props.putAll(distribution.props());
+            props.setAll(distribution.props());
             context.getModel().getRelease().getReleaser().fillProps(props, context.getModel());
 
             // setup commit
@@ -114,6 +140,14 @@ abstract class AbstractRepositoryPackagerProcessor<T extends RepositoryPackager<
                 .setGpgSigner(signer);
 
             commitCommand.call();
+
+            if (mustBranch && emptyRepository) {
+                context.getLogger().debug(RB.$("repository.branching", pushBranch));
+                git.checkout()
+                    .setName(pushBranch)
+                    .setCreateBranch(true)
+                    .call();
+            }
 
             String tagName = tap.getResolvedTagName(props);
             context.getLogger().debug(RB.$("git.releaser.repository.tag"), tagName);
@@ -139,8 +173,8 @@ abstract class AbstractRepositoryPackagerProcessor<T extends RepositoryPackager<
         }
     }
 
-    protected void prepareWorkingCopy(Map<String, Object> props, Path directory, Distribution distribution) throws PackagerProcessingException, IOException {
-        Path packageDirectory = (Path) props.get(KEY_DISTRIBUTION_PACKAGE_DIRECTORY);
+    protected void prepareWorkingCopy(TemplateContext props, Path directory, Distribution distribution) throws IOException {
+        Path packageDirectory = props.get(KEY_DISTRIBUTION_PACKAGE_DIRECTORY);
         prepareWorkingCopy(packageDirectory, directory);
     }
 

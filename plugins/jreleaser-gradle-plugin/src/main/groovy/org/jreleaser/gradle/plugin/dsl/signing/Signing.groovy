@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,6 +33,8 @@ import org.jreleaser.gradle.plugin.dsl.common.Activatable
 interface Signing extends Activatable {
     Property<Boolean> getArmored()
 
+    Property<Boolean> getVerify()
+
     Property<String> getPassphrase()
 
     Property<String> getPublicKey()
@@ -48,6 +50,8 @@ interface Signing extends Activatable {
     Property<Boolean> getFiles()
 
     Property<Boolean> getChecksums()
+
+    Property<Boolean> getCatalogs()
 
     Command getCommand()
 

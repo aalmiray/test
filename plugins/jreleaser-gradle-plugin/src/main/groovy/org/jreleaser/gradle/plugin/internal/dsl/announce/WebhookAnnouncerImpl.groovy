@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -39,6 +39,7 @@ class WebhookAnnouncerImpl extends AbstractAnnouncer implements WebhookAnnouncer
     final Property<String> message
     final Property<String> messageProperty
     final RegularFileProperty messageTemplate
+    final Property<Boolean> structuredMessage
 
     @Inject
     WebhookAnnouncerImpl(ObjectFactory objects) {
@@ -47,6 +48,7 @@ class WebhookAnnouncerImpl extends AbstractAnnouncer implements WebhookAnnouncer
         message = objects.property(String).convention(Providers.<String> notDefined())
         messageProperty = objects.property(String).convention(Providers.<String> notDefined())
         messageTemplate = objects.fileProperty().convention(Providers.notDefined())
+        structuredMessage = objects.property(Boolean).convention(Providers.<Boolean> notDefined())
     }
 
     @Override
@@ -61,19 +63,21 @@ class WebhookAnnouncerImpl extends AbstractAnnouncer implements WebhookAnnouncer
             webhook.present ||
             message.present ||
             messageProperty.present ||
-            messageTemplate.present
+            messageTemplate.present ||
+            structuredMessage.present
     }
 
     org.jreleaser.model.internal.announce.WebhookAnnouncer toModel() {
-        org.jreleaser.model.internal.announce.WebhookAnnouncer w = new org.jreleaser.model.internal.announce.WebhookAnnouncer()
-        fillProperties(w)
-        w.name = name
-        if (webhook.present) w.webhook = webhook.get()
-        if (message.present) w.message = message.get()
-        if (messageProperty.present) w.messageProperty = messageProperty.get()
+        org.jreleaser.model.internal.announce.WebhookAnnouncer announcer = new org.jreleaser.model.internal.announce.WebhookAnnouncer()
+        fillProperties(announcer)
+        announcer.name = name
+        if (webhook.present) announcer.webhook = webhook.get()
+        if (message.present) announcer.message = message.get()
+        if (messageProperty.present) announcer.messageProperty = messageProperty.get()
         if (messageTemplate.present) {
-            w.messageTemplate = messageTemplate.asFile.get().absolutePath
+            announcer.messageTemplate = messageTemplate.asFile.get().absolutePath
         }
-        w
+        if (structuredMessage.present) announcer.structuredMessage = structuredMessage.get()
+        announcer
     }
 }

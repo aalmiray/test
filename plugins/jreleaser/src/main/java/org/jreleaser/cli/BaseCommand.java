@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,6 +31,12 @@ import java.util.ResourceBundle;
     versionProvider = Versions.class,
     resourceBundle = "org.jreleaser.cli.Messages")
 abstract class BaseCommand {
+    static {
+        if (System.getenv().containsKey("JRELEASER_NO_COLOR")) {
+            System.setProperty("picocli.ansi", "false");
+        }
+    }
+
     @CommandLine.Spec
     CommandLine.Model.CommandSpec spec;
 

@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,6 +29,7 @@ import org.jreleaser.model.spi.release.Release;
 import org.jreleaser.model.spi.release.ReleaseException;
 import org.jreleaser.model.spi.release.Repository;
 import org.jreleaser.model.spi.release.User;
+import org.jreleaser.mustache.TemplateContext;
 import org.jreleaser.sdk.commons.RestAPIException;
 import org.jreleaser.sdk.git.ChangelogProvider;
 import org.jreleaser.sdk.git.GitSdk;
@@ -42,11 +43,12 @@ import org.jreleaser.sdk.gitea.api.GtRepository;
 
 import java.io.IOException;
 import java.nio.file.Files;
-import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.regex.Pattern;
 
 import static org.jreleaser.mustache.Templates.resolveTemplate;
@@ -59,9 +61,11 @@ import static org.jreleaser.util.StringUtils.uncapitalize;
  */
 @org.jreleaser.infra.nativeimage.annotations.NativeImage
 public class GiteaReleaser extends AbstractReleaser<org.jreleaser.model.api.release.GiteaReleaser> {
+    private static final long serialVersionUID = 3707425922206745692L;
+
     private final org.jreleaser.model.internal.release.GiteaReleaser gitea;
 
-    public GiteaReleaser(JReleaserContext context, List<Asset> assets) {
+    public GiteaReleaser(JReleaserContext context, Set<Asset> assets) {
         super(context, assets);
         gitea = context.getModel().getRelease().getGitea();
     }
@@ -104,7 +108,7 @@ public class GiteaReleaser extends AbstractReleaser<org.jreleaser.model.api.rele
                 throw new ReleaseException(RB.$("ERROR_git_release_branch_not_exists", branch, branchNames));
             }
 
-            String changelog = context.getChangelog();
+            String changelog = context.getChangelog().getResolvedChangelog();
 
             context.getLogger().debug(RB.$("git.releaser.release.lookup"), tagName, gitea.getCanonicalRepoName());
             GtRelease release = api.findReleaseByTag(gitea.getOwner(), gitea.getName(), tagName);
@@ -122,8 +126,12 @@ public class GiteaReleaser extends AbstractReleaser<org.jreleaser.model.api.rele
                     context.getLogger().debug(RB.$("git.releaser.release.update"), tagName);
                     if (!context.isDryrun()) {
                         GtRelease updater = new GtRelease();
-                        updater.setPrerelease(gitea.getPrerelease().isEnabled());
-                        updater.setDraft(gitea.isDraft());
+                        if (gitea.getPrerelease().isEnabledSet()) {
+                            updater.setPrerelease(gitea.getPrerelease().isEnabled());
+                        }
+                        if (gitea.isDraftSet()) {
+                            updater.setDraft(gitea.isDraft());
+                        }
                         if (gitea.getUpdate().getSections().contains(UpdateSection.TITLE)) {
                             context.getLogger().info(RB.$("git.releaser.release.update.title"), gitea.getEffectiveReleaseName());
                             updater.setName(gitea.getEffectiveReleaseName());
@@ -210,7 +218,7 @@ public class GiteaReleaser extends AbstractReleaser<org.jreleaser.model.api.rele
                 gitea.getConnectTimeout(),
                 gitea.getReadTimeout())
                 .findUser(email, name, host);
-        } catch (RestAPIException | IOException e) {
+        } catch (RestAPIException e) {
             context.getLogger().trace(e);
             context.getLogger().debug(RB.$("git.releaser.user.not.found"), email);
         }
@@ -307,7 +315,7 @@ public class GiteaReleaser extends AbstractReleaser<org.jreleaser.model.api.rele
         String tagName = gitea.getEffectiveTagName(context.getModel());
         String labelName = gitea.getIssues().getLabel().getName();
         String labelColor = gitea.getIssues().getLabel().getColor();
-        Map<String, Object> props = gitea.props(context.getModel());
+        TemplateContext props = gitea.props(context.getModel());
         gitea.fillProps(props, context.getModel());
         String comment = resolveTemplate(gitea.getIssues().getComment(), props);
 
@@ -324,7 +332,7 @@ public class GiteaReleaser extends AbstractReleaser<org.jreleaser.model.api.rele
                 labelName,
                 labelColor,
                 gitea.getIssues().getLabel().getDescription());
-        } catch (IOException e) {
+        } catch (RestAPIException e) {
             throw new IllegalStateException(RB.$("ERROR_git_releaser_fetch_label", tagName, labelName), e);
         }
 
@@ -349,7 +357,7 @@ public class GiteaReleaser extends AbstractReleaser<org.jreleaser.model.api.rele
             if (!op.isPresent()) continue;
 
             GtIssue gtIssue = op.get();
-            if (gtIssue.getState().equals("closed") && gtIssue.getLabels().stream().noneMatch(l -> l.getName().equals(labelName))) {
+            if ("closed".equals(gtIssue.getState()) && gtIssue.getLabels().stream().noneMatch(l -> l.getName().equals(labelName))) {
                 context.getLogger().debug(RB.$("git.issue.release", issueNumber));
                 api.addLabelToIssue(gitea.getOwner(), gitea.getName(), gtIssue, gtLabel);
                 api.commentOnIssue(gitea.getOwner(), gitea.getName(), gtIssue, comment);
@@ -387,8 +395,8 @@ public class GiteaReleaser extends AbstractReleaser<org.jreleaser.model.api.rele
     }
 
     private void updateAssets(Gitea api, GtRelease release) throws IOException {
-        List<Asset> assetsToBeUpdated = new ArrayList<>();
-        List<Asset> assetsToBeUploaded = new ArrayList<>();
+        Set<Asset> assetsToBeUpdated = new TreeSet<>();
+        Set<Asset> assetsToBeUploaded = new TreeSet<>();
 
         Map<String, GtAsset> existingAssets = api.listAssets(gitea.getOwner(), gitea.getName(), release);
         Map<String, Asset> assetsToBePublished = new LinkedHashMap<>();

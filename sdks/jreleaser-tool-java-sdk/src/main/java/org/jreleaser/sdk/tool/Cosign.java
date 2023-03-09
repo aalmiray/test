@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,6 +32,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.jreleaser.util.StringUtils.isBlank;
 
 /**
@@ -70,7 +71,7 @@ public class Cosign extends AbstractTool {
         Path homeDir = resolveJReleaserHomeDir();
         try {
             executeCommand(() -> new CommandExecutor(context.getLogger(), true)
-                .environment("COSIGN_PASSWORD", new String(password))
+                .environment("COSIGN_PASSWORD", new String(password, UTF_8))
                 .executeCommand(homeDir, command));
         } catch (CommandException e) {
             throw new SigningException(RB.$("ERROR_unexpected_generate_key_pair"), e);

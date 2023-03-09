@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -48,6 +48,8 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.Reader;
 import java.net.HttpURLConnection;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -56,6 +58,7 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
 import static org.jreleaser.util.StringUtils.isNotBlank;
 
@@ -71,11 +74,11 @@ public final class ClientUtils {
         // noop
     }
 
-    public static FormData toFormData(String fileName, String contentType, String content) throws IOException {
+    public static FormData toFormData(String fileName, String contentType, String content) {
         return toFormData(fileName, contentType, content.getBytes(UTF_8));
     }
 
-    public static FormData toFormData(String fileName, String contentType, byte[] content) throws IOException {
+    public static FormData toFormData(String fileName, String contentType, byte[] content) {
         return FormData.builder()
             .fileName(fileName)
             .contentType(contentType)
@@ -133,9 +136,18 @@ public final class ClientUtils {
                                int connectTimeout,
                                int readTimeout,
                                String message) throws AnnounceException {
+        post(logger, webhookUrl, connectTimeout, readTimeout, message, emptyMap());
+    }
+
+    public static void post(JReleaserLogger logger,
+                            String theUrl,
+                            int connectTimeout,
+                            int readTimeout,
+                            String message,
+                            Map<String, String> headers) throws AnnounceException {
         try {
             // create URL
-            URL url = new URL(webhookUrl);
+            URL url = new URI(theUrl).toURL();
             // open connection
             logger.debug(RB.$("webhook.connection.open"));
             HttpURLConnection connection = (HttpURLConnection) url.openConnection();
@@ -147,9 +159,10 @@ public final class ClientUtils {
             connection.setInstanceFollowRedirects(true);
 
             connection.setRequestMethod("POST");
+            connection.addRequestProperty("User-Agent", "JReleaser/" + JReleaserVersion.getPlainVersion());
             connection.addRequestProperty("Content-Type", "application/json");
             connection.addRequestProperty("Accept", "application/json");
-            connection.addRequestProperty("User-Agent", "JReleaser/" + JReleaserVersion.getPlainVersion());
+            headers.forEach(connection::addRequestProperty);
             connection.setDoOutput(true);
 
             // write message
@@ -179,7 +192,7 @@ public final class ClientUtils {
                 }
                 throw new AnnounceException(b.toString());
             }
-        } catch (IOException e) {
+        } catch (URISyntaxException | IOException e) {
             logger.trace(e);
             throw new AnnounceException(e);
         }
@@ -214,7 +227,7 @@ public final class ClientUtils {
                                    Map<String, String> headers) throws UploadException {
         try {
             // create URL
-            URL theUrl = new URL(url);
+            URL theUrl = new URI(url).toURL();
             logger.debug("url: {}", theUrl);
 
             // open connection
@@ -273,7 +286,7 @@ public final class ClientUtils {
                 }
                 throw new UploadException(b.toString());
             }
-        } catch (IOException e) {
+        } catch (URISyntaxException | IOException e) {
             logger.trace(e);
             throw new UploadException(e);
         }

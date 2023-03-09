@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,6 +37,7 @@ import org.jreleaser.model.internal.packagers.MacportsPackager
 import org.jreleaser.model.internal.packagers.ScoopPackager
 import org.jreleaser.model.internal.packagers.SnapPackager
 import org.jreleaser.model.internal.packagers.SpecPackager
+import org.jreleaser.model.internal.packagers.WingetPackager
 
 import javax.inject.Inject
 
@@ -54,6 +55,7 @@ class TapImpl implements Tap {
     final Property<String> name
     final Property<String> tagName
     final Property<String> branch
+    final Property<String> branchPush
     final Property<String> username
     final Property<String> token
     final Property<String> commitMessage
@@ -65,6 +67,7 @@ class TapImpl implements Tap {
         name = objects.property(String).convention(Providers.<String> notDefined())
         tagName = objects.property(String).convention(Providers.<String> notDefined())
         branch = objects.property(String).convention(Providers.<String> notDefined())
+        branchPush = objects.property(String).convention(Providers.<String> notDefined())
         username = objects.property(String).convention(Providers.<String> notDefined())
         token = objects.property(String).convention(Providers.<String> notDefined())
         commitMessage = objects.property(String).convention(Providers.<String> notDefined())
@@ -84,6 +87,7 @@ class TapImpl implements Tap {
             name.present ||
             tagName.present ||
             branch.present ||
+            branchPush.present ||
             username.present ||
             token.present ||
             commitMessage.present
@@ -95,6 +99,7 @@ class TapImpl implements Tap {
         if (name.present) into.name = name.get()
         if (tagName.present) into.tagName = tagName.get()
         if (branch.present) into.branch = branch.get()
+        if (branchPush.present) into.branchPush = branchPush.get()
         if (username.present) into.username = username.get()
         if (token.present) into.token = token.get()
         if (commitMessage.present) into.commitMessage = commitMessage.get()
@@ -168,6 +173,12 @@ class TapImpl implements Tap {
 
     JbangPackager.JbangRepository toJbangCatalog() {
         JbangPackager.JbangRepository tap = new JbangPackager.JbangRepository()
+        convert(tap)
+        tap
+    }
+
+    WingetPackager.WingetRepository toWingetRepository() {
+        WingetPackager.WingetRepository tap = new WingetPackager.WingetRepository()
         convert(tap)
         tap
     }

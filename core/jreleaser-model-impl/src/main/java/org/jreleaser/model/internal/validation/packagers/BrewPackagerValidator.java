@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,14 +18,12 @@
 package org.jreleaser.model.internal.validation.packagers;
 
 import org.jreleaser.bundle.RB;
-import org.jreleaser.model.Active;
 import org.jreleaser.model.internal.JReleaserContext;
 import org.jreleaser.model.internal.JReleaserModel;
 import org.jreleaser.model.internal.common.Artifact;
 import org.jreleaser.model.internal.distributions.Distribution;
 import org.jreleaser.model.internal.packagers.BrewPackager;
 import org.jreleaser.model.internal.release.Releaser;
-import org.jreleaser.model.internal.validation.common.Validator;
 import org.jreleaser.util.Errors;
 import org.jreleaser.util.PlatformUtils;
 
@@ -39,6 +37,10 @@ import static java.util.stream.Collectors.groupingBy;
 import static org.jreleaser.model.api.packagers.BrewPackager.SKIP_BREW;
 import static org.jreleaser.model.internal.validation.common.ExtraPropertiesValidator.mergeExtraProperties;
 import static org.jreleaser.model.internal.validation.common.TemplateValidator.validateTemplate;
+import static org.jreleaser.model.internal.validation.common.Validator.resolveActivatable;
+import static org.jreleaser.model.internal.validation.common.Validator.validateCommitAuthor;
+import static org.jreleaser.model.internal.validation.common.Validator.validateContinueOnError;
+import static org.jreleaser.model.internal.validation.common.Validator.validateTap;
 import static org.jreleaser.model.internal.validation.distributions.DistributionsValidator.validateArtifactPlatforms;
 import static org.jreleaser.util.StringUtils.isBlank;
 import static org.jreleaser.util.StringUtils.isNotBlank;
@@ -48,22 +50,23 @@ import static org.jreleaser.util.StringUtils.isTrue;
  * @author Andres Almiray
  * @since 0.1.0
  */
-public abstract class BrewPackagerValidator extends Validator {
+public final class BrewPackagerValidator {
+    private BrewPackagerValidator() {
+        // noop
+    }
+
     public static void validateBrew(JReleaserContext context, Distribution distribution, BrewPackager packager, Errors errors) {
-        context.getLogger().debug("distribution.{}.brew", distribution.getName());
+        context.getLogger().debug("distribution.{}." + packager.getType(), distribution.getName());
         JReleaserModel model = context.getModel();
         BrewPackager parentPackager = model.getPackagers().getBrew();
 
-        if (!packager.isActiveSet() && parentPackager.isActiveSet()) {
-            packager.setActive(parentPackager.getActive());
-        }
+        resolveActivatable(context, packager, "distributions." + distribution.getName() + "." + packager.getType(), parentPackager);
         if (!packager.resolveEnabled(context.getModel().getProject(), distribution)) {
             context.getLogger().debug(RB.$("validation.disabled"));
-            packager.disable();
             packager.getCask().disable();
             return;
         }
-        Releaser service = model.getRelease().getReleaser();
+        Releaser<?> service = model.getRelease().getReleaser();
         if (!service.isReleaseSupported()) {
             context.getLogger().debug(RB.$("validation.disabled.release"));
             packager.disable();
@@ -88,8 +91,7 @@ public abstract class BrewPackagerValidator extends Validator {
 
         validateCask(context, distribution, packager, cask, errors);
         List<Artifact> candidateArtifacts = packager.resolveCandidateArtifacts(context, distribution);
-        if (candidateArtifacts.size() == 0) {
-            packager.setActive(Active.NEVER);
+        if (candidateArtifacts.isEmpty()) {
             context.getLogger().debug(RB.$("validation.disabled.no.artifacts"));
             errors.warning(RB.$("WARNING.validation.packager.no.artifacts", distribution.getName(),
                 packager.getType(), packager.getSupportedFileExtensions(distribution.getType())));
@@ -99,7 +101,6 @@ public abstract class BrewPackagerValidator extends Validator {
 
         validateCommitAuthor(packager, parentPackager);
         BrewPackager.HomebrewTap tap = packager.getTap();
-        tap.resolveEnabled(model.getProject());
         validateTap(context, distribution, tap, parentPackager.getTap(), "brew.tap");
         validateTemplate(context, distribution, packager, parentPackager, errors);
         mergeExtraProperties(packager, parentPackager);
@@ -117,7 +118,7 @@ public abstract class BrewPackagerValidator extends Validator {
         }
 
         if (!cask.isEnabled()) {
-            validateArtifactPlatforms(context, distribution, packager, candidateArtifacts, errors);
+            validateArtifactPlatforms(distribution, packager, candidateArtifacts, errors);
         }
     }
 
@@ -138,7 +139,7 @@ public abstract class BrewPackagerValidator extends Validator {
     }
 
     private static void validateCask(JReleaserContext context, Distribution distribution, BrewPackager packager, BrewPackager.Cask cask, Errors errors) {
-        if (cask == null || cask.isEnabledSet() && !cask.isEnabled()) {
+        if (null == cask || cask.isEnabledSet() && !cask.isEnabled()) {
             return;
         }
 

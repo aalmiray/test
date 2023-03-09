@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,7 +21,6 @@ import org.jreleaser.bundle.RB;
 import org.jreleaser.model.internal.JReleaserContext;
 import org.jreleaser.model.internal.assemble.JavaArchiveAssembler;
 import org.jreleaser.model.internal.common.Artifact;
-import org.jreleaser.model.internal.validation.common.Validator;
 import org.jreleaser.util.Errors;
 
 import java.nio.file.Files;
@@ -32,7 +31,11 @@ import java.util.List;
  * @author Andres Almiray
  * @since 1.4.0
  */
-public abstract class JavaArchiveAssemblerResolver extends Validator {
+public final class JavaArchiveAssemblerResolver {
+    private JavaArchiveAssemblerResolver() {
+        // noop
+    }
+
     public static void resolveJavaArchiveOutputs(JReleaserContext context, Errors errors) {
         List<JavaArchiveAssembler> activeArchives = context.getModel().getAssemble().getActiveJavaArchives();
         if (!activeArchives.isEmpty()) context.getLogger().debug("assemble.java-archive");
@@ -42,26 +45,26 @@ public abstract class JavaArchiveAssemblerResolver extends Validator {
         }
     }
 
-    private static void resolveJavaArchiveOutputs(JReleaserContext context, JavaArchiveAssembler archive, Errors errors) {
+    private static void resolveJavaArchiveOutputs(JReleaserContext context, JavaArchiveAssembler assembler, Errors errors) {
         Path baseOutputDirectory = context.getAssembleDirectory()
-            .resolve(archive.getName())
-            .resolve(archive.getType());
+            .resolve(assembler.getName())
+            .resolve(assembler.getType());
 
-        String archiveName = archive.getResolvedArchiveName(context);
+        String archiveName = assembler.getResolvedArchiveName(context);
 
-        for (org.jreleaser.model.Archive.Format format : archive.getFormats()) {
+        for (org.jreleaser.model.Archive.Format format : assembler.getFormats()) {
             Path path = baseOutputDirectory
                 .resolve(archiveName + "." + format.extension())
                 .toAbsolutePath();
 
             if (!Files.exists(path)) {
                 errors.assembly(RB.$("validation_missing_assembly",
-                    archive.getType(), archive.getName(), archive.getName()));
+                    assembler.getType(), assembler.getName(), assembler.getName()));
             } else {
                 Artifact artifact = Artifact.of(path);
-                artifact.setExtraProperties(archive.getExtraProperties());
+                artifact.setExtraProperties(assembler.getExtraProperties());
                 artifact.activate();
-                archive.addOutput(artifact);
+                assembler.addOutput(artifact);
             }
         }
     }

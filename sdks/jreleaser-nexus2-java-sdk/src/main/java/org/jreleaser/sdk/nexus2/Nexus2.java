@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -114,9 +114,7 @@ public class Nexus2 {
             .encoder(new JacksonEncoder())
             .decoder(new ContentNegotiationDecoder())
             .requestInterceptor(new BasicAuthRequestInterceptor(username, password))
-            .requestInterceptor(template -> {
-                template.header("User-Agent", "JReleaser/" + JReleaserVersion.getPlainVersion());
-            })
+            .requestInterceptor(template -> template.header("User-Agent", "JReleaser/" + JReleaserVersion.getPlainVersion()))
             .errorDecoder(new NexusErrorDecoder(logger))
             .options(new Request.Options(connectTimeout, TimeUnit.SECONDS, readTimeout, TimeUnit.SECONDS, true))
             .target(NexusAPI.class, apiHost);
@@ -220,16 +218,16 @@ public class Nexus2 {
             Map<String, String> headers = new LinkedHashMap<>();
 
             String auth = username + ":" + password;
-            byte[] encodedAuth = Base64.getEncoder().encode(auth.getBytes());
-            auth = new String(encodedAuth);
+            byte[] encodedAuth = Base64.getEncoder().encode(auth.getBytes(UTF_8));
+            auth = new String(encodedAuth, UTF_8);
             headers.put("Authorization", "Basic " + auth);
 
             StringBuilder url = new StringBuilder(apiHost);
             if (isNotBlank(stagingRepositoryId)) {
-                url = url.append("/staging/deployByRepositoryId/")
+                url.append("/staging/deployByRepositoryId/")
                     .append(stagingRepositoryId);
             }
-            url = url.append(path)
+            url.append(path)
                 .append("/")
                 .append(filename);
 
@@ -338,7 +336,7 @@ public class Nexus2 {
 
         @Override
         public Object decode(Response response, Type type) throws IOException {
-            if (response.body() == null) {
+            if (null == response.body()) {
                 throw new NotXml();
             }
 
@@ -365,8 +363,8 @@ public class Nexus2 {
                 reader.reset();
                 return mapper.readValue(reader, mapper.constructType(type));
             } catch (RuntimeJsonMappingException e) {
-                if (e.getCause() != null && e.getCause() instanceof IOException) {
-                    throw IOException.class.cast(e.getCause());
+                if (e.getCause() instanceof IOException) {
+                    throw (IOException) e.getCause();
                 }
                 throw e;
             }
@@ -374,7 +372,7 @@ public class Nexus2 {
     }
 
     static class NotXml extends IOException {
-
+        private static final long serialVersionUID = -6458245950020411953L;
     }
 
     static class NexusErrorDecoder implements ErrorDecoder {

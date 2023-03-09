@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,6 +27,7 @@ import org.jreleaser.model.internal.common.Artifact;
 import org.jreleaser.model.internal.common.Domain;
 import org.jreleaser.model.internal.common.FileSet;
 import org.jreleaser.model.internal.common.Glob;
+import org.jreleaser.mustache.TemplateContext;
 import org.jreleaser.util.PlatformUtils;
 
 import java.util.ArrayList;
@@ -53,8 +54,9 @@ import static org.jreleaser.util.CollectionUtils.setOf;
  * @since 0.10.0
  */
 public final class JpackageAssembler extends AbstractJavaAssembler<JpackageAssembler, org.jreleaser.model.api.assemble.JpackageAssembler> {
-    private final Set<Artifact> runtimeImages = new LinkedHashSet<>();
+    private static final long serialVersionUID = 7361967020493389521L;
 
+    private final Set<Artifact> runtimeImages = new LinkedHashSet<>();
     private final ApplicationPackage applicationPackage = new ApplicationPackage();
     private final Launcher launcher = new Launcher();
     private final Linux linux = new Linux();
@@ -65,7 +67,11 @@ public final class JpackageAssembler extends AbstractJavaAssembler<JpackageAssem
     private Boolean attachPlatform;
     private Boolean verbose;
 
+    @JsonIgnore
     private final org.jreleaser.model.api.assemble.JpackageAssembler immutable = new org.jreleaser.model.api.assemble.JpackageAssembler() {
+        private static final long serialVersionUID = -5355530264697452901L;
+
+        private Set<? extends org.jreleaser.model.api.common.Artifact> artifacts;
         private Set<? extends org.jreleaser.model.api.common.Artifact> runtimeImages;
         private Set<? extends org.jreleaser.model.api.assemble.JpackageAssembler.PlatformPackager> platformPackagers;
         private List<? extends org.jreleaser.model.api.common.Glob> jars;
@@ -137,28 +143,33 @@ public final class JpackageAssembler extends AbstractJavaAssembler<JpackageAssem
 
         @Override
         public String getExecutable() {
-            return executable;
+            return JpackageAssembler.this.getExecutable();
         }
 
         @Override
         public String getTemplateDirectory() {
-            return templateDirectory;
+            return JpackageAssembler.this.getTemplateDirectory();
+        }
+
+        @Override
+        public Set<String> getSkipTemplates() {
+            return unmodifiableSet(JpackageAssembler.this.getSkipTemplates());
         }
 
         @Override
         public org.jreleaser.model.api.common.Java getJava() {
-            return java.asImmutable();
+            return JpackageAssembler.this.getJava().asImmutable();
         }
 
         @Override
         public org.jreleaser.model.api.common.Artifact getMainJar() {
-            return mainJar.asImmutable();
+            return JpackageAssembler.this.getMainJar().asImmutable();
         }
 
         @Override
         public List<? extends org.jreleaser.model.api.common.Glob> getJars() {
             if (null == jars) {
-                jars = JpackageAssembler.this.jars.stream()
+                jars = JpackageAssembler.this.getJars().stream()
                     .map(Glob::asImmutable)
                     .collect(toList());
             }
@@ -166,9 +177,19 @@ public final class JpackageAssembler extends AbstractJavaAssembler<JpackageAssem
         }
 
         @Override
+        public Set<? extends org.jreleaser.model.api.common.Artifact> getArtifacts() {
+            if (null == artifacts) {
+                artifacts = JpackageAssembler.this.getArtifacts().stream()
+                    .map(Artifact::asImmutable)
+                    .collect(toSet());
+            }
+            return artifacts;
+        }
+
+        @Override
         public List<? extends org.jreleaser.model.api.common.Glob> getFiles() {
             if (null == files) {
-                files = JpackageAssembler.this.files.stream()
+                files = JpackageAssembler.this.getFiles().stream()
                     .map(Glob::asImmutable)
                     .collect(toList());
             }
@@ -177,7 +198,7 @@ public final class JpackageAssembler extends AbstractJavaAssembler<JpackageAssem
 
         @Override
         public org.jreleaser.model.api.platform.Platform getPlatform() {
-            return platform.asImmutable();
+            return JpackageAssembler.this.getPlatform().asImmutable();
         }
 
         @Override
@@ -187,7 +208,7 @@ public final class JpackageAssembler extends AbstractJavaAssembler<JpackageAssem
 
         @Override
         public String getType() {
-            return type;
+            return JpackageAssembler.this.getType();
         }
 
         @Override
@@ -202,13 +223,13 @@ public final class JpackageAssembler extends AbstractJavaAssembler<JpackageAssem
 
         @Override
         public String getName() {
-            return name;
+            return JpackageAssembler.this.getName();
         }
 
         @Override
         public List<? extends org.jreleaser.model.api.common.FileSet> getFileSets() {
             if (null == fileSets) {
-                fileSets = JpackageAssembler.this.fileSets.stream()
+                fileSets = JpackageAssembler.this.getFileSets().stream()
                     .map(FileSet::asImmutable)
                     .collect(toList());
             }
@@ -218,7 +239,7 @@ public final class JpackageAssembler extends AbstractJavaAssembler<JpackageAssem
         @Override
         public Set<? extends org.jreleaser.model.api.common.Artifact> getOutputs() {
             if (null == outputs) {
-                outputs = JpackageAssembler.this.outputs.stream()
+                outputs = JpackageAssembler.this.getOutputs().stream()
                     .map(Artifact::asImmutable)
                     .collect(toSet());
             }
@@ -227,7 +248,7 @@ public final class JpackageAssembler extends AbstractJavaAssembler<JpackageAssem
 
         @Override
         public Active getActive() {
-            return active;
+            return JpackageAssembler.this.getActive();
         }
 
         @Override
@@ -242,12 +263,12 @@ public final class JpackageAssembler extends AbstractJavaAssembler<JpackageAssem
 
         @Override
         public String getPrefix() {
-            return JpackageAssembler.this.getPrefix();
+            return JpackageAssembler.this.prefix();
         }
 
         @Override
         public Map<String, Object> getExtraProperties() {
-            return unmodifiableMap(extraProperties);
+            return unmodifiableMap(JpackageAssembler.this.getExtraProperties());
         }
     };
 
@@ -288,11 +309,11 @@ public final class JpackageAssembler extends AbstractJavaAssembler<JpackageAssem
     }
 
     public boolean isAttachPlatformSet() {
-        return attachPlatform != null;
+        return null != attachPlatform;
     }
 
     public boolean isAttachPlatform() {
-        return attachPlatform != null && attachPlatform;
+        return null != attachPlatform && attachPlatform;
     }
 
     public void setAttachPlatform(Boolean attachPlatform) {
@@ -300,11 +321,11 @@ public final class JpackageAssembler extends AbstractJavaAssembler<JpackageAssem
     }
 
     public boolean isVerboseSet() {
-        return verbose != null;
+        return null != verbose;
     }
 
     public boolean isVerbose() {
-        return verbose != null && verbose;
+        return null != verbose && verbose;
     }
 
     public void setVerbose(Boolean verbose) {
@@ -443,6 +464,8 @@ public final class JpackageAssembler extends AbstractJavaAssembler<JpackageAssem
     }
 
     public static final class ApplicationPackage extends AbstractModelObject<ApplicationPackage> implements Domain {
+        private static final long serialVersionUID = -1240484668237208097L;
+
         private final List<String> fileAssociations = new ArrayList<>();
 
         private String appName;
@@ -451,7 +474,10 @@ public final class JpackageAssembler extends AbstractJavaAssembler<JpackageAssem
         private String copyright;
         private String licenseFile;
 
+        @JsonIgnore
         private final org.jreleaser.model.api.assemble.JpackageAssembler.ApplicationPackage immutable = new org.jreleaser.model.api.assemble.JpackageAssembler.ApplicationPackage() {
+            private static final long serialVersionUID = 2880902841456006360L;
+
             @Override
             public String getAppName() {
                 return appName;
@@ -503,8 +529,8 @@ public final class JpackageAssembler extends AbstractJavaAssembler<JpackageAssem
         }
 
         public String getResolvedAppVersion(JReleaserContext context, JpackageAssembler jpackage) {
-            Map<String, Object> props = context.getModel().props();
-            props.putAll(jpackage.props());
+            TemplateContext props = context.getModel().props();
+            props.setAll(jpackage.props());
             return resolveTemplate(appVersion, props);
         }
 
@@ -571,11 +597,16 @@ public final class JpackageAssembler extends AbstractJavaAssembler<JpackageAssem
     }
 
     public static final class Launcher extends AbstractModelObject<Launcher> implements Domain {
+        private static final long serialVersionUID = -3575025563394732760L;
+
         private final List<String> arguments = new ArrayList<>();
         private final List<String> javaOptions = new ArrayList<>();
         private final List<String> launchers = new ArrayList<>();
 
+        @JsonIgnore
         private final org.jreleaser.model.api.assemble.JpackageAssembler.Launcher immutable = new org.jreleaser.model.api.assemble.JpackageAssembler.Launcher() {
+            private static final long serialVersionUID = -3045561990255302058L;
+
             @Override
             public List<String> getLaunchers() {
                 return unmodifiableList(launchers);
@@ -663,18 +694,20 @@ public final class JpackageAssembler extends AbstractJavaAssembler<JpackageAssem
         }
     }
 
-    public static abstract class AbstractPlatformPackager<S extends AbstractPlatformPackager<S>> extends AbstractModelObject<S> implements PlatformPackager {
-        protected final Artifact jdk = new Artifact();
-        protected final List<String> types = new ArrayList<>();
-        protected final List<String> validTypes = new ArrayList<>();
-        protected final String platform;
+    public abstract static class AbstractPlatformPackager<S extends AbstractPlatformPackager<S>> extends AbstractModelObject<S> implements PlatformPackager {
+        private static final long serialVersionUID = 2046243917741810506L;
+
+        private final Artifact jdk = new Artifact();
+        private final List<String> types = new ArrayList<>();
+        private final List<String> validTypes = new ArrayList<>();
+        private final String platform;
 
         @JsonIgnore
-        protected boolean enabled;
-        protected String appName;
-        protected String icon;
-        protected String installDir;
-        protected String resourceDir;
+        private boolean enabled;
+        private String appName;
+        private String icon;
+        private String installDir;
+        private String resourceDir;
 
         protected AbstractPlatformPackager(String platform, List<String> validTypes) {
             this.platform = platform;
@@ -683,18 +716,19 @@ public final class JpackageAssembler extends AbstractJavaAssembler<JpackageAssem
 
         @Override
         public void merge(S source) {
-            this.icon = this.merge(this.icon, source.icon);
-            this.appName = this.merge(this.appName, source.appName);
-            this.enabled = this.merge(this.enabled, source.enabled);
-            this.installDir = this.merge(this.installDir, source.installDir);
-            this.resourceDir = this.merge(this.resourceDir, source.resourceDir);
-            setJdk(source.jdk);
-            setTypes(merge(this.types, source.types));
+            this.icon = this.merge(this.icon, source.getIcon());
+            this.appName = this.merge(this.appName, source.getAppName());
+            this.enabled = this.merge(this.enabled, source.isEnabled());
+            this.installDir = this.merge(this.installDir, source.getInstallDir());
+            this.resourceDir = this.merge(this.resourceDir, source.getResourceDir());
+            setJdk(source.getJdk());
+            setTypes(merge(this.types, source.getTypes()));
         }
 
+        @Override
         public String getResolvedAppName(JReleaserContext context, JpackageAssembler jpackage) {
-            Map<String, Object> props = context.getModel().props();
-            props.putAll(jpackage.props());
+            TemplateContext props = context.getModel().props();
+            props.setAll(jpackage.props());
             return resolveTemplate(appName, props);
         }
 
@@ -718,6 +752,7 @@ public final class JpackageAssembler extends AbstractJavaAssembler<JpackageAssem
             this.icon = icon;
         }
 
+        @Override
         public List<String> getValidTypes() {
             return validTypes;
         }
@@ -806,6 +841,8 @@ public final class JpackageAssembler extends AbstractJavaAssembler<JpackageAssem
     }
 
     public static final class Linux extends AbstractPlatformPackager<Linux> {
+        private static final long serialVersionUID = -3810090447757197994L;
+
         private final List<String> packageDeps = new ArrayList<>();
         private String packageName;
         private String maintainer;
@@ -815,7 +852,10 @@ public final class JpackageAssembler extends AbstractJavaAssembler<JpackageAssem
         private String appCategory;
         private Boolean shortcut;
 
+        @JsonIgnore
         private final org.jreleaser.model.api.assemble.JpackageAssembler.Linux immutable = new org.jreleaser.model.api.assemble.JpackageAssembler.Linux() {
+            private static final long serialVersionUID = 2520774986990267446L;
+
             @Override
             public List<String> getPackageDeps() {
                 return unmodifiableList(packageDeps);
@@ -858,17 +898,17 @@ public final class JpackageAssembler extends AbstractJavaAssembler<JpackageAssem
 
             @Override
             public String getAppName() {
-                return appName;
+                return Linux.this.getAppName();
             }
 
             @Override
             public String getIcon() {
-                return icon;
+                return Linux.this.getIcon();
             }
 
             @Override
             public String getPlatform() {
-                return platform;
+                return Linux.this.getPlatform();
             }
 
             @Override
@@ -878,22 +918,22 @@ public final class JpackageAssembler extends AbstractJavaAssembler<JpackageAssem
 
             @Override
             public org.jreleaser.model.api.common.Artifact getJdk() {
-                return jdk.asImmutable();
+                return Linux.this.getJdk().asImmutable();
             }
 
             @Override
             public List<String> getTypes() {
-                return unmodifiableList(types);
+                return unmodifiableList(Linux.this.getTypes());
             }
 
             @Override
             public String getInstallDir() {
-                return installDir;
+                return Linux.this.getInstallDir();
             }
 
             @Override
             public String getResourceDir() {
-                return resourceDir;
+                return Linux.this.getResourceDir();
             }
 
             @Override
@@ -981,7 +1021,7 @@ public final class JpackageAssembler extends AbstractJavaAssembler<JpackageAssem
         }
 
         public boolean isShortcut() {
-            return shortcut != null && shortcut;
+            return null != shortcut && shortcut;
         }
 
         public void setShortcut(Boolean shortcut) {
@@ -1002,6 +1042,8 @@ public final class JpackageAssembler extends AbstractJavaAssembler<JpackageAssem
     }
 
     public static final class Windows extends AbstractPlatformPackager<Windows> {
+        private static final long serialVersionUID = -8740230984658635712L;
+
         private Boolean console;
         private Boolean dirChooser;
         private Boolean menu;
@@ -1010,7 +1052,10 @@ public final class JpackageAssembler extends AbstractJavaAssembler<JpackageAssem
         private String menuGroup;
         private String upgradeUuid;
 
+        @JsonIgnore
         private final org.jreleaser.model.api.assemble.JpackageAssembler.Windows immutable = new org.jreleaser.model.api.assemble.JpackageAssembler.Windows() {
+            private static final long serialVersionUID = -6571133010636822955L;
+
             @Override
             public boolean isConsole() {
                 return Windows.this.isConsole();
@@ -1048,17 +1093,17 @@ public final class JpackageAssembler extends AbstractJavaAssembler<JpackageAssem
 
             @Override
             public String getAppName() {
-                return appName;
+                return Windows.this.getAppName();
             }
 
             @Override
             public String getIcon() {
-                return icon;
+                return Windows.this.getIcon();
             }
 
             @Override
             public String getPlatform() {
-                return platform;
+                return Windows.this.getPlatform();
             }
 
             @Override
@@ -1068,22 +1113,22 @@ public final class JpackageAssembler extends AbstractJavaAssembler<JpackageAssem
 
             @Override
             public org.jreleaser.model.api.common.Artifact getJdk() {
-                return jdk.asImmutable();
+                return Windows.this.getJdk().asImmutable();
             }
 
             @Override
             public List<String> getTypes() {
-                return unmodifiableList(types);
+                return unmodifiableList(Windows.this.getTypes());
             }
 
             @Override
             public String getInstallDir() {
-                return installDir;
+                return Windows.this.getInstallDir();
             }
 
             @Override
             public String getResourceDir() {
-                return resourceDir;
+                return Windows.this.getResourceDir();
             }
 
             @Override
@@ -1113,7 +1158,7 @@ public final class JpackageAssembler extends AbstractJavaAssembler<JpackageAssem
         }
 
         public boolean isConsole() {
-            return console != null && console;
+            return null != console && console;
         }
 
         public void setConsole(Boolean console) {
@@ -1121,7 +1166,7 @@ public final class JpackageAssembler extends AbstractJavaAssembler<JpackageAssem
         }
 
         public boolean isDirChooser() {
-            return dirChooser != null && dirChooser;
+            return null != dirChooser && dirChooser;
         }
 
         public void setDirChooser(Boolean dirChooser) {
@@ -1129,7 +1174,7 @@ public final class JpackageAssembler extends AbstractJavaAssembler<JpackageAssem
         }
 
         public boolean isMenu() {
-            return menu != null && menu;
+            return null != menu && menu;
         }
 
         public void setMenu(Boolean menu) {
@@ -1137,7 +1182,7 @@ public final class JpackageAssembler extends AbstractJavaAssembler<JpackageAssem
         }
 
         public boolean isPerUserInstall() {
-            return perUserInstall != null && perUserInstall;
+            return null != perUserInstall && perUserInstall;
         }
 
         public void setPerUserInstall(Boolean perUserInstall) {
@@ -1145,7 +1190,7 @@ public final class JpackageAssembler extends AbstractJavaAssembler<JpackageAssem
         }
 
         public boolean isShortcut() {
-            return shortcut != null && shortcut;
+            return null != shortcut && shortcut;
         }
 
         public void setShortcut(Boolean shortcut) {
@@ -1181,6 +1226,8 @@ public final class JpackageAssembler extends AbstractJavaAssembler<JpackageAssem
     }
 
     public static final class Osx extends AbstractPlatformPackager<Osx> {
+        private static final long serialVersionUID = -9141240583821973075L;
+
         private String packageIdentifier;
         private String packageName;
         private String packageSigningPrefix;
@@ -1188,7 +1235,10 @@ public final class JpackageAssembler extends AbstractJavaAssembler<JpackageAssem
         private String signingKeyUsername;
         private Boolean sign;
 
+        @JsonIgnore
         private final org.jreleaser.model.api.assemble.JpackageAssembler.Osx immutable = new org.jreleaser.model.api.assemble.JpackageAssembler.Osx() {
+            private static final long serialVersionUID = 2993684370219100767L;
+
             @Override
             public String getPackageIdentifier() {
                 return packageIdentifier;
@@ -1221,17 +1271,17 @@ public final class JpackageAssembler extends AbstractJavaAssembler<JpackageAssem
 
             @Override
             public String getAppName() {
-                return appName;
+                return Osx.this.getAppName();
             }
 
             @Override
             public String getIcon() {
-                return icon;
+                return Osx.this.getIcon();
             }
 
             @Override
             public String getPlatform() {
-                return platform;
+                return Osx.this.getPlatform();
             }
 
             @Override
@@ -1241,22 +1291,22 @@ public final class JpackageAssembler extends AbstractJavaAssembler<JpackageAssem
 
             @Override
             public org.jreleaser.model.api.common.Artifact getJdk() {
-                return jdk.asImmutable();
+                return Osx.this.getJdk().asImmutable();
             }
 
             @Override
             public List<String> getTypes() {
-                return unmodifiableList(types);
+                return unmodifiableList(Osx.this.getTypes());
             }
 
             @Override
             public String getInstallDir() {
-                return installDir;
+                return Osx.this.getInstallDir();
             }
 
             @Override
             public String getResourceDir() {
-                return resourceDir;
+                return Osx.this.getResourceDir();
             }
 
             @Override
@@ -1325,7 +1375,7 @@ public final class JpackageAssembler extends AbstractJavaAssembler<JpackageAssem
         }
 
         public boolean isSign() {
-            return sign != null && sign;
+            return null != sign && sign;
         }
 
         public void setSign(Boolean sign) {

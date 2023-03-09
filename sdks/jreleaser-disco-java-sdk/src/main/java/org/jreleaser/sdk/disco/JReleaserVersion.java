@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,6 +27,10 @@ import java.util.ResourceBundle;
 public class JReleaserVersion {
     private static final ResourceBundle BUNDLE = ResourceBundle.getBundle(JReleaserVersion.class.getName());
     private static final String JRELEASER_VERSION = BUNDLE.getString("jreleaser_version");
+
+    private JReleaserVersion() {
+        // noop
+    }
 
     public static String getPlainVersion() {
         return JRELEASER_VERSION;

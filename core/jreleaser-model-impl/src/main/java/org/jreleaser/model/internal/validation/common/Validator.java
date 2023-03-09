@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ import org.jreleaser.bundle.RB;
 import org.jreleaser.model.api.JReleaserContext.Mode;
 import org.jreleaser.model.internal.JReleaserContext;
 import org.jreleaser.model.internal.assemble.Assembler;
+import org.jreleaser.model.internal.common.Activatable;
 import org.jreleaser.model.internal.common.CommitAuthor;
 import org.jreleaser.model.internal.common.CommitAuthorAware;
 import org.jreleaser.model.internal.common.FileSet;
@@ -34,12 +35,13 @@ import org.jreleaser.model.internal.environment.Environment;
 import org.jreleaser.model.internal.packagers.Packager;
 import org.jreleaser.model.internal.packagers.RepositoryTap;
 import org.jreleaser.model.internal.release.BaseReleaser;
-import org.jreleaser.util.Env;
 import org.jreleaser.util.Errors;
 
 import java.util.Collection;
 import java.util.List;
 
+import static org.jreleaser.util.CollectionUtils.listOf;
+import static org.jreleaser.util.Env.check;
 import static org.jreleaser.util.StringUtils.isBlank;
 import static org.jreleaser.util.StringUtils.isNotBlank;
 
@@ -47,13 +49,17 @@ import static org.jreleaser.util.StringUtils.isNotBlank;
  * @author Andres Almiray
  * @since 0.1.0
  */
-public class Validator {
+public final class Validator {
+    private Validator() {
+        // noop
+    }
+
     public static String checkProperty(JReleaserContext context, String key, String property, String value, Errors errors) {
         if (isNotBlank(value)) return value;
         Environment environment = context.getModel().getEnvironment();
         String dsl = context.getConfigurer().toString();
         String configFilePath = environment.getPropertiesFile().toAbsolutePath().normalize().toString();
-        return Env.check(key, environment.getVariable(key), property, dsl, configFilePath, errors);
+        return check(key, environment.resolve(key), property, dsl, configFilePath, errors);
     }
 
     public static String checkProperty(JReleaserContext context, String key, String property, String value, Errors errors, boolean dryrun) {
@@ -61,7 +67,7 @@ public class Validator {
         Environment environment = context.getModel().getEnvironment();
         String dsl = context.getConfigurer().toString();
         String configFilePath = environment.getPropertiesFile().toAbsolutePath().normalize().toString();
-        return Env.check(key, environment.getVariable(key), property, dsl, configFilePath, dryrun ? new Errors() : errors);
+        return check(key, environment.resolve(key), property, dsl, configFilePath, dryrun ? new Errors() : errors);
     }
 
     public static Integer checkProperty(JReleaserContext context, String key, String property, Integer value, Errors errors, boolean dryrun) {
@@ -69,7 +75,7 @@ public class Validator {
         Environment environment = context.getModel().getEnvironment();
         String dsl = context.getConfigurer().toString();
         String configFilePath = environment.getPropertiesFile().toAbsolutePath().normalize().toString();
-        String val = Env.check(key, environment.getVariable(key), property, dsl, configFilePath, dryrun ? new Errors() : errors);
+        String val = check(key, environment.resolve(key), property, dsl, configFilePath, dryrun ? new Errors() : errors);
         return isNotBlank(val) ? Integer.parseInt(val) : null;
     }
 
@@ -79,7 +85,7 @@ public class Validator {
         String dsl = context.getConfigurer().toString();
         String configFilePath = environment.getPropertiesFile().toAbsolutePath().normalize().toString();
         Errors errors = new Errors();
-        String result = Env.check(key, environment.getVariable(key), property, dsl, configFilePath, errors);
+        String result = check(key, environment.resolve(key), property, dsl, configFilePath, errors);
         return !errors.hasErrors() ? result : defaultValue;
     }
 
@@ -89,7 +95,7 @@ public class Validator {
         String dsl = context.getConfigurer().toString();
         String configFilePath = environment.getPropertiesFile().toAbsolutePath().normalize().toString();
         Errors errors = new Errors();
-        String result = Env.check(key, environment.getVariable(key), property, dsl, configFilePath, errors);
+        String result = check(key, environment.resolve(key), property, dsl, configFilePath, errors);
         return !errors.hasErrors() ? Boolean.parseBoolean(result) : defaultValue;
     }
 
@@ -99,7 +105,7 @@ public class Validator {
         String dsl = context.getConfigurer().toString();
         String configFilePath = environment.getPropertiesFile().toAbsolutePath().normalize().toString();
         Errors errors = new Errors();
-        String result = Env.check(key, environment.getVariable(key), property, dsl, configFilePath, errors);
+        String result = check(key, environment.resolve(key), property, dsl, configFilePath, errors);
         return !errors.hasErrors() ? result : (null != defaultValue ? defaultValue.name() : null);
     }
 
@@ -108,7 +114,7 @@ public class Validator {
         Environment environment = context.getModel().getEnvironment();
         String dsl = context.getConfigurer().toString();
         String configFilePath = environment.getPropertiesFile().toAbsolutePath().normalize().toString();
-        return Env.check(keys, environment.getVars(), property, dsl, configFilePath, errors);
+        return check(keys, environment.getVars(), property, dsl, configFilePath, errors);
     }
 
     public static String checkProperty(JReleaserContext context, Collection<String> keys, String property, String value, Errors errors, boolean dryrun) {
@@ -116,7 +122,7 @@ public class Validator {
         Environment environment = context.getModel().getEnvironment();
         String dsl = context.getConfigurer().toString();
         String configFilePath = environment.getPropertiesFile().toAbsolutePath().normalize().toString();
-        return Env.check(keys, environment.getVars(), property, dsl, configFilePath, dryrun ? new Errors() : errors);
+        return check(keys, environment.getVars(), property, dsl, configFilePath, dryrun ? new Errors() : errors);
     }
 
     public static Integer checkProperty(JReleaserContext context, Collection<String> keys, String property, Integer value, Errors errors, boolean dryrun) {
@@ -124,7 +130,7 @@ public class Validator {
         Environment environment = context.getModel().getEnvironment();
         String dsl = context.getConfigurer().toString();
         String configFilePath = environment.getPropertiesFile().toAbsolutePath().normalize().toString();
-        String val = Env.check(keys, environment.getVars(), property, dsl, configFilePath, dryrun ? new Errors() : errors);
+        String val = check(keys, environment.getVars(), property, dsl, configFilePath, dryrun ? new Errors() : errors);
         return isNotBlank(val) ? Integer.parseInt(val) : null;
     }
 
@@ -134,7 +140,7 @@ public class Validator {
         String dsl = context.getConfigurer().toString();
         String configFilePath = environment.getPropertiesFile().toAbsolutePath().normalize().toString();
         Errors errors = new Errors();
-        String result = Env.check(keys, environment.getVars(), property, dsl, configFilePath, errors);
+        String result = check(keys, environment.getVars(), property, dsl, configFilePath, errors);
         return !errors.hasErrors() ? result : defaultValue;
     }
 
@@ -144,7 +150,7 @@ public class Validator {
         String dsl = context.getConfigurer().toString();
         String configFilePath = environment.getPropertiesFile().toAbsolutePath().normalize().toString();
         Errors errors = new Errors();
-        String result = Env.check(keys, environment.getVars(), property, dsl, configFilePath, errors);
+        String result = check(keys, environment.getVars(), property, dsl, configFilePath, errors);
         return !errors.hasErrors() ? Boolean.parseBoolean(result) : defaultValue;
     }
 
@@ -154,7 +160,7 @@ public class Validator {
         String dsl = context.getConfigurer().toString();
         String configFilePath = environment.getPropertiesFile().toAbsolutePath().normalize().toString();
         Errors errors = new Errors();
-        String result = Env.check(keys, environment.getVars(), property, dsl, configFilePath, errors);
+        String result = check(keys, environment.getVars(), property, dsl, configFilePath, errors);
         return !errors.hasErrors() ? result : (null != defaultValue ? defaultValue.name() : null);
     }
 
@@ -162,7 +168,7 @@ public class Validator {
         if (isBlank(self.getOwner())) self.setOwner(other.getOwner());
     }
 
-    public static void validateContinueOnError(Packager self, Packager other) {
+    public static void validateContinueOnError(Packager<?> self, Packager<?> other) {
         if (!self.isContinueOnErrorSet()) {
             self.setContinueOnError(other.isContinueOnError());
         }
@@ -178,16 +184,28 @@ public class Validator {
     }
 
     public static void validateTimeout(TimeoutAware self) {
-        if (null == self.getConnectTimeout() || (self.getConnectTimeout() <= 0 || self.getConnectTimeout() > 300)) {
+        if (null == self.getConnectTimeout() || self.getConnectTimeout() <= 0 || self.getConnectTimeout() > 300) {
             self.setConnectTimeout(20);
         }
-        if (null == self.getReadTimeout() || (self.getReadTimeout() <= 0 || self.getReadTimeout() > 300)) {
+        if (null == self.getReadTimeout() || self.getReadTimeout() <= 0 || self.getReadTimeout() > 300) {
             self.setReadTimeout(60);
         }
     }
 
     public static void validateTap(JReleaserContext context, Distribution distribution,
-                            RepositoryTap tap, RepositoryTap parentTap, String property) {
+                                   RepositoryTap tap, RepositoryTap parentTap, String property) {
+        validateTap(context, distribution, tap, parentTap, property, "RELEASE");
+    }
+
+    public static void validateTap(JReleaserContext context, Distribution distribution,
+                                   RepositoryTap tap, RepositoryTap parentTap, String property, String activeDefaultValue) {
+        String distributionName = distribution.getName();
+        if (!tap.isActiveSet() && parentTap.isActiveSet()) {
+            tap.setActive(parentTap.getActive());
+        }
+        resolveActivatable(context, tap, "distributions." + distributionName + "." + property, activeDefaultValue);
+        tap.resolveEnabled(context.getModel().getProject());
+
         validateOwner(tap, parentTap);
 
         if (isBlank(tap.getCommitMessage()) && isNotBlank(parentTap.getCommitMessage())) {
@@ -199,44 +217,53 @@ public class Validator {
         if (isBlank(tap.getTagName()) && isNotBlank(parentTap.getTagName())) {
             tap.setTagName(parentTap.getTagName());
         }
-        if (isBlank(tap.getBranch()) && isNotBlank(parentTap.getBranch())) {
-            tap.setBranch(parentTap.getBranch());
-        }
         if (isBlank(tap.getName()) && isNotBlank(parentTap.getName())) {
             tap.setName(parentTap.getName());
         }
-        if (isBlank(tap.getUsername()) && isNotBlank(parentTap.getUsername())) {
-            tap.setUsername(parentTap.getUsername());
-        }
-        if (isBlank(tap.getToken()) && isNotBlank(parentTap.getToken())) {
-            tap.setToken(parentTap.getToken());
-        }
 
-        BaseReleaser service = context.getModel().getRelease().getReleaser();
+        BaseReleaser<?, ?> service = context.getModel().getRelease().getReleaser();
+
+        String tapBasename = tap.getBasename();
+        String serviceName = service.getServiceName();
 
         tap.setUsername(
             checkProperty(context,
-                Env.toVar(tap.getBasename() + "_" + service.getServiceName()) + "_USERNAME",
-                "distribution." + distribution.getName() + "." + property + ".username",
+                listOf(
+                    "distributions." + distributionName + "." + property + ".username",
+                    tapBasename + "." + serviceName + ".username"),
+                "distributions." + distributionName + "." + property + ".username",
                 tap.getUsername(),
-                service.getUsername()));
+                parentTap.getUsername()));
 
         tap.setToken(
             checkProperty(context,
-                Env.toVar(tap.getBasename() + "_" + service.getServiceName()) + "_TOKEN",
-                "distribution." + distribution.getName() + "." + property + ".token",
+                listOf(
+                    "distributions." + distributionName + "." + property + ".token",
+                    tapBasename + "." + serviceName + ".token"),
+                "distributions." + distributionName + "." + property + ".token",
                 tap.getToken(),
-                service.getToken()));
+                parentTap.getToken()));
 
         tap.setBranch(
             checkProperty(context,
-                Env.toVar(tap.getBasename() + "_" + service.getServiceName()) + "_BRANCH",
-                "distribution." + distribution.getName() + "." + property + ".branch",
+                listOf(
+                    "distributions." + distributionName + "." + property + ".branch",
+                    tapBasename + "." + serviceName + ".branch"),
+                "distributions." + distributionName + "." + property + ".branch",
                 tap.getBranch(),
-                "HEAD"));
+                parentTap.getBranch()));
+
+        tap.setBranchPush(
+            checkProperty(context,
+                listOf(
+                    "distributions." + distributionName + "." + property + ".branch.push",
+                    tapBasename + "." + serviceName + ".branch.push"),
+                "distributions." + distributionName + "." + property + ".branch.push",
+                tap.getBranchPush(),
+                parentTap.getBranchPush()));
     }
 
-    public static void validateGlobs(JReleaserContext context, Collection<Glob> globs, String property, Errors errors) {
+    public static void validateGlobs(Collection<Glob> globs, String property, Errors errors) {
         int i = 0;
         for (Glob glob : globs) {
             if (isBlank(glob.getPattern())) {
@@ -245,13 +272,13 @@ public class Validator {
         }
     }
 
-    public static void validateFileSet(JReleaserContext context, Mode mode, Assembler assembler, FileSet fileSet, int index, Errors errors) {
+    public static void validateFileSet(Mode mode, Assembler<?> assembler, FileSet fileSet, int index, Errors errors) {
         if (mode.validateStandalone() && isBlank(fileSet.getInput())) {
             errors.configuration(RB.$("validation_must_not_be_null", assembler.getType() + "." + assembler.getName() + ".fileSet[" + index + "].input"));
         }
     }
 
-    public static void validateScreenshots(JReleaserContext context, Mode mode, List<Screenshot> screenshots, Errors errors, String base) {
+    public static void validateScreenshots(List<Screenshot> screenshots, Errors errors, String base) {
         if (screenshots.size() == 1) {
             screenshots.get(0).setPrimary(true);
         }
@@ -285,11 +312,11 @@ public class Validator {
         }
     }
 
-    public static void validateIcons(JReleaserContext context, Mode mode, List<Icon> icons, Errors errors, String base) {
-        validateIcons(context, mode, icons, errors, base, true);
+    public static void validateIcons(List<Icon> icons, Errors errors, String base) {
+        validateIcons(icons, errors, base, true);
     }
 
-    public static void validateIcons(JReleaserContext context, Mode mode, List<Icon> icons, Errors errors, String base, boolean validatePrimary) {
+    public static void validateIcons(List<Icon> icons, Errors errors, String base, boolean validatePrimary) {
         if (validatePrimary) {
             if (icons.size() == 1) {
                 icons.get(0).setPrimary(true);
@@ -313,6 +340,40 @@ public class Validator {
             if (null == icon.getHeight()) {
                 errors.configuration(RB.$("validation_must_not_be_null", base + ".icons[" + i + "].height"));
             }
+        }
+    }
+
+    public static void resolveActivatable(JReleaserContext context, Activatable activatable, String key, Activatable parentActivatable) {
+        if (!activatable.isActiveSet()) {
+            String value = context.getModel().getEnvironment().resolve(key + ".active", "");
+            // defaultValue may be blank
+            if (isNotBlank(value)) {
+                activatable.setActive(value);
+            } else {
+                activatable.setActive(parentActivatable.getActive());
+            }
+        }
+    }
+
+    public static void resolveActivatable(JReleaserContext context, Activatable activatable, String key, String defaultValue) {
+        if (!activatable.isActiveSet()) {
+            String value = context.getModel().getEnvironment().resolveOrDefault(key + ".active", "", defaultValue);
+            // defaultValue may be blank
+            if (isNotBlank(value)) activatable.setActive(value);
+        }
+    }
+
+    public static void resolveActivatable(JReleaserContext context, Activatable activatable, List<String> keys, String defaultValue) {
+        if (!activatable.isActiveSet()) {
+            String value = null;
+            for (String key : keys) {
+                value = context.getModel().getEnvironment().resolve(key + ".active", "");
+                if (isNotBlank(value)) break;
+            }
+
+            // defaultValue may be blank
+            value = isNotBlank(value) ? value : defaultValue;
+            if (isNotBlank(value)) activatable.setActive(value);
         }
     }
 }

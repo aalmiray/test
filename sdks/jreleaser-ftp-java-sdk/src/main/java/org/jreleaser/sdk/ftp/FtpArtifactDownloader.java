@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -86,17 +86,19 @@ public class FtpArtifactDownloader extends AbstractArtifactDownloader<org.jrelea
         Path outputPath = context.getDownloadDirectory().resolve(name).resolve(output);
         context.getLogger().info("{} -> {}", input, context.relativizeToBasedir(outputPath));
 
-        try {
-            Files.createDirectories(outputPath.getParent());
-        } catch (IOException e) {
-            throw new DownloadException(RB.$("ERROR_unexpected_download", input), e);
-        }
+        if (!context.isDryrun()) {
+            try {
+                Files.createDirectories(outputPath.getParent());
+            } catch (IOException e) {
+                throw new DownloadException(RB.$("ERROR_unexpected_download", input), e);
+            }
 
-        try (OutputStream out = Files.newOutputStream(outputPath, CREATE, TRUNCATE_EXISTING, WRITE)) {
-            Files.createDirectories(outputPath.toAbsolutePath().getParent());
-            ftp.retrieveFile(input, out);
-        } catch (IOException e) {
-            throw new DownloadException(RB.$("ERROR_unexpected_download", input), e);
+            try (OutputStream out = Files.newOutputStream(outputPath, CREATE, TRUNCATE_EXISTING, WRITE)) {
+                Files.createDirectories(outputPath.toAbsolutePath().getParent());
+                ftp.retrieveFile(input, out);
+            } catch (IOException e) {
+                throw new DownloadException(RB.$("ERROR_unexpected_download", input), e);
+            }
         }
 
         unpack(asset.getUnpack(), outputPath);

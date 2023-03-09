@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,7 +22,9 @@ package org.jreleaser.extensions.api.workflow;
  * @since 1.3.0
  */
 public class WorkflowListenerException extends Exception {
-    private final WorkflowListener listener;
+    private static final long serialVersionUID = 7213600573252214552L;
+
+    private final transient WorkflowListener listener;
 
     public WorkflowListenerException(WorkflowListener listener, RuntimeException cause) {
         super(cause);

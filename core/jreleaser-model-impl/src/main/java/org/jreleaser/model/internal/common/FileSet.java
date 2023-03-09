@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
  */
 package org.jreleaser.model.internal.common;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.jreleaser.bundle.RB;
 import org.jreleaser.logging.JReleaserLogger;
 import org.jreleaser.model.internal.JReleaserContext;
@@ -48,6 +49,7 @@ import static org.jreleaser.util.CollectionUtils.setOf;
  */
 public final class FileSet extends AbstractModelObject<FileSet> implements Domain, ExtraProperties {
     private static final String GLOB_PREFIX = "glob:";
+    private static final long serialVersionUID = 1108903420380266057L;
 
     private final Map<String, Object> extraProperties = new LinkedHashMap<>();
     private final Set<String> includes = new LinkedHashSet<>();
@@ -57,7 +59,10 @@ public final class FileSet extends AbstractModelObject<FileSet> implements Domai
     private String output;
     private Boolean failOnMissingInput;
 
+    @JsonIgnore
     private final org.jreleaser.model.api.common.FileSet immutable = new org.jreleaser.model.api.common.FileSet() {
+        private static final long serialVersionUID = 1386323645145691467L;
+
         @Override
         public Set<String> getIncludes() {
             return unmodifiableSet(includes);
@@ -90,7 +95,7 @@ public final class FileSet extends AbstractModelObject<FileSet> implements Domai
 
         @Override
         public String getPrefix() {
-            return FileSet.this.getPrefix();
+            return FileSet.this.prefix();
         }
 
         @Override
@@ -114,7 +119,7 @@ public final class FileSet extends AbstractModelObject<FileSet> implements Domai
     }
 
     @Override
-    public String getPrefix() {
+    public String prefix() {
         return "artifact";
     }
 
@@ -153,7 +158,7 @@ public final class FileSet extends AbstractModelObject<FileSet> implements Domai
     }
 
     public boolean isFailOnMissingInput() {
-        return failOnMissingInput == null || failOnMissingInput;
+        return null == failOnMissingInput || failOnMissingInput;
     }
 
     public void setFailOnMissingInput(Boolean failOnMissingInput) {
@@ -161,7 +166,7 @@ public final class FileSet extends AbstractModelObject<FileSet> implements Domai
     }
 
     public boolean isFailOnMissingInputSet() {
-        return failOnMissingInput != null;
+        return null != failOnMissingInput;
     }
 
     @Override
@@ -188,7 +193,7 @@ public final class FileSet extends AbstractModelObject<FileSet> implements Domai
         props.put("includes", includes);
         props.put("excludes", excludes);
         props.put("failOnMissingInput", failOnMissingInput);
-        props.put("extraProperties", getResolvedExtraProperties());
+        props.put("extraProperties", resolvedExtraProperties());
         return props;
     }
 

@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -42,6 +42,7 @@ import static org.jreleaser.util.StringUtils.isNotBlank
 class SigningImpl implements Signing {
     final Property<Active> active
     final Property<Boolean> armored
+    final Property<Boolean> verify
     final Property<String> passphrase
     final Property<String> publicKey
     final Property<String> secretKey
@@ -49,6 +50,7 @@ class SigningImpl implements Signing {
     final Property<Boolean> artifacts
     final Property<Boolean> files
     final Property<Boolean> checksums
+    final Property<Boolean> catalogs
     final Command command
     final Cosign cosign
 
@@ -56,6 +58,7 @@ class SigningImpl implements Signing {
     SigningImpl(ObjectFactory objects) {
         active = objects.property(Active).convention(Providers.<Active> notDefined())
         armored = objects.property(Boolean).convention(Providers.<Boolean> notDefined())
+        verify = objects.property(Boolean).convention(Providers.<Boolean> notDefined())
         passphrase = objects.property(String).convention(Providers.<String> notDefined())
         publicKey = objects.property(String).convention(Providers.<String> notDefined())
         secretKey = objects.property(String).convention(Providers.<String> notDefined())
@@ -63,6 +66,7 @@ class SigningImpl implements Signing {
         artifacts = objects.property(Boolean).convention(Providers.<Boolean> notDefined())
         files = objects.property(Boolean).convention(Providers.<Boolean> notDefined())
         checksums = objects.property(Boolean).convention(Providers.<Boolean> notDefined())
+        catalogs = objects.property(Boolean).convention(Providers.<Boolean> notDefined())
         command = objects.newInstance(CommandImpl, objects)
         cosign = objects.newInstance(CosignImpl, objects)
     }
@@ -71,11 +75,13 @@ class SigningImpl implements Signing {
     boolean isSet() {
         return active.present ||
             armored.present ||
+            verify.present ||
             passphrase.present ||
             publicKey.present ||
             artifacts.present ||
             files.present ||
             checksums.present ||
+            catalogs.present ||
             secretKey.present ||
             ((CommandImpl) command).isSet() ||
             ((CosignImpl) cosign).isSet()
@@ -119,6 +125,7 @@ class SigningImpl implements Signing {
         org.jreleaser.model.internal.signing.Signing signing = new org.jreleaser.model.internal.signing.Signing()
         if (active.present) signing.active = active.get()
         if (armored.present) signing.armored = armored.get()
+        if (verify.present) signing.verify = verify.get()
         if (passphrase.present) signing.passphrase = passphrase.get()
         if (publicKey.present) signing.publicKey = publicKey.get()
         if (secretKey.present) signing.secretKey = secretKey.get()
@@ -126,6 +133,7 @@ class SigningImpl implements Signing {
         if (artifacts.present) signing.artifacts = artifacts.get()
         if (files.present) signing.files = files.get()
         if (checksums.present) signing.checksums = checksums.get()
+        if (catalogs.present) signing.catalogs = catalogs.get()
         signing.command = ((CommandImpl) command).toModel()
         signing.cosign = ((CosignImpl) cosign).toModel()
         signing

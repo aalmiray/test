@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,11 +18,12 @@
 package org.jreleaser.gradle.plugin.internal
 
 import groovy.transform.CompileStatic
-import org.gradle.api.Project
 import org.gradle.api.logging.LogLevel
 import org.jreleaser.logging.AbstractJReleaserLogger
 import org.kordamp.gradle.util.AnsiConsole
 import org.slf4j.helpers.MessageFormatter
+
+import static org.jreleaser.util.IoUtils.newPrintWriter
 
 /**
  * @author Andres Almiray
@@ -34,15 +35,15 @@ class JReleaserLoggerAdapter extends AbstractJReleaserLogger {
     private final Level level
     private final AnsiConsole console
 
-    JReleaserLoggerAdapter(Project project, PrintWriter tracer) {
-        this(project, tracer, new PrintWriter(System.out, true))
+    JReleaserLoggerAdapter(AnsiConsole console, LogLevel logLevel, PrintWriter tracer) {
+        this(console, logLevel, tracer, newPrintWriter(System.out))
     }
 
-    JReleaserLoggerAdapter(Project project, PrintWriter tracer, PrintWriter out) {
+    JReleaserLoggerAdapter(AnsiConsole console, LogLevel logLevel, PrintWriter tracer, PrintWriter out) {
         super(tracer)
         this.out = out
-        this.level = resolveLogLevel(project.gradle.startParameter.logLevel)
-        this.console = new AnsiConsole(project)
+        this.level = resolveLogLevel(logLevel)
+        this.console = console
     }
 
     @Override
@@ -151,19 +152,24 @@ class JReleaserLoggerAdapter extends AbstractJReleaserLogger {
 
     private void log(Level level, String message, Throwable throwable) {
         StringBuilder b = new StringBuilder('[')
-        switch (level.color()) {
-            case 'cyan':
-                b.append(console.cyan(level.name()))
-                break
-            case 'blue':
-                b.append(console.blue(level.name()))
-                break
-            case 'yellow':
-                b.append(console.yellow(level.name()))
-                break
-            case 'red':
-                b.append(console.red(level.name()))
-                break
+
+        if (console.plain) {
+            b.append(level.name())
+        } else {
+            switch (level.color()) {
+                case 'cyan':
+                    b.append(console.cyan(level.name()))
+                    break
+                case 'blue':
+                    b.append(console.blue(level.name()))
+                    break
+                case 'yellow':
+                    b.append(console.yellow(level.name()))
+                    break
+                case 'red':
+                    b.append(console.red(level.name()))
+                    break
+            }
         }
 
         out.println(b.append('] ')
@@ -191,7 +197,7 @@ class JReleaserLoggerAdapter extends AbstractJReleaserLogger {
 
     private void printThrowable(Throwable throwable) {
         if (null != throwable) {
-            throwable.printStackTrace(new Colorizer(out))
+            throwable.printStackTrace(console.plain? out : new Colorizer(out))
         }
     }
 

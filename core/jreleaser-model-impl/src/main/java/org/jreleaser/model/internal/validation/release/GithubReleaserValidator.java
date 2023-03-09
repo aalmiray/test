@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,44 +24,58 @@ import org.jreleaser.util.Errors;
 
 import static org.jreleaser.model.api.release.Releaser.DRAFT;
 import static org.jreleaser.model.api.release.Releaser.PRERELEASE_PATTERN;
-
+import static org.jreleaser.model.internal.validation.common.Validator.checkProperty;
+import static org.jreleaser.model.internal.validation.release.BaseReleaserValidator.validateGitService;
 
 /**
  * @author Andres Almiray
  * @since 0.1.0
  */
-public abstract class GithubReleaserValidator extends BaseReleaserValidator {
-    public static boolean validateGithub(JReleaserContext context, Mode mode, GithubReleaser github, Errors errors) {
-        if (null == github) return false;
+public final class GithubReleaserValidator {
+    private GithubReleaserValidator() {
+        // noop
+    }
+
+    public static boolean validateGithub(JReleaserContext context, Mode mode, GithubReleaser service, Errors errors) {
+        if (null == service) return false;
         context.getLogger().debug("release.github");
 
-        validateGitService(context, mode, github, errors);
+        validateGitService(context, mode, service, errors);
 
         if (context.getModel().getProject().isSnapshot()) {
-            github.getPrerelease().setEnabled(true);
+            service.getPrerelease().setEnabled(true);
         }
 
-        github.getPrerelease().setPattern(
+        service.getPrerelease().setPattern(
             checkProperty(context,
                 PRERELEASE_PATTERN,
                 "release.github.prerelease.pattern",
-                github.getPrerelease().getPattern(),
+                service.getPrerelease().getPattern(),
                 ""));
-        github.getPrerelease().isPrerelease(context.getModel().getProject().getResolvedVersion());
+        service.getPrerelease().isPrerelease(context.getModel().getProject().getResolvedVersion());
 
-        if (!github.isDraftSet()) {
-            github.setDraft(
+        if (!service.isDraftSet()) {
+            service.setDraft(
                 checkProperty(context,
                     DRAFT,
-                    "github.draft",
+                    "release.github.draft",
                     null,
                     false));
         }
 
-        if (github.isDraft()) {
-            github.getMilestone().setClose(false);
+        if (!service.getUpdate().isEnabled()) {
+            if (!service.getPrerelease().isEnabledSet()) {
+                service.getPrerelease().setEnabled(false);
+            }
+            if (!service.isDraftSet()) {
+                service.setDraft(false);
+            }
         }
 
-        return github.isEnabled();
+        if (service.isDraft()) {
+            service.getMilestone().setClose(false);
+        }
+
+        return service.isEnabled();
     }
 }

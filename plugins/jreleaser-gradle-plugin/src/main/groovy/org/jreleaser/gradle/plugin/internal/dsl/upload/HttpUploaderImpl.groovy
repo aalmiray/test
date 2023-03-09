@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -83,14 +83,14 @@ class HttpUploaderImpl extends AbstractWebUploader implements HttpUploader {
     }
 
     org.jreleaser.model.internal.upload.HttpUploader toModel() {
-        org.jreleaser.model.internal.upload.HttpUploader http = new org.jreleaser.model.internal.upload.HttpUploader()
-        http.name = name
-        fillProperties(http)
-        if (username.present) http.username = username.get()
-        if (password.present) http.password = password.get()
-        if (method.present) http.method = method.get()
-        if (authorization.present) http.authorization = authorization.get()
-        if (headers.present) http.headers.putAll(headers.get())
-        http
+        org.jreleaser.model.internal.upload.HttpUploader uploader = new org.jreleaser.model.internal.upload.HttpUploader()
+        uploader.name = name
+        fillProperties(uploader)
+        if (username.present) uploader.username = username.get()
+        if (password.present) uploader.password = password.get()
+        if (method.present) uploader.method = method.get()
+        if (authorization.present) uploader.authorization = authorization.get()
+        if (headers.present) uploader.headers.putAll(headers.get())
+        uploader
     }
 }

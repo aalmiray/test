@@ -4,77 +4,53 @@ on:
   push:
     branches: [ main ]
 
-env:
-  JAVA_VERSION: '11'
-  JAVA_DISTRO: 'zulu'
-  GRAAL_VERSION: '22.3.0'
-  GRAAL_JAVA_VERSION: '17'
-
 jobs:
   precheck:
     name: Precheck
-    if: github.repository == 'aalmiray/test' && startsWith(github.event.head_commit.message, 'Releasing version') != true
+    if: startsWith(github.event.head_commit.message, 'Releasing version') != true
     runs-on: ubuntu-latest
     outputs:
       VERSION: ${{ steps.vars.outputs.VERSION }}
-      CACHE_KEY: ${{ steps.vars.outputs.CACHE_KEY }}
-      JAVA_VERSION: ${{ env.JAVA_VERSION }}
-      JAVA_DISTRO: ${{ env.JAVA_DISTRO }}
-      GRAAL_VERSION: ${{ env.GRAAL_VERSION }}
-      GRAAL_JAVA_VERSION: ${{ env.GRAAL_JAVA_VERSION }}
     steps:
       - name: Checkout
         uses: actions/checkout@v3
 
-      - uses: n1hility/cancel-previous-runs@v2
+      - name: Cancel previous run
+        uses: styfle/cancel-workflow-action@0.11.0
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          access_token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Version
         id: vars
         shell: bash
         run: |
           echo "VERSION=$(cat VERSION)" >> $GITHUB_OUTPUT
-          echo "CACHE_KEY=$(git rev-parse --short HEAD)-$(cat VERSION)" >> $GITHUB_OUTPUT
 
   jlink:
     needs: [precheck]
     if: endsWith(${{ needs.precheck.outputs.VERSION }}, '-SNAPSHOT')
     uses: aalmiray/test/.github/workflows/step-jlink.yml@main
     with:
-      java-version: ${{ needs.precheck.outputs.JAVA_VERSION }}
-      java-distro: ${{ needs.precheck.outputs.JAVA_DISTRO }}
       project-version: ${{ needs.precheck.outputs.VERSION }}
-      cache-key: ${{ needs.precheck.outputs.CACHE_KEY }}
 
   jpackage:
     needs: [precheck, jlink]
     uses: aalmiray/test/.github/workflows/step-jpackage.yml@main
     with:
-      java-version: ${{ needs.precheck.outputs.JAVA_VERSION }}
-      java-distro: ${{ needs.precheck.outputs.JAVA_DISTRO }}
       project-version: ${{ needs.precheck.outputs.VERSION }}
-      cache-key: ${{ needs.precheck.outputs.CACHE_KEY }}
 
   native-image:
     needs: [precheck, jlink]
     uses: aalmiray/test/.github/workflows/step-native-image.yml@main
     with:
-      graal-version: ${{ needs.precheck.outputs.GRAAL_VERSION }}
-      graal-java-version: ${{ needs.precheck.outputs.GRAAL_JAVA_VERSION }}
-      java-version: ${{ needs.precheck.outputs.JAVA_VERSION }}
-      java-distro: ${{ needs.precheck.outputs.JAVA_DISTRO }}
       project-version: ${{ needs.precheck.outputs.VERSION }}
-      cache-key: ${{ needs.precheck.outputs.CACHE_KEY }}
+    secrets:
+      gh-access-token: ${{ secrets.GIT_ACCESS_TOKEN }}
 
   release:
     name: Release
-    needs: [precheck, jlink, jpackage, native-image]
+    needs: [precheck, jlink, jpackage]
     runs-on: ubuntu-latest
-    outputs:
-      JAR_SIZE: ${{ steps.bach.outputs.JAR_SIZE }}
-      JAR_CSUM: ${{ steps.bach.outputs.JAR_CSUM }}
-      DOC_SIZE: ${{ steps.bach.outputs.DOC_SIZE }}
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -82,51 +58,27 @@ jobs:
           fetch-depth: 0
 
       - name: Download artifacts
-        uses: actions/cache@v3
+        uses: actions/download-artifact@v3
         with:
-          key: artifacts-${{ inputs.cache-key }}
+          name: artifacts
           path: plugins
 
       - name: Download jlink
-        uses: actions/cache@v3
+        uses: actions/download-artifact@v3
         with:
-          key: jlink-${{ inputs.cache-key }}
+          name: jlink
           path: out/jreleaser/assemble/jreleaser-standalone/jlink
 
-      - name: Download jpackage Linux
-        uses: actions/cache@v3
+      - name: Download jpackage
+        uses: actions/download-artifact@v3
         with:
-          key: jpackage-Linux-${{ needs.precheck.outputs.CACHE_KEY }}
+          name: jpackage
           path: out/jreleaser/assemble/jreleaser-installer/jpackage
 
-      - name: Download jpackage Windows
-        uses: actions/cache@v3
+      - name: Download native-image
+        uses: actions/download-artifact@v3
         with:
-          key: jpackage-Windows-${{ needs.precheck.outputs.CACHE_KEY }}
-          path: out/jreleaser/assemble/jreleaser-installer/jpackage
-
-      - name: Download jpackage macOs
-        uses: actions/cache@v3
-        with:
-          key: jpackage-macOs-${{ needs.precheck.outputs.CACHE_KEY }}
-          path: out/jreleaser/assemble/jreleaser-installer/jpackage
-
-      - name: Download native-image Linux
-        uses: actions/cache@v3
-        with:
-          key: native-image-Linux-${{ needs.precheck.outputs.CACHE_KEY }}
-          path: out/jreleaser/assemble/jreleaser-native/native-image
-
-      - name: Download native-image Windows
-        uses: actions/cache@v3
-        with:
-          key: native-image-Windows-${{ needs.precheck.outputs.CACHE_KEY }}
-          path: out/jreleaser/assemble/jreleaser-native/native-image
-
-      - name: Download native-image macOs
-        uses: actions/cache@v3
-        with:
-          key: native-image-macOs-${{ needs.precheck.outputs.CACHE_KEY }}
+          name: native-image
           path: out/jreleaser/assemble/jreleaser-native/native-image
 
       - name: Release
@@ -137,21 +89,6 @@ jobs:
         env:
           JRELEASER_PROJECT_VERSION: ${{ needs.precheck.outputs.VERSION }}
           JRELEASER_GITHUB_TOKEN: ${{ secrets.GIT_ACCESS_TOKEN }}
-          JRELEASER_GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
-          JRELEASER_GPG_PUBLIC_KEY: ${{ secrets.GPG_PUBLIC_KEY }}
-          JRELEASER_GPG_SECRET_KEY: ${{ secrets.GPG_SECRET_KEY }}
-          JRELEASER_DOCKER_DEFAULT_PASSWORD: ${{ secrets.JRELEASER_DOCKER_PASSWORD }}
-
-      - name: Grab bach-info
-        id: bach
-        shell: bash
-        run: |
-          JAR_SIZE=$(ls -l out/jreleaser/artifacts/jreleaser-tool-provider/jreleaser-tool-provider-early-access.jar | awk '{print $5}')
-          JAR_CSUM=$(shasum -a 256 out/jreleaser/artifacts/jreleaser-tool-provider/jreleaser-tool-provider-early-access.jar | awk '{print $1}')
-          DOC_SIZE=$(ls -l README.adoc | awk '{print $5}')
-          echo "JAR_SIZE=$(echo $JAR_SIZE)" >> $GITHUB_OUTPUT
-          echo "JAR_CSUM=$(echo $JAR_CSUM)" >> $GITHUB_OUTPUT
-          echo "DOC_SIZE=$(echo $DOC_SIZE)" >> $GITHUB_OUTPUT
 
       - name: JReleaser release output
         if: always()
@@ -161,40 +98,3 @@ jobs:
           path: |
             out/jreleaser/trace.log
             out/jreleaser/output.properties
-
-#  update-bach-info:
-#    name: Update bach-info
-#    needs: [precheck, release]
-#    runs-on: ubuntu-latest
-#    continue-on-error: true
-#    steps:
-#      - name: Checkout
-#        uses: actions/checkout@v3
-#        with:
-#          repository: jreleaser/bach-info
-#          ref: 'main'
-#          fetch-depth: 0
-#          token: ${{ secrets.GIT_ACCESS_TOKEN }}
-#
-#      - name: Commit
-#        run: |
-#          TAG="early-access"
-#          VERSION=${{ needs.precheck.outputs.VERSION }}
-#          JAR_SIZE=${{ needs.release.outputs.JAR_SIZE }}
-#          JAR_CSUM=${{ needs.release.outputs.JAR_CSUM }}
-#          DOC_SIZE=${{ needs.release.outputs.DOC_SIZE }}
-#          TARGET_FILE=".bach/external-tools/jreleaser@$TAG.tool-directory.properties"
-#          echo "@description JReleaser $TAG ($VERSION)" > $TARGET_FILE
-#          echo " " >> $TARGET_FILE
-#          echo "jreleaser-tool-provider-$TAG.jar=\\" >> $TARGET_FILE
-#          echo "  https://github.com/jreleaser/jreleaser/releases/download/$TAG/jreleaser-tool-provider-$TAG.jar\\" >> $TARGET_FILE
-#          echo "  #SIZE=${JAR_SIZE}&SHA-256=${JAR_CSUM}" >> $TARGET_FILE
-#          echo "README.adoc=\\" >> $TARGET_FILE
-#          echo "  https://github.com/jreleaser/jreleaser/raw/$TAG/README.adoc\\" >> $TARGET_FILE
-#          echo "  #SIZE=${DOC_SIZE}" >> $TARGET_FILE
-#          echo "" >> $TARGET_FILE
-#          git add $TARGET_FILE
-#          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
-#          git config --global user.name "GitHub Action"
-#          git commit -a -m "Releasing $TAG ($VERSION)"
-#          git push origin main

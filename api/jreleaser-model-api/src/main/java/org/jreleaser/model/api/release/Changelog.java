@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@ package org.jreleaser.model.api.release;
 import org.jreleaser.model.Active;
 import org.jreleaser.model.api.common.Domain;
 import org.jreleaser.model.api.common.EnabledAware;
+import org.jreleaser.model.api.common.ExtraProperties;
 
 import java.util.Comparator;
 import java.util.List;
@@ -29,7 +30,7 @@ import java.util.Set;
  * @author Andres Almiray
  * @since 0.1.0
  */
-public interface Changelog extends Domain, EnabledAware {
+public interface Changelog extends Domain, EnabledAware, ExtraProperties {
     boolean isLinks();
 
     boolean isSkipMergeCommits();
@@ -52,6 +53,10 @@ public interface Changelog extends Domain, EnabledAware {
 
     String getFormat();
 
+    String getCategoryTitleFormat();
+
+    String getContributorsTitleFormat();
+
     String getContent();
 
     String getContentTemplate();
@@ -61,6 +66,20 @@ public interface Changelog extends Domain, EnabledAware {
     Hide getHide();
 
     Contributors getContributors();
+
+    Append getAppend();
+
+    interface Append extends Domain {
+        boolean isEnabled();
+
+        String getTitle();
+
+        String getTarget();
+
+        String getContent();
+
+        String getContentTemplate();
+    }
 
     interface Category extends Domain {
         Comparator<Category> ORDER = (o1, o2) -> {

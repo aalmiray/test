@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,13 +24,15 @@ import org.jreleaser.model.api.JReleaserContext.Mode;
 import org.jreleaser.model.internal.JReleaserContext;
 import org.jreleaser.model.internal.announce.HttpAnnouncer;
 import org.jreleaser.model.internal.announce.HttpAnnouncers;
-import org.jreleaser.model.internal.validation.common.Validator;
-import org.jreleaser.util.Env;
+import org.jreleaser.model.internal.validation.common.HttpValidator;
 import org.jreleaser.util.Errors;
 
 import java.nio.file.Files;
 import java.util.Map;
 
+import static org.jreleaser.model.internal.validation.common.Validator.resolveActivatable;
+import static org.jreleaser.model.internal.validation.common.Validator.validateTimeout;
+import static org.jreleaser.util.CollectionUtils.listOf;
 import static org.jreleaser.util.StringUtils.isBlank;
 import static org.jreleaser.util.StringUtils.isNotBlank;
 
@@ -38,21 +40,23 @@ import static org.jreleaser.util.StringUtils.isNotBlank;
  * @author Andres Almiray
  * @since 1.3.0
  */
-public abstract class HttpAnnouncerValidator extends Validator {
+public final class HttpAnnouncerValidator {
     private static final String DEFAULT_TPL = "src/jreleaser/templates";
+
+    private HttpAnnouncerValidator() {
+        // noop
+    }
 
     public static void validateHttpAnnouncers(JReleaserContext context, Mode mode, HttpAnnouncers http, Errors errors) {
         context.getLogger().debug("announce.http");
 
-        Map<String, HttpAnnouncer> ha = http.getHttpAnnouncers();
+        Map<String, HttpAnnouncer> ha = http.getHttp();
 
         boolean enabled = false;
         for (Map.Entry<String, HttpAnnouncer> e : ha.entrySet()) {
             e.getValue().setName(e.getKey());
-            if (mode.validateConfig() || mode.validateAnnounce()) {
-                if (validateHttpAnnouncer(context, http, e.getValue(), errors)) {
-                    enabled = true;
-                }
+            if ((mode.validateConfig() || mode.validateAnnounce()) && validateHttpAnnouncer(context, e.getValue(), errors)) {
+                enabled = true;
             }
         }
 
@@ -62,14 +66,17 @@ public abstract class HttpAnnouncerValidator extends Validator {
             http.setActive(Active.NEVER);
         }
 
-        if (!http.resolveEnabled(context.getModel().getProject())) {
+        if (!http.resolveEnabledWithSnapshot(context.getModel().getProject())) {
             context.getLogger().debug(RB.$("validation.disabled"));
         }
     }
 
-    public static boolean validateHttpAnnouncer(JReleaserContext context, HttpAnnouncers http, HttpAnnouncer announcer, Errors errors) {
+    public static boolean validateHttpAnnouncer(JReleaserContext context, HttpAnnouncer announcer, Errors errors) {
         context.getLogger().debug("announce.http." + announcer.getName());
-        if (!announcer.resolveEnabled(context.getModel().getProject())) {
+        resolveActivatable(context, announcer,
+            listOf("announce.http." + announcer.getName(), "announce.http"),
+            "NEVER");
+        if (!announcer.resolveEnabledWithSnapshot(context.getModel().getProject())) {
             context.getLogger().debug(RB.$("validation.disabled"));
             return false;
         }
@@ -87,40 +94,7 @@ public abstract class HttpAnnouncerValidator extends Validator {
             announcer.setMethod(Http.Method.PUT);
         }
 
-        switch (announcer.resolveAuthorization()) {
-            case BEARER:
-                announcer.setPassword(
-                    checkProperty(context,
-                        "HTTP_" + Env.toVar(announcer.getName()) + "_PASSWORD",
-                        "http.password",
-                        announcer.getPassword(),
-                        errors,
-                        context.isDryrun()));
-
-                if (isBlank(announcer.getBearerKeyword())) {
-                    announcer.setBearerKeyword("Bearer");
-                }
-                break;
-            case BASIC:
-                announcer.setUsername(
-                    checkProperty(context,
-                        "HTTP_" + Env.toVar(announcer.getName()) + "_USERNAME",
-                        "http.username",
-                        announcer.getUsername(),
-                        errors,
-                        context.isDryrun()));
-
-                announcer.setPassword(
-                    checkProperty(context,
-                        "HTTP_" + Env.toVar(announcer.getName()) + "_PASSWORD",
-                        "http.password",
-                        announcer.getPassword(),
-                        errors,
-                        context.isDryrun()));
-                break;
-            case NONE:
-                break;
-        }
+        HttpValidator.validateHttp(context, announcer, "announce", announcer.getName(), errors);
 
         String defaultPayloadTemplate = DEFAULT_TPL + "/http/" + announcer.getName() + ".tpl";
         if (isBlank(announcer.getPayload()) && isBlank(announcer.getPayloadTemplate())) {

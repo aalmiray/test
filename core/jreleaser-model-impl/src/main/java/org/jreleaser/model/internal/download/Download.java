@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,11 +19,8 @@ package org.jreleaser.model.internal.download;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.jreleaser.model.Active;
-import org.jreleaser.model.internal.common.AbstractModelObject;
-import org.jreleaser.model.internal.common.Activatable;
+import org.jreleaser.model.internal.common.AbstractActivatable;
 import org.jreleaser.model.internal.common.Domain;
-import org.jreleaser.model.internal.project.Project;
-import org.jreleaser.util.Env;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -40,16 +37,18 @@ import static java.util.stream.Collectors.toMap;
  * @author Andres Almiray
  * @since 1.1.0
  */
-public final class Download extends AbstractModelObject<Download> implements Domain, Activatable {
+public final class Download extends AbstractActivatable<Download> implements Domain {
+    private static final long serialVersionUID = -167665748357801922L;
+
     private final Map<String, FtpDownloader> ftp = new LinkedHashMap<>();
     private final Map<String, HttpDownloader> http = new LinkedHashMap<>();
     private final Map<String, ScpDownloader> scp = new LinkedHashMap<>();
     private final Map<String, SftpDownloader> sftp = new LinkedHashMap<>();
-    private Active active;
-    @JsonIgnore
-    private boolean enabled = true;
 
+    @JsonIgnore
     private final org.jreleaser.model.api.download.Download immutable = new org.jreleaser.model.api.download.Download() {
+        private static final long serialVersionUID = -6843721083893842034L;
+
         private Map<String, ? extends org.jreleaser.model.api.download.FtpDownloader> ftp;
         private Map<String, ? extends org.jreleaser.model.api.download.HttpDownloader> http;
         private Map<String, ? extends org.jreleaser.model.api.download.ScpDownloader> scp;
@@ -97,7 +96,7 @@ public final class Download extends AbstractModelObject<Download> implements Dom
 
         @Override
         public Active getActive() {
-            return active;
+            return Download.this.getActive();
         }
 
         @Override
@@ -111,57 +110,21 @@ public final class Download extends AbstractModelObject<Download> implements Dom
         }
     };
 
+    public Download() {
+        enabledSet(true);
+    }
+
     public org.jreleaser.model.api.download.Download asImmutable() {
         return immutable;
     }
 
-
     @Override
     public void merge(Download source) {
-        this.active = merge(this.active, source.active);
-        this.enabled = merge(this.enabled, source.enabled);
+        super.merge(source);
         setFtp(mergeModel(this.ftp, source.ftp));
         setHttp(mergeModel(this.http, source.http));
         setScp(mergeModel(this.scp, source.scp));
         setSftp(mergeModel(this.sftp, source.sftp));
-    }
-
-    @Override
-    public boolean isEnabled() {
-        return enabled && active != null;
-    }
-
-    public void disable() {
-        active = Active.NEVER;
-        enabled = false;
-    }
-
-    public boolean resolveEnabled(Project project) {
-        if (null == active) {
-            setActive(Env.resolveOrDefault("download.active", "", "ALWAYS"));
-        }
-        enabled = active.check(project);
-        return enabled;
-    }
-
-    @Override
-    public Active getActive() {
-        return active;
-    }
-
-    @Override
-    public void setActive(Active active) {
-        this.active = active;
-    }
-
-    @Override
-    public void setActive(String str) {
-        setActive(Active.of(str));
-    }
-
-    @Override
-    public boolean isActiveSet() {
-        return active != null;
     }
 
     public List<FtpDownloader> getActiveFtps() {
@@ -243,8 +206,8 @@ public final class Download extends AbstractModelObject<Download> implements Dom
     @Override
     public Map<String, Object> asMap(boolean full) {
         Map<String, Object> map = new LinkedHashMap<>();
-        map.put("enabled", enabled);
-        map.put("active", active);
+        map.put("enabled", isEnabled());
+        map.put("active", getActive());
 
         List<Map<String, Object>> ftp = this.ftp.values()
             .stream()
@@ -287,9 +250,9 @@ public final class Download extends AbstractModelObject<Download> implements Dom
                 return (Map<String, A>) scp;
             case org.jreleaser.model.api.download.SftpDownloader.TYPE:
                 return (Map<String, A>) sftp;
+            default:
+                return Collections.emptyMap();
         }
-
-        return Collections.emptyMap();
     }
 
     public <A extends Downloader<?>> List<A> findAllActiveDownloaders() {

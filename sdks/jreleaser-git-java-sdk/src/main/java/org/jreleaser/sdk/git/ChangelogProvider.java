@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,6 +36,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static java.lang.System.lineSeparator;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.nio.file.StandardOpenOption.CREATE;
 import static java.nio.file.StandardOpenOption.TRUNCATE_EXISTING;
 import static java.nio.file.StandardOpenOption.WRITE;
@@ -46,9 +47,13 @@ import static org.jreleaser.util.StringUtils.isNotBlank;
  * @author Andres Almiray
  * @since 0.1.0
  */
-public class ChangelogProvider {
+public final class ChangelogProvider {
     public static final String ISSUES_FILE = "issues.txt";
     public static final String CHANGELOG_FILE = "CHANGELOG.md";
+
+    private ChangelogProvider() {
+        // noop
+    }
 
     public static String getChangelog(JReleaserContext context) throws IOException {
         Changelog changelog = context.getModel().getRelease().getReleaser().getChangelog();
@@ -69,7 +74,7 @@ public class ChangelogProvider {
         context.getLogger().debug(content);
 
         Files.createDirectories(changelogFile.getParent());
-        Files.write(changelogFile, content.getBytes(), CREATE, WRITE, TRUNCATE_EXISTING);
+        Files.write(changelogFile, content.getBytes(UTF_8), CREATE, WRITE, TRUNCATE_EXISTING);
 
         return content;
     }
@@ -101,9 +106,10 @@ public class ChangelogProvider {
             }
 
             context.getLogger().info(RB.$("changelog.generator.read"), context.getBasedir().relativize(externalChangelogPath));
-            String content = new String(Files.readAllBytes(externalChangelogPath));
+            String content = new String(Files.readAllBytes(externalChangelogPath), UTF_8);
 
             if (context.getModel().getRelease().getReleaser().getIssues().isEnabled()) {
+                context.getLogger().info(RB.$("issues.generator.extract"));
                 Set<Integer> issues = extractIssues(context, content);
                 storeIssues(context, issues);
             }
@@ -116,23 +122,22 @@ public class ChangelogProvider {
     }
 
     public static Set<Integer> extractIssues(JReleaserContext context, String content) {
-        context.getLogger().info(RB.$("issues.generator.extract"));
-
-        BaseReleaser releaser = context.getModel().getRelease().getReleaser();
-        String issueTracker = releaser.getResolvedIssueTrackerUrl(context.getModel());
-        if (!issueTracker.endsWith("/")) {
-            issueTracker += "/";
-        }
+        BaseReleaser<?, ?> releaser = context.getModel().getRelease().getReleaser();
+        String issueTracker = releaser.getResolvedIssueTrackerUrl(context.getModel(), true);
 
         String p1 = StringUtils.escapeRegexChars(issueTracker);
         String p2 = StringUtils.escapeRegexChars(releaser.getCanonicalRepoName());
-        Pattern pattern = Pattern.compile(".*" + p1 + "(\\d+)|.*" + p2 + "#(\\d+)|.*#(\\d+)" + ".*");
+        String p3 = StringUtils.escapeRegexChars(releaser.getName());
+        String regex = "(?:" + p2 + "|(?<!/)" + p3 + ")#(?<repo>\\d+)|[^a-zA-Z0-9]#(?<hash>\\d+)";
+        regex += isNotBlank(p1) ? "|" + p1 + "(?<tracker>\\d+)" : "";
+        Pattern pattern = Pattern.compile(regex);
         Matcher matcher = pattern.matcher(content);
         Set<Integer> issues = new TreeSet<>();
         while (matcher.find()) {
-            if (isNotBlank(matcher.group(1))) issues.add(Integer.valueOf(matcher.group(1)));
-            if (isNotBlank(matcher.group(2))) issues.add(Integer.valueOf(matcher.group(2)));
-            if (isNotBlank(matcher.group(3))) issues.add(Integer.valueOf(matcher.group(3)));
+            if (isNotBlank(matcher.group("repo"))) issues.add(Integer.valueOf(matcher.group("repo")));
+            if (isNotBlank(matcher.group("hash"))) issues.add(Integer.valueOf(matcher.group("hash")));
+            if (isNotBlank(p1) && isNotBlank(matcher.group("tracker")))
+                issues.add(Integer.valueOf(matcher.group("tracker")));
         }
 
         return issues;
@@ -147,7 +152,7 @@ public class ChangelogProvider {
         context.getLogger().debug(content);
 
         Files.createDirectories(issuesFile.getParent());
-        Files.write(issuesFile, content.getBytes(), CREATE, WRITE, TRUNCATE_EXISTING);
+        Files.write(issuesFile, content.getBytes(UTF_8), CREATE, WRITE, TRUNCATE_EXISTING);
     }
 
     public static Path getReleaseFilePath(JReleaserContext context, String fileName) {

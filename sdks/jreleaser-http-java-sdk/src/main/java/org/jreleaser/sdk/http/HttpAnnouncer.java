@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,7 +20,6 @@ package org.jreleaser.sdk.http;
 import feign.form.FormData;
 import org.jreleaser.bundle.RB;
 import org.jreleaser.extensions.api.workflow.WorkflowListenerException;
-import org.jreleaser.model.Constants;
 import org.jreleaser.model.Http;
 import org.jreleaser.model.api.JReleaserCommand;
 import org.jreleaser.model.api.announce.HttpAnnouncers;
@@ -29,14 +28,14 @@ import org.jreleaser.model.internal.JReleaserContext;
 import org.jreleaser.model.spi.announce.AnnounceException;
 import org.jreleaser.model.spi.announce.Announcer;
 import org.jreleaser.model.spi.upload.UploadException;
-import org.jreleaser.mustache.MustacheUtils;
+import org.jreleaser.mustache.TemplateContext;
 import org.jreleaser.sdk.commons.ClientUtils;
 
-import java.io.IOException;
 import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.jreleaser.mustache.Templates.resolveTemplate;
 import static org.jreleaser.util.StringUtils.isNotBlank;
 
@@ -71,7 +70,7 @@ public class HttpAnnouncer implements Announcer<org.jreleaser.model.api.announce
 
     @Override
     public void announce() throws AnnounceException {
-        Map<String, org.jreleaser.model.internal.announce.HttpAnnouncer> http = https.getHttpAnnouncers();
+        Map<String, org.jreleaser.model.internal.announce.HttpAnnouncer> http = https.getHttp();
 
         for (Map.Entry<String, org.jreleaser.model.internal.announce.HttpAnnouncer> e : http.entrySet()) {
             if (e.getValue().isEnabled()) {
@@ -92,8 +91,8 @@ public class HttpAnnouncer implements Announcer<org.jreleaser.model.api.announce
         if (isNotBlank(announcer.getPayload())) {
             payload = announcer.getResolvedPayload(context);
         } else {
-            Map<String, Object> props = context.props();
-            props.put(Constants.KEY_CHANGELOG, MustacheUtils.passThrough(context.getChangelog()));
+            TemplateContext props = context.props();
+            context.getChangelog().apply(props);
             context.getModel().getRelease().getReleaser().fillProps(props, context.getModel());
             payload = announcer.getResolvedPayloadTemplate(context, props);
         }
@@ -116,8 +115,8 @@ public class HttpAnnouncer implements Announcer<org.jreleaser.model.api.announce
                     break;
                 case BASIC:
                     String auth = username + ":" + password;
-                    byte[] encodedAuth = Base64.getEncoder().encode(auth.getBytes());
-                    auth = new String(encodedAuth);
+                    byte[] encodedAuth = Base64.getEncoder().encode(auth.getBytes(UTF_8));
+                    auth = new String(encodedAuth, UTF_8);
                     headers.put("Authorization", "Basic " + auth);
                     break;
                 case BEARER:
@@ -149,7 +148,7 @@ public class HttpAnnouncer implements Announcer<org.jreleaser.model.api.announce
             }
 
             fireAnnouncerEvent(ExecutionEvent.success(JReleaserCommand.ANNOUNCE.toStep()), announcer);
-        } catch (IOException | UploadException e) {
+        } catch (UploadException e) {
             fireAnnouncerEvent(ExecutionEvent.failure(JReleaserCommand.ANNOUNCE.toStep(), e), announcer);
 
             context.getLogger().trace(e);
@@ -158,7 +157,7 @@ public class HttpAnnouncer implements Announcer<org.jreleaser.model.api.announce
     }
 
     private void resolveHeaders(org.jreleaser.model.internal.announce.HttpAnnouncer announcer, Map<String, String> headers) {
-        Map<String, Object> props = context.props();
+        TemplateContext props = context.props();
         announcer.getHeaders().forEach((k, v) -> {
             String value = resolveTemplate(v, props);
             if (isNotBlank(value)) headers.put(k, value);

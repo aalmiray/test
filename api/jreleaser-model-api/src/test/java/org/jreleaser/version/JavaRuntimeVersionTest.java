@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,10 +32,10 @@ import static org.hamcrest.Matchers.equalTo;
  * @author Andres Almiray
  * @since 0.8.0
  */
-public class JavaRuntimeVersionTest {
+class JavaRuntimeVersionTest {
     @ParameterizedTest
     @MethodSource("version_parsing")
-    public void testVersionParsing(String input, String version, String prerelease, String build, String optional) {
+    void testVersionParsing(String input, String version, String prerelease, String build, String optional) {
         // given:
         JavaRuntimeVersion v = JavaRuntimeVersion.of(input);
 
@@ -48,7 +48,7 @@ public class JavaRuntimeVersionTest {
 
     @ParameterizedTest
     @MethodSource("version_comparison")
-    public void testVersionComparison(String input1, String input2) {
+    void testVersionComparison(String input1, String input2) {
         // given:
         JavaRuntimeVersion v1 = JavaRuntimeVersion.of(input1);
         JavaRuntimeVersion v2 = JavaRuntimeVersion.of(input2);

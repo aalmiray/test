@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,6 +34,7 @@ import org.jreleaser.model.internal.project.Project;
 import org.jreleaser.model.internal.release.BaseReleaser;
 import org.jreleaser.model.internal.release.Changelog;
 import org.jreleaser.model.internal.release.Release;
+import org.jreleaser.mustache.TemplateContext;
 import org.jreleaser.sdk.git.ChangelogGenerator.Commit;
 import org.jreleaser.version.SemanticVersion;
 import org.junit.jupiter.api.Disabled;
@@ -54,10 +55,7 @@ import java.io.StringReader;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 
 import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -73,22 +71,20 @@ import static org.mockito.Mockito.when;
 @Disabled("Test setup is too complex. Refactor")
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
-public class ChangelogGeneratorUnitTest {
+class ChangelogGeneratorUnitTest {
     @Spy
     ChangelogGenerator changelogGenerator = new ChangelogGenerator();
-    @Mock(answer = Answers.RETURNS_DEEP_STUBS)
-    private Git git;
-    @Mock(answer = Answers.RETURNS_DEEP_STUBS)
-    private JReleaserContext context;
     @Mock(answer = Answers.RETURNS_DEEP_STUBS)
     BaseReleaser releaser;
     @Mock(answer = Answers.RETURNS_DEEP_STUBS)
     Changelog changelog;
-
+    @Mock(answer = Answers.RETURNS_DEEP_STUBS)
+    private Git git;
+    @Mock(answer = Answers.RETURNS_DEEP_STUBS)
+    private JReleaserContext context;
     private MockedStatic<GitSdk> gitSdkMockedStatic;
 
     private MockedStatic<ChangelogGenerator.Commit> commitMockedStatic;
-
 
     void cleanUpStaticMocks() {
         gitSdkMockedStatic.close();
@@ -102,7 +98,7 @@ public class ChangelogGeneratorUnitTest {
 
     @Test
     @DisplayName("When configured tag has no prefix and no matches if found then all commits from head must be used")
-    public void notParsable() throws GitAPIException, IOException {
+    void notParsable() throws GitAPIException, IOException {
         // given:
         String effectiveTagName = "2.2.0";
         String configuredTagName = "{{projectVersion}}";
@@ -122,29 +118,8 @@ public class ChangelogGeneratorUnitTest {
     }
 
     @Test
-    @DisplayName("Should exclude bot commits from changelog")
-    public void excludeBots() throws IOException {
-        Changelog.Hide instance = new Changelog.Hide();
-        Set<String> contributors = new HashSet<>();
-        contributors.add("dependabot");
-        contributors.add("liquibot");
-        contributors.add("randombot");
-        contributors.add("aalmiray");
-        contributors.add("sironheart");
-        instance.addContributors(contributors);
-
-        if (instance.containsContributor("depend") ||
-                instance.containsContributor("bot") ||
-                instance.containsContributor("random") ||
-                instance.containsContributor("liqui")
-        ) {
-            throw new IOException("Should exclude bots");
-        }
-    }
-
-    @Test
     @DisplayName("When no tag is found that match current configured tag name then all commits from head must be used")
-    public void tagThatNoMatches() throws GitAPIException, IOException {
+    void tagThatNoMatches() throws GitAPIException, IOException {
         // given:
         String effectiveTagName = "2.2.0";
         String configuredTagName = "release-{{projectVersion}}";
@@ -165,7 +140,7 @@ public class ChangelogGeneratorUnitTest {
 
     @Test
     @DisplayName("When skipMergeCommits property is true and formatted enabled skip merge commits in the changelog")
-    public void skipMergeCommitsFormatted() throws GitAPIException, IOException {
+    void skipMergeCommitsFormatted() throws GitAPIException, IOException {
         // given:
         setUpStaticMocks();
         RevCommit mergeCommit = getMockRevCommit(true, true);
@@ -181,7 +156,7 @@ public class ChangelogGeneratorUnitTest {
 
     @Test
     @DisplayName("When skipMergeCommits property is false and formatted enabled keep merge commits in the changelog")
-    public void keepMergeCommitsFormatted() throws GitAPIException, IOException {
+    void keepMergeCommitsFormatted() throws GitAPIException, IOException {
         // given:
         setUpStaticMocks();
         RevCommit mergeCommit = getMockRevCommit(false, true);
@@ -197,7 +172,7 @@ public class ChangelogGeneratorUnitTest {
 
     @Test
     @DisplayName("When skipMergeCommits property is true and formatted disabled skip merge commits in the changelog")
-    public void skipMergeCommits() throws GitAPIException, IOException {
+    void skipMergeCommits() throws GitAPIException, IOException {
         // given:
         setUpStaticMocks();
         RevCommit mergeCommit = getMockRevCommit(true, false);
@@ -215,7 +190,7 @@ public class ChangelogGeneratorUnitTest {
 
     @Test
     @DisplayName("When skipMergeCommits property is false and formatted disabled keep merge commits in the changelog")
-    public void keepMergeCommits() throws GitAPIException, IOException {
+    void keepMergeCommits() throws GitAPIException, IOException {
         // given:
         setUpStaticMocks();
         RevCommit mergeCommit = getMockRevCommit(false, false);
@@ -233,13 +208,13 @@ public class ChangelogGeneratorUnitTest {
 
     @Test
     @DisplayName("When commit contains body contains CR/LF and LF")
-    public void dependabotCommitMultipleLineEndings() {
+    void dependabotCommitMultipleLineEndings() {
 
         String commitBody = "Bump actions/setup-java from 2 to 3.5.1 (#123)\n" +
-                "\n" +
-                "Bumps [actions/setup-java](https://github.com/actions/setup-java) from 2 to 3.5.1.\r\n" +
-                "- [Release notes](https://github.com/actions/setup-java/releases)\r\n" +
-                "- [Commits](https://github.com/actions/setup-java/compare/v2...v3.5.1)\r\n";
+            "\n" +
+            "Bumps [actions/setup-java](https://github.com/actions/setup-java) from 2 to 3.5.1.\r\n" +
+            "- [Release notes](https://github.com/actions/setup-java/releases)\r\n" +
+            "- [Commits](https://github.com/actions/setup-java/compare/v2...v3.5.1)\r\n";
 
         RevCommit revCommit = mock(RevCommit.class);
         ObjectId objectId = mock(ObjectId.class);
@@ -263,13 +238,13 @@ public class ChangelogGeneratorUnitTest {
 
         Commit result = Commit.of(revCommit);
         assertThat(result)
-                .hasFieldOrPropertyWithValue("fullHash", "full-hash")
-                .hasFieldOrPropertyWithValue("shortHash", "short-hash")
-                .hasFieldOrPropertyWithValue("title", "Bump actions/setup-java from 2 to 3.5.1 (#123)")
-                .hasFieldOrPropertyWithValue("body", commitBody)
-                .hasFieldOrPropertyWithValue("author.name", "author-name")
-                .hasFieldOrPropertyWithValue("author.email", "author@example.com")
-                .hasFieldOrPropertyWithValue("time", time);
+            .hasFieldOrPropertyWithValue("fullHash", "full-hash")
+            .hasFieldOrPropertyWithValue("shortHash", "short-hash")
+            .hasFieldOrPropertyWithValue("title", "Bump actions/setup-java from 2 to 3.5.1 (#123)")
+            .hasFieldOrPropertyWithValue("body", commitBody)
+            .hasFieldOrPropertyWithValue("author.name", "author-name")
+            .hasFieldOrPropertyWithValue("author.email", "author@example.com")
+            .hasFieldOrPropertyWithValue("time", time);
     }
 
     private RevCommit getMockRevCommit(boolean skipMergeCommits, boolean formatted) throws GitAPIException, IOException {
@@ -294,7 +269,7 @@ public class ChangelogGeneratorUnitTest {
         when(mockGitSdk.open()).thenReturn(git);
 
         ChangelogGenerator.Commit commit = mock(ChangelogGenerator.Commit.class);
-        when(commit.asContext(anyBoolean(), any())).thenReturn(new HashMap<>());
+        when(commit.asContext(anyBoolean(), any(), any())).thenReturn(TemplateContext.empty());
         commitMockedStatic.when(() -> ChangelogGenerator.Commit.of(any())).thenReturn(commit);
 
         Mockito.doReturn(true).when(changelogGenerator).checkLabels(commit, changelog);
@@ -325,7 +300,7 @@ public class ChangelogGeneratorUnitTest {
         when(release.getReleaser()).thenReturn(releaser);
 
         when(releaser.getEffectiveTagName(any())).thenReturn(effectiveTagName);
-        when(releaser.getConfiguredTagName()).thenReturn(configuredTagName);
+        when(releaser.getTagName()).thenReturn(configuredTagName);
         when(git.getRepository().resolve(Constants.HEAD)).thenReturn(headId);
         doReturn(SemanticVersion.of(effectiveTagName)).when(project).version();
         when(context.getModel().getProject().isSnapshot()).thenReturn(isSnapshot);

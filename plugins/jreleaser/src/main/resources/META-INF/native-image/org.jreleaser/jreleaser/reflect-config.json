@@ -1,110 +1,5 @@
 [
   {
-    "name": "[Lcom.amazonaws.internal.config.HostRegexToRegionMappingJsonHelper;"
-  },
-  {
-    "name": "[Lcom.amazonaws.internal.config.JsonIndex;"
-  },
-  {
-    "name": "[Lorg.kohsuke.github.GHMilestone;"
-  },
-  {
-    "name": "com.amazonaws.internal.config.Builder",
-    "allDeclaredFields": true,
-    "allPublicConstructors": true,
-    "allPublicMethods": true
-  },
-  {
-    "name": "com.amazonaws.internal.config.HostRegexToRegionMappingJsonHelper",
-    "allDeclaredFields": true,
-    "allPublicConstructors": true,
-    "allPublicMethods": true
-  },
-  {
-    "name": "com.amazonaws.internal.config.HttpClientConfigJsonHelper",
-    "allDeclaredFields": true,
-    "allPublicConstructors": true,
-    "allPublicMethods": true
-  },
-  {
-    "name": "com.amazonaws.internal.config.InternalConfigJsonHelper",
-    "allDeclaredFields": true,
-    "allPublicConstructors": true,
-    "allPublicMethods": true
-  },
-  {
-    "name": "com.amazonaws.internal.config.JsonIndex",
-    "allDeclaredFields": true,
-    "allPublicConstructors": true,
-    "allPublicMethods": true
-  },
-  {
-    "name": "com.amazonaws.internal.config.SignerConfigJsonHelper",
-    "allDeclaredFields": true,
-    "allPublicConstructors": true,
-    "allPublicMethods": true
-  },
-  {
-    "name": "com.amazonaws.jmx.SdkMBeanRegistrySupport",
-    "allDeclaredFields": true,
-    "allPublicConstructors": true,
-    "allPublicMethods": true
-  },
-  {
-    "name": "com.amazonaws.metrics.MetricAdmin",
-    "allDeclaredFields": true,
-    "allPublicConstructors": true,
-    "allPublicMethods": true
-  },
-  {
-    "name": "com.amazonaws.metrics.MetricAdminMBean",
-    "allDeclaredFields": true,
-    "allPublicConstructors": true,
-    "allPublicMethods": true
-  },
-  {
-    "name": "com.amazonaws.partitions.model.CredentialScope",
-    "allDeclaredFields": true,
-    "allPublicConstructors": true,
-    "allPublicMethods": true
-  },
-  {
-    "name": "com.amazonaws.partitions.model.Endpoint",
-    "allDeclaredFields": true,
-    "allPublicConstructors": true,
-    "allPublicMethods": true
-  },
-  {
-    "name": "com.amazonaws.partitions.model.Partition",
-    "allDeclaredFields": true,
-    "allPublicConstructors": true,
-    "allPublicMethods": true
-  },
-  {
-    "name": "com.amazonaws.partitions.model.Partitions",
-    "allDeclaredFields": true,
-    "allPublicConstructors": true,
-    "allPublicMethods": true
-  },
-  {
-    "name": "com.amazonaws.partitions.model.Region",
-    "allDeclaredFields": true,
-    "allPublicConstructors": true,
-    "allPublicMethods": true
-  },
-  {
-    "name": "com.amazonaws.partitions.model.Service",
-    "allDeclaredFields": true,
-    "allPublicConstructors": true,
-    "allPublicMethods": true
-  },
-  {
-    "name": "com.amazonaws.services.s3.internal.AWSS3V4Signer",
-    "allDeclaredFields": true,
-    "allPublicConstructors": true,
-    "allPublicMethods": true
-  },
-  {
     "name": "com.fasterxml.jackson.databind.ext.Java7HandlersImpl",
     "allDeclaredFields": true,
     "allPublicConstructors": true,
@@ -808,6 +703,55 @@
     "allPublicMethods": true
   },
   {
+    "name": "org.kohsuke.github.GHBranch",
+    "allDeclaredFields": true,
+    "allPublicConstructors": true,
+    "allDeclaredConstructors": true,
+    "allPublicMethods": true
+  },
+  {
+    "name": "org.kohsuke.github.GHBranch$Commit",
+    "allDeclaredFields": true,
+    "allPublicConstructors": true,
+    "allPublicMethods": true
+  },
+  {
+    "name": "org.kohsuke.github.GHBranchProtection",
+    "allDeclaredFields": true,
+    "allPublicConstructors": true,
+    "allPublicMethods": true
+  },
+  {
+    "name": "org.kohsuke.github.GHBranchProtection$EnforceAdmins",
+    "allDeclaredFields": true,
+    "allPublicConstructors": true,
+    "allPublicMethods": true
+  },
+  {
+    "name": "org.kohsuke.github.GHBranchProtection$RequiredReviews",
+    "allDeclaredFields": true,
+    "allPublicConstructors": true,
+    "allPublicMethods": true
+  },
+  {
+    "name": "org.kohsuke.github.GHBranchProtection$RequiredSignatures",
+    "allDeclaredFields": true,
+    "allPublicConstructors": true,
+    "allPublicMethods": true
+  },
+  {
+    "name": "org.kohsuke.github.GHBranchProtection$RequiredStatusChecks",
+    "allDeclaredFields": true,
+    "allPublicConstructors": true,
+    "allPublicMethods": true
+  },
+  {
+    "name": "org.kohsuke.github.GHBranchProtection$Restrictions",
+    "allDeclaredFields": true,
+    "allPublicConstructors": true,
+    "allPublicMethods": true
+  },
+  {
     "name": "org.kohsuke.github.GHCommit",
     "allDeclaredFields": true,
     "allPublicConstructors": true,
@@ -856,6 +800,58 @@
     "allPublicMethods": true
   },
   {
+    "name": "org.kohsuke.github.GHIssue",
+    "allDeclaredFields": true,
+    "allPublicConstructors": true,
+    "allPublicMethods": true
+  },
+  {
+    "name": "org.kohsuke.github.GHIssue$PullRequest",
+    "allDeclaredFields": true,
+    "allPublicConstructors": true,
+    "allPublicMethods": true
+  },
+  {
+    "name": "org.kohsuke.github.GHIssueState",
+    "allDeclaredFields": true,
+    "allPublicConstructors": true,
+    "allPublicMethods": true
+  },
+  {
+    "name": "org.kohsuke.github.GHLabel",
+    "allDeclaredFields": true,
+    "allPublicConstructors": true,
+    "allDeclaredConstructors": true,
+    "allPublicMethods": true
+  },
+  {
+    "name": "org.kohsuke.github.GHLabel$Creator",
+    "allDeclaredFields": true,
+    "allPublicConstructors": true,
+    "allDeclaredConstructors": true,
+    "allPublicMethods": true
+  },
+  {
+    "name": "org.kohsuke.github.GHLabel$Setter",
+    "allDeclaredFields": true,
+    "allPublicConstructors": true,
+    "allDeclaredConstructors": true,
+    "allPublicMethods": true
+  },
+  {
+    "name": "org.kohsuke.github.GHLabel$Updater",
+    "allDeclaredFields": true,
+    "allPublicConstructors": true,
+    "allDeclaredConstructors": true,
+    "allPublicMethods": true
+  },
+  {
+    "name": "org.kohsuke.github.GHLicense",
+    "allDeclaredFields": true,
+    "allPublicConstructors": true,
+    "allPublicMethods": true
+  },
+  {
     "name": "org.kohsuke.github.GHLicense",
     "allDeclaredFields": true,
     "allPublicConstructors": true,
@@ -874,7 +870,32 @@
     "allPublicMethods": true
   },
   {
+    "name": "org.kohsuke.github.GHMyself$RepositoryListFilter",
+    "allDeclaredFields": true,
+    "allPublicConstructors": true,
+    "allPublicMethods": true
+  },
+  {
     "name": "org.kohsuke.github.GHObject",
+    "allDeclaredFields": true,
+    "allPublicConstructors": true,
+    "allDeclaredConstructors": true,
+    "allPublicMethods": true
+  },
+  {
+    "name": "org.kohsuke.github.GHOrganization",
+    "allDeclaredFields": true,
+    "allPublicConstructors": true,
+    "allPublicMethods": true
+  },
+  {
+    "name": "org.kohsuke.github.GHOrganization$Permission",
+    "allDeclaredFields": true,
+    "allPublicConstructors": true,
+    "allPublicMethods": true
+  },
+  {
+    "name": "org.kohsuke.github.GHOrganization$Role",
     "allDeclaredFields": true,
     "allPublicConstructors": true,
     "allPublicMethods": true
@@ -904,13 +925,81 @@
     "allPublicMethods": true
   },
   {
+    "name": "org.kohsuke.github.GHReleaseUpdater",
+    "allDeclaredFields": true,
+    "allPublicConstructors": true,
+    "allPublicMethods": true
+  },
+  {
     "name": "org.kohsuke.github.GHRepository",
     "allDeclaredFields": true,
     "allPublicConstructors": true,
     "allPublicMethods": true
   },
   {
+    "name": "org.kohsuke.github.GHRepository$CollaboratorAffiliation",
+    "allDeclaredFields": true,
+    "allPublicConstructors": true,
+    "allPublicMethods": true
+  },
+  {
+    "name": "org.kohsuke.github.GHRepository$Contributor",
+    "allDeclaredFields": true,
+    "allPublicConstructors": true,
+    "allPublicMethods": true
+  },
+  {
+    "name": "org.kohsuke.github.GHRepository$ForkSort",
+    "allDeclaredFields": true,
+    "allPublicConstructors": true,
+    "allPublicMethods": true
+  },
+  {
     "name": "org.kohsuke.github.GHRepository$GHRepoPermission",
+    "allDeclaredFields": true,
+    "allPublicConstructors": true,
+    "allPublicMethods": true
+  },
+  {
+    "name": "org.kohsuke.github.GHRepository$Setter",
+    "allDeclaredFields": true,
+    "allPublicConstructors": true,
+    "allDeclaredConstructors": true,
+    "allPublicMethods": true
+  },
+  {
+    "name": "org.kohsuke.github.GHRepository$Topics",
+    "allDeclaredFields": true,
+    "allPublicConstructors": true,
+    "allPublicMethods": true
+  },
+  {
+    "name": "org.kohsuke.github.GHRepository$Updater",
+    "allDeclaredFields": true,
+    "allPublicConstructors": true,
+    "allDeclaredConstructors": true,
+    "allPublicMethods": true
+  },
+  {
+    "name": "org.kohsuke.github.GHRepository$Visibility",
+    "allDeclaredFields": true,
+    "allPublicConstructors": true,
+    "allPublicMethods": true
+  },
+  {
+    "name": "org.kohsuke.github.GHTeam",
+    "allDeclaredFields": true,
+    "allPublicConstructors": true,
+    "allPublicMethods": true
+  },
+  {
+    "name": "org.kohsuke.github.GHTeam$Privacy",
+    "allDeclaredFields": true,
+    "allPublicConstructors": true,
+    "allPublicMethods": true
+  },
+  {
+    "name": "org.kohsuke.github.GHTeam$Role",
     "allDeclaredFields": true,
     "allPublicConstructors": true,
     "allPublicMethods": true
@@ -946,6 +1035,12 @@
   },
   {
     "name": "org.slf4j.impl.StaticLoggerBinder"
+  },
+  {
+    "name": "org.yaml.snakeyaml.parser.ParserImpl",
+    "allDeclaredFields": true,
+    "allPublicConstructors": true,
+    "allPublicMethods": true
   },
   {
     "name": "org.yaml.snakeyaml.tokens.ScalarToken",

@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ package org.jreleaser.sdk.command;
 
 import org.jreleaser.bundle.RB;
 import org.jreleaser.logging.JReleaserLogger;
+import org.jreleaser.util.IoUtils;
 import org.zeroturnaround.exec.ProcessExecutor;
 import org.zeroturnaround.exec.ProcessInitException;
 
@@ -41,7 +42,7 @@ import static org.jreleaser.util.StringUtils.isBlank;
 public class CommandExecutor {
     private final JReleaserLogger logger;
     private final boolean quiet;
-    private final Map<String, String> environment = new LinkedHashMap<String, String>();
+    private final Map<String, String> environment = new LinkedHashMap<>();
 
     public CommandExecutor(JReleaserLogger logger) {
         this(logger, false);
@@ -81,6 +82,9 @@ public class CommandExecutor {
             return exitValue;
         } catch (ProcessInitException e) {
             throw new CommandException(RB.$("ERROR_unexpected_error"), e.getCause());
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new CommandException(RB.$("ERROR_unexpected_error"), e);
         } catch (Exception e) {
             throw new CommandException(RB.$("ERROR_unexpected_error"), e);
         }
@@ -162,13 +166,16 @@ public class CommandExecutor {
                 error(errLocal);
             }
 
-            if (err != null) {
+            if (null != err) {
                 err.write(errLocal.toByteArray());
             }
 
             return exitValue;
         } catch (ProcessInitException e) {
             throw new CommandException(RB.$("ERROR_unexpected_error"), e.getCause());
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new CommandException(RB.$("ERROR_unexpected_error"), e);
         } catch (Exception e) {
             throw new CommandException(RB.$("ERROR_unexpected_error"), e);
         }
@@ -183,7 +190,7 @@ public class CommandExecutor {
     }
 
     private void log(ByteArrayOutputStream stream, Consumer<? super String> consumer) {
-        String str = stream.toString();
+        String str = IoUtils.toString(stream);
         if (isBlank(str)) return;
 
         Arrays.stream(str.split(System.lineSeparator()))

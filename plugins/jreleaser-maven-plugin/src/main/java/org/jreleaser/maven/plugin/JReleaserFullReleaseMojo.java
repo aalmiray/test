@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,7 +31,7 @@ import org.jreleaser.workflow.Workflows;
  * @since 0.1.0
  */
 @Mojo(name = "full-release")
-public class JReleaserFullReleaseMojo extends AbstractPlatformAwareJReleaserMojo {
+public class JReleaserFullReleaseMojo extends AbstractPlatformAwareMojo {
     /**
      * Include a deployer by type.
      */
@@ -117,19 +117,25 @@ public class JReleaserFullReleaseMojo extends AbstractPlatformAwareJReleaserMojo
     private String[] excludedAnnouncers;
 
     /**
+     * Include an cataloger.
+     */
+    @Parameter(property = "jreleaser.catalogers")
+    private String[] includedCatalogers;
+
+    /**
+     * Exclude an cataloger.
+     */
+    @Parameter(property = "jreleaser.excluded.catalogers")
+    private String[] excludedCatalogers;
+
+    /**
      * Skip execution.
      */
     @Parameter(property = "jreleaser.full.release.skip")
     private boolean skip;
 
     @Override
-    public void execute() throws MojoExecutionException, MojoFailureException {
-        Banner.display(project, getLog());
-        if (skip) {
-            getLog().info("Execution has been explicitly skipped.");
-            return;
-        }
-
+    protected void doExecute() throws MojoExecutionException, MojoFailureException {
         JReleaserContext context = createContext();
         context.setIncludedDeployerTypes(collectEntries(includedDeployers, true));
         context.setIncludedDeployerNames(collectEntries(includedDeployerNames));
@@ -138,6 +144,7 @@ public class JReleaserFullReleaseMojo extends AbstractPlatformAwareJReleaserMojo
         context.setIncludedDistributions(collectEntries(includedDistributions));
         context.setIncludedPackagers(collectEntries(includedPackagers, true));
         context.setIncludedAnnouncers(collectEntries(includedAnnouncers, true));
+        context.setIncludedCatalogers(collectEntries(includedCatalogers, true));
         context.setExcludedDeployerTypes(collectEntries(excludedDeployers, true));
         context.setExcludedDeployerNames(collectEntries(excludedDeployerNames));
         context.setExcludedUploaderTypes(collectEntries(excludedUploaders, true));
@@ -145,6 +152,12 @@ public class JReleaserFullReleaseMojo extends AbstractPlatformAwareJReleaserMojo
         context.setExcludedDistributions(collectEntries(excludedDistributions));
         context.setExcludedPackagers(collectEntries(excludedPackagers, true));
         context.setExcludedAnnouncers(collectEntries(excludedAnnouncers, true));
+        context.setExcludedCatalogers(collectEntries(excludedCatalogers, true));
         Workflows.fullRelease(context).execute();
+    }
+
+    @Override
+    protected boolean isSkip() {
+        return skip;
     }
 }

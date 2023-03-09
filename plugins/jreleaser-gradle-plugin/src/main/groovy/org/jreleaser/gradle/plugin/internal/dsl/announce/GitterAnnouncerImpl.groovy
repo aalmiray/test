@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -61,13 +61,13 @@ class GitterAnnouncerImpl extends AbstractAnnouncer implements GitterAnnouncer {
     }
 
     org.jreleaser.model.internal.announce.GitterAnnouncer toModel() {
-        org.jreleaser.model.internal.announce.GitterAnnouncer gitter = new org.jreleaser.model.internal.announce.GitterAnnouncer()
-        fillProperties(gitter)
-        if (webhook.present) gitter.webhook = webhook.get()
-        if (message.present) gitter.message = message.get()
+        org.jreleaser.model.internal.announce.GitterAnnouncer announcer = new org.jreleaser.model.internal.announce.GitterAnnouncer()
+        fillProperties(announcer)
+        if (webhook.present) announcer.webhook = webhook.get()
+        if (message.present) announcer.message = message.get()
         if (messageTemplate.present) {
-            gitter.messageTemplate = messageTemplate.asFile.get().absolutePath
+            announcer.messageTemplate = messageTemplate.asFile.get().absolutePath
         }
-        gitter
+        announcer
     }
 }

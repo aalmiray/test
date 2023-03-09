@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,9 +18,7 @@
 package org.jreleaser.model.internal.announce;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import org.jreleaser.model.Active;
-import org.jreleaser.model.internal.common.AbstractModelObject;
-import org.jreleaser.model.internal.project.Project;
+import org.jreleaser.model.internal.common.AbstractActivatable;
 
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -30,15 +28,14 @@ import java.util.Map;
  * @author Andres Almiray
  * @since 0.1.0
  */
-public abstract class AbstractAnnouncer<S extends AbstractAnnouncer<S, A>, A extends org.jreleaser.model.api.announce.Announcer> extends AbstractModelObject<S> implements Announcer<A> {
-    protected final Map<String, Object> extraProperties = new LinkedHashMap<>();
+public abstract class AbstractAnnouncer<S extends AbstractAnnouncer<S, A>, A extends org.jreleaser.model.api.announce.Announcer> extends AbstractActivatable<S> implements Announcer<A> {
+    private static final long serialVersionUID = 9045634651862485708L;
+
+    private final Map<String, Object> extraProperties = new LinkedHashMap<>();
     @JsonIgnore
-    protected String name;
-    @JsonIgnore
-    protected boolean enabled;
-    protected Active active;
-    protected Integer connectTimeout;
-    protected Integer readTimeout;
+    private String name;
+    private Integer connectTimeout;
+    private Integer readTimeout;
 
     protected AbstractAnnouncer(String name) {
         this.name = name;
@@ -46,58 +43,27 @@ public abstract class AbstractAnnouncer<S extends AbstractAnnouncer<S, A>, A ext
 
     @Override
     public void merge(S source) {
-        this.active = merge(this.active, source.active);
-        this.enabled = merge(this.enabled, source.enabled);
-        this.connectTimeout = merge(this.connectTimeout, source.connectTimeout);
-        this.readTimeout = merge(this.readTimeout, source.readTimeout);
-        setExtraProperties(merge(this.extraProperties, source.extraProperties));
+        super.merge(source);
+        this.connectTimeout = merge(this.connectTimeout, source.getConnectTimeout());
+        this.readTimeout = merge(this.readTimeout, source.getReadTimeout());
+        setExtraProperties(merge(this.extraProperties, source.getExtraProperties()));
+    }
+
+    public void setName(String name) {
+        this.name = name;
     }
 
     @Override
-    public String getPrefix() {
-        return name;
+    protected boolean isSet() {
+        return super.isSet() ||
+            null != connectTimeout ||
+            null != readTimeout ||
+            !extraProperties.isEmpty();
     }
 
     @Override
-    public boolean isEnabled() {
-        return enabled;
-    }
-
-    @Override
-    public void disable() {
-        active = Active.NEVER;
-        enabled = false;
-    }
-
-    public boolean resolveEnabled(Project project) {
-        if (null == active) {
-            active = Active.NEVER;
-        }
-        enabled = active.check(project);
-        if (project.isSnapshot() && !isSnapshotSupported()) {
-            enabled = false;
-        }
-        return enabled;
-    }
-
-    @Override
-    public Active getActive() {
-        return active;
-    }
-
-    @Override
-    public void setActive(Active active) {
-        this.active = active;
-    }
-
-    @Override
-    public void setActive(String str) {
-        setActive(Active.of(str));
-    }
-
-    @Override
-    public boolean isActiveSet() {
-        return active != null;
+    public String prefix() {
+        return getName();
     }
 
     @Override
@@ -152,11 +118,11 @@ public abstract class AbstractAnnouncer<S extends AbstractAnnouncer<S, A>, A ext
 
         Map<String, Object> props = new LinkedHashMap<>();
         props.put("enabled", isEnabled());
-        props.put("active", active);
+        props.put("active", getActive());
         props.put("connectTimeout", connectTimeout);
         props.put("readTimeout", readTimeout);
         asMap(full, props);
-        props.put("extraProperties", getResolvedExtraProperties());
+        props.put("extraProperties", resolvedExtraProperties());
 
         Map<String, Object> map = new LinkedHashMap<>();
         map.put(getName(), props);

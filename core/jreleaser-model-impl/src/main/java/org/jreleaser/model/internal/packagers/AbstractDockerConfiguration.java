@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,13 +17,8 @@
  */
 package org.jreleaser.model.internal.packagers;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
-import org.jreleaser.model.Active;
-import org.jreleaser.model.internal.common.AbstractModelObject;
-import org.jreleaser.model.internal.common.Activatable;
+import org.jreleaser.model.internal.common.AbstractActivatable;
 import org.jreleaser.model.internal.common.ExtraProperties;
-import org.jreleaser.model.internal.distributions.Distribution;
-import org.jreleaser.model.internal.project.Project;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -32,7 +27,6 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import static org.jreleaser.util.StringUtils.isNotBlank;
 
@@ -40,91 +34,44 @@ import static org.jreleaser.util.StringUtils.isNotBlank;
  * @author Andres Almiray
  * @since 0.4.0
  */
-public abstract class AbstractDockerConfiguration<S extends AbstractDockerConfiguration<S>> extends AbstractModelObject<S>
-    implements DockerConfiguration, ExtraProperties, Activatable {
-    protected final Map<String, Object> extraProperties = new LinkedHashMap<>();
-    protected final Map<String, String> labels = new LinkedHashMap<>();
-    protected final Set<String> imageNames = new LinkedHashSet<>();
-    protected final List<String> buildArgs = new ArrayList<>();
-    protected final List<String> preCommands = new ArrayList<>();
-    protected final List<String> postCommands = new ArrayList<>();
-    protected final Set<Registry> registries = new LinkedHashSet<>();
-    protected final List<String> skipTemplates = new ArrayList<>();
+public abstract class AbstractDockerConfiguration<S extends AbstractDockerConfiguration<S>> extends AbstractActivatable<S>
+    implements DockerConfiguration, ExtraProperties {
+    private static final long serialVersionUID = 3786927554708927771L;
 
-    @JsonIgnore
-    protected boolean enabled;
-    protected Active active;
-    protected String templateDirectory;
+    private final Map<String, Object> extraProperties = new LinkedHashMap<>();
+    private final Map<String, String> labels = new LinkedHashMap<>();
+    private final Set<String> imageNames = new LinkedHashSet<>();
+    private final List<String> buildArgs = new ArrayList<>();
+    private final List<String> preCommands = new ArrayList<>();
+    private final List<String> postCommands = new ArrayList<>();
+    private final Set<Registry> registries = new LinkedHashSet<>();
+    private final List<String> skipTemplates = new ArrayList<>();
+    private final Buildx buildx = new Buildx();
+
+    private String templateDirectory;
     protected Boolean useLocalArtifact;
-
-    protected String baseImage;
+    private String baseImage;
 
     @Override
     public void merge(S source) {
-        this.active = merge(this.active, source.active);
-        this.enabled = merge(this.enabled, source.enabled);
-        this.templateDirectory = merge(this.templateDirectory, source.templateDirectory);
-        setSkipTemplates(merge(this.skipTemplates, source.skipTemplates));
-        setExtraProperties(merge(this.extraProperties, source.extraProperties));
-        this.baseImage = merge(this.baseImage, source.baseImage);
+        super.merge(source);
+        this.templateDirectory = merge(this.templateDirectory, source.getTemplateDirectory());
+        setSkipTemplates(merge(this.skipTemplates, source.getSkipTemplates()));
+        setExtraProperties(merge(this.extraProperties, source.getExtraProperties()));
+        this.baseImage = merge(this.baseImage, source.getBaseImage());
         this.useLocalArtifact = merge(this.useLocalArtifact, source.useLocalArtifact);
-        setImageNames(merge(this.imageNames, source.imageNames));
-        setBuildArgs(merge(this.buildArgs, source.buildArgs));
-        setPreCommands(merge(this.preCommands, source.preCommands));
-        setPostCommands(merge(this.postCommands, source.postCommands));
-        setLabels(merge(this.labels, source.labels));
-        setRegistries(merge(this.registries, source.registries));
+        setImageNames(merge(this.imageNames, source.getImageNames()));
+        setBuildArgs(merge(this.buildArgs, source.getBuildArgs()));
+        setPreCommands(merge(this.preCommands, source.getPreCommands()));
+        setPostCommands(merge(this.postCommands, source.getPostCommands()));
+        setLabels(merge(this.labels, source.getLabels()));
+        setRegistries(merge(this.registries, source.getRegistries()));
+        setBuildx(source.getBuildx());
     }
 
     @Override
-    public String getPrefix() {
+    public String prefix() {
         return TYPE;
-    }
-
-    @Override
-    public boolean isEnabled() {
-        return enabled;
-    }
-
-    public void disable() {
-        active = Active.NEVER;
-        enabled = false;
-    }
-
-    public boolean resolveEnabled(Project project) {
-        if (null == active) {
-            active = Active.NEVER;
-        }
-        enabled = active.check(project);
-        return enabled;
-    }
-
-    public boolean resolveEnabled(Project project, Distribution distribution) {
-        if (null == active) {
-            active = Active.NEVER;
-        }
-        enabled = active.check(project);
-        return enabled;
-    }
-
-    @Override
-    public Active getActive() {
-        return active;
-    }
-
-    @Override
-    public void setActive(Active active) {
-        this.active = active;
-    }
-
-    @Override
-    public void setActive(String str) {
-        setActive(Active.of(str));
-    }
-
-    @Override
-    public boolean isActiveSet() {
-        return active != null;
     }
 
     @Override
@@ -132,6 +79,7 @@ public abstract class AbstractDockerConfiguration<S extends AbstractDockerConfig
         return templateDirectory;
     }
 
+    @Override
     public void setTemplateDirectory(String templateDirectory) {
         this.templateDirectory = templateDirectory;
     }
@@ -141,15 +89,18 @@ public abstract class AbstractDockerConfiguration<S extends AbstractDockerConfig
         return skipTemplates;
     }
 
+    @Override
     public void setSkipTemplates(List<String> skipTemplates) {
         this.skipTemplates.clear();
         this.skipTemplates.addAll(skipTemplates);
     }
 
+    @Override
     public void addSkipTemplates(List<String> templates) {
         this.skipTemplates.addAll(templates);
     }
 
+    @Override
     public void addSkipTemplate(String template) {
         if (isNotBlank(template)) {
             this.skipTemplates.add(template.trim());
@@ -177,6 +128,7 @@ public abstract class AbstractDockerConfiguration<S extends AbstractDockerConfig
         return baseImage;
     }
 
+    @Override
     public void setBaseImage(String baseImage) {
         this.baseImage = baseImage;
     }
@@ -186,15 +138,18 @@ public abstract class AbstractDockerConfiguration<S extends AbstractDockerConfig
         return labels;
     }
 
+    @Override
     public void setLabels(Map<String, String> labels) {
         this.labels.clear();
         this.labels.putAll(labels);
     }
 
+    @Override
     public void addLabels(Map<String, String> labels) {
         this.labels.putAll(labels);
     }
 
+    @Override
     public void addLabel(String key, String value) {
         if (isNotBlank(value)) {
             this.labels.put(key, value);
@@ -206,13 +161,15 @@ public abstract class AbstractDockerConfiguration<S extends AbstractDockerConfig
         return imageNames;
     }
 
+    @Override
     public void setImageNames(Set<String> imageNames) {
-        if (imageNames != null) {
+        if (null != imageNames) {
             this.imageNames.clear();
             this.imageNames.addAll(imageNames);
         }
     }
 
+    @Override
     public void addImageName(String imageName) {
         if (isNotBlank(imageName)) {
             this.imageNames.add(imageName);
@@ -224,13 +181,15 @@ public abstract class AbstractDockerConfiguration<S extends AbstractDockerConfig
         return buildArgs;
     }
 
+    @Override
     public void setBuildArgs(List<String> buildArgs) {
-        if (buildArgs != null) {
+        if (null != buildArgs) {
             this.buildArgs.clear();
             this.buildArgs.addAll(buildArgs);
         }
     }
 
+    @Override
     public void addBuildArg(String buildArg) {
         if (isNotBlank(buildArg)) {
             this.buildArgs.add(buildArg);
@@ -242,35 +201,41 @@ public abstract class AbstractDockerConfiguration<S extends AbstractDockerConfig
         return preCommands;
     }
 
+    @Override
     public void setPreCommands(List<String> preCommands) {
-        if (preCommands != null) {
+        if (null != preCommands) {
             this.preCommands.clear();
             this.preCommands.addAll(preCommands);
         }
     }
 
+    @Override
     public List<String> getPostCommands() {
         return postCommands;
     }
 
+    @Override
     public void setPostCommands(List<String> postCommands) {
-        if (postCommands != null) {
+        if (null != postCommands) {
             this.postCommands.clear();
             this.postCommands.addAll(postCommands);
         }
     }
 
+    @Override
     public Set<Registry> getRegistries() {
         return registries;
     }
 
+    @Override
     public void setRegistries(Set<? extends Registry> registries) {
-        if (registries != null) {
+        if (null != registries) {
             this.registries.clear();
             this.registries.addAll(registries);
         }
     }
 
+    @Override
     public void addRegistry(Registry registry) {
         if (null != registry) {
             this.registries.add(registry);
@@ -279,15 +244,27 @@ public abstract class AbstractDockerConfiguration<S extends AbstractDockerConfig
 
     @Override
     public boolean isUseLocalArtifact() {
-        return useLocalArtifact == null || useLocalArtifact;
+        return null == useLocalArtifact || useLocalArtifact;
     }
 
+    @Override
     public void setUseLocalArtifact(Boolean useLocalArtifact) {
         this.useLocalArtifact = useLocalArtifact;
     }
 
+    @Override
     public boolean isUseLocalArtifactSet() {
-        return useLocalArtifact != null;
+        return null != useLocalArtifact;
+    }
+
+    @Override
+    public Buildx getBuildx() {
+        return buildx;
+    }
+
+    @Override
+    public void setBuildx(Buildx buildx) {
+        this.buildx.merge(buildx);
     }
 
     @Override
@@ -296,7 +273,7 @@ public abstract class AbstractDockerConfiguration<S extends AbstractDockerConfig
 
         Map<String, Object> props = new LinkedHashMap<>();
         props.put("enabled", isEnabled());
-        props.put("active", active);
+        props.put("active", getActive());
         props.put("templateDirectory", templateDirectory);
         props.put("skipTemplates", skipTemplates);
         props.put("useLocalArtifact", isUseLocalArtifact());
@@ -306,14 +283,17 @@ public abstract class AbstractDockerConfiguration<S extends AbstractDockerConfig
         props.put("labels", labels);
         props.put("preCommands", preCommands);
         props.put("postCommands", postCommands);
+        if (buildx.isEnabled() || full) props.put("buildx", buildx.asMap(full));
         asMap(full, props);
 
-        List<Map<String, Object>> repos = this.registries
-            .stream()
-            .map(r -> r.asMap(full))
-            .collect(Collectors.toList());
-        if (!repos.isEmpty()) props.put("registries", repos);
-        props.put("extraProperties", getResolvedExtraProperties());
+        Map<String, Map<String, Object>> m = new LinkedHashMap<>();
+        int i = 0;
+        for (Registry registry : this.registries) {
+            m.put("registry " + (i++), registry.asMap(full));
+        }
+        props.put("registries", m);
+
+        props.put("extraProperties", resolvedExtraProperties());
 
         return props;
     }

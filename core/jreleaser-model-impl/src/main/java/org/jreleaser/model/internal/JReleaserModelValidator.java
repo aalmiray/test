@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@ import org.jreleaser.util.Errors;
 import static org.jreleaser.model.internal.validation.announce.AnnouncersValidator.validateAnnouncers;
 import static org.jreleaser.model.internal.validation.assemble.AssemblersValidator.postValidateAssemblers;
 import static org.jreleaser.model.internal.validation.assemble.AssemblersValidator.validateAssemblers;
+import static org.jreleaser.model.internal.validation.catalog.CatalogValidator.validateCatalog;
 import static org.jreleaser.model.internal.validation.checksum.ChecksumValidator.validateChecksum;
 import static org.jreleaser.model.internal.validation.deploy.DeployValidator.validateDeploy;
 import static org.jreleaser.model.internal.validation.distributions.DistributionsValidator.postValidateDistributions;
@@ -35,6 +36,7 @@ import static org.jreleaser.model.internal.validation.packagers.PackagersValidat
 import static org.jreleaser.model.internal.validation.project.ProjectValidator.postValidateProject;
 import static org.jreleaser.model.internal.validation.project.ProjectValidator.validateProject;
 import static org.jreleaser.model.internal.validation.release.ReleaseValidator.validateRelease;
+import static org.jreleaser.model.internal.validation.signing.SigningValidator.postValidateSigning;
 import static org.jreleaser.model.internal.validation.signing.SigningValidator.validateSigning;
 import static org.jreleaser.model.internal.validation.upload.UploadersValidator.validateUploaders;
 
@@ -60,29 +62,31 @@ public final class JReleaserModelValidator {
     }
 
     private static void validateModel(JReleaserContext context, Mode mode, Errors errors) {
-        validateExtensions(context, mode, errors);
-        validateHooks(context, mode, errors);
+        validateExtensions(context, errors);
+        validateHooks(context, errors);
         validateProject(context, mode, errors);
         validateDownloaders(context, mode, errors);
         validateAssemblers(context, mode, errors);
-        if (context.getModel().getCommit() != null) {
+        if (null != context.getModel().getCommit()) {
             validateSigning(context, mode, errors);
             validateRelease(context, mode, errors);
         }
 
-        validateChecksum(context, mode, errors);
+        validateChecksum(context);
         validateDeploy(context, mode, errors);
         validateUploaders(context, mode, errors);
         validatePackagers(context, mode, errors);
         validateDistributions(context, mode, errors);
         validateFiles(context, mode, errors);
+        validateCatalog(context, mode, errors);
         validateAnnouncers(context, mode, errors);
 
         context.getLogger().setPrefix("postvalidation");
         try {
             postValidateProject(context, mode, errors);
-            if (mode.validateConfig() || mode.validateAssembly()) postValidateAssemblers(context, mode, errors);
-            if (mode.validateConfig()) postValidateDistributions(context, mode, errors);
+            if (mode.validateConfig() || mode.validateAssembly()) postValidateAssemblers(context);
+            if (mode.validateConfig()) postValidateDistributions(context, errors);
+            postValidateSigning(context, mode, errors);
         } finally {
             context.getLogger().restorePrefix();
         }

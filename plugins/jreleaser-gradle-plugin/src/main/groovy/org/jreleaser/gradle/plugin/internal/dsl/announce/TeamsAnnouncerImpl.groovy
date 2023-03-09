@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -58,12 +58,12 @@ class TeamsAnnouncerImpl extends AbstractAnnouncer implements TeamsAnnouncer {
     }
 
     org.jreleaser.model.internal.announce.TeamsAnnouncer toModel() {
-        org.jreleaser.model.internal.announce.TeamsAnnouncer teams = new org.jreleaser.model.internal.announce.TeamsAnnouncer()
-        fillProperties(teams)
-        if (webhook.present) teams.webhook = webhook.get()
+        org.jreleaser.model.internal.announce.TeamsAnnouncer announcer = new org.jreleaser.model.internal.announce.TeamsAnnouncer()
+        fillProperties(announcer)
+        if (webhook.present) announcer.webhook = webhook.get()
         if (messageTemplate.present) {
-            teams.messageTemplate = messageTemplate.asFile.get().absolutePath
+            announcer.messageTemplate = messageTemplate.asFile.get().absolutePath
         }
-        teams
+        announcer
     }
 }

@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,7 +28,9 @@ import org.gradle.api.provider.Property
 import org.gradle.api.provider.SetProperty
 import org.gradle.api.tasks.Internal
 import org.jreleaser.gradle.plugin.dsl.assemble.NativeImageAssembler
+import org.jreleaser.gradle.plugin.dsl.common.ArchiveOptions
 import org.jreleaser.gradle.plugin.dsl.common.Artifact
+import org.jreleaser.gradle.plugin.internal.dsl.common.ArchiveOptionsImpl
 import org.jreleaser.gradle.plugin.internal.dsl.common.ArtifactImpl
 import org.jreleaser.gradle.plugin.internal.dsl.common.JavaImpl
 import org.jreleaser.gradle.plugin.internal.dsl.platform.PlatformImpl
@@ -55,6 +57,7 @@ class NativeImageAssemblerImpl extends AbstractJavaAssembler implements NativeIm
     final SetProperty<String> components
     final JavaImpl java
     final PlatformImpl platform
+    final ArchiveOptionsImpl options
 
     private final ArtifactImpl graal
     private final UpxImpl upx
@@ -80,6 +83,7 @@ class NativeImageAssemblerImpl extends AbstractJavaAssembler implements NativeIm
         linux = objects.newInstance(LinuxImpl, objects)
         windows = objects.newInstance(WindowsImpl, objects)
         osx = objects.newInstance(OsxImpl, objects)
+        options = objects.newInstance(ArchiveOptionsImpl, objects)
 
         graalJdks = objects.domainObjectContainer(ArtifactImpl, new NamedDomainObjectFactory<ArtifactImpl>() {
             @Override
@@ -111,7 +115,8 @@ class NativeImageAssemblerImpl extends AbstractJavaAssembler implements NativeIm
             linux.isSet() ||
             windows.isSet() ||
             osx.isSet() ||
-            !graalJdks.isEmpty()
+            !graalJdks.isEmpty() ||
+            options.isSet()
     }
 
     @Override
@@ -159,6 +164,11 @@ class NativeImageAssemblerImpl extends AbstractJavaAssembler implements NativeIm
     }
 
     @Override
+    void options(Action<? super ArchiveOptions> action) {
+        action.execute(options)
+    }
+
+    @Override
     void graal(@DelegatesTo(strategy = Closure.DELEGATE_FIRST, value = Artifact) Closure<Void> action) {
         ConfigureUtil.configure(action, graal)
     }
@@ -189,6 +199,11 @@ class NativeImageAssemblerImpl extends AbstractJavaAssembler implements NativeIm
     }
 
     @Override
+    void options(@DelegatesTo(strategy = Closure.DELEGATE_FIRST, value = ArchiveOptions) Closure<Void> action) {
+        ConfigureUtil.configure(action, options)
+    }
+
+    @Override
     void setActive(String str) {
         if (isNotBlank(str)) {
             active.set(Active.of(str.trim()))
@@ -196,25 +211,26 @@ class NativeImageAssemblerImpl extends AbstractJavaAssembler implements NativeIm
     }
 
     org.jreleaser.model.internal.assemble.NativeImageAssembler toModel() {
-        org.jreleaser.model.internal.assemble.NativeImageAssembler nativeImage = new org.jreleaser.model.internal.assemble.NativeImageAssembler()
-        nativeImage.name = name
-        fillProperties(nativeImage)
-        nativeImage.java = java.toModel()
-        nativeImage.platform = platform.toModel()
-        if (imageName.present) nativeImage.imageName = imageName.get()
-        if (imageNameTransform.present) nativeImage.imageNameTransform = imageNameTransform.get()
-        nativeImage.archiveFormat = archiveFormat.get()
-        nativeImage.args = (List<String>) args.getOrElse([])
-        nativeImage.components = (Set<String>) components.getOrElse([] as Set)
-        if (graal.isSet()) nativeImage.graal = graal.toModel()
-        if (upx.isSet()) nativeImage.upx = upx.toModel()
-        if (linux.isSet()) nativeImage.linux = linux.toModel()
-        if (windows.isSet()) nativeImage.windows = windows.toModel()
-        if (osx.isSet()) nativeImage.osx = osx.toModel()
+        org.jreleaser.model.internal.assemble.NativeImageAssembler assembler = new org.jreleaser.model.internal.assemble.NativeImageAssembler()
+        assembler.name = name
+        fillProperties(assembler)
+        assembler.java = java.toModel()
+        assembler.platform = platform.toModel()
+        if (imageName.present) assembler.imageName = imageName.get()
+        if (imageNameTransform.present) assembler.imageNameTransform = imageNameTransform.get()
+        assembler.archiveFormat = archiveFormat.get()
+        assembler.args = (List<String>) args.getOrElse([])
+        assembler.components = (Set<String>) components.getOrElse([] as Set)
+        if (graal.isSet()) assembler.graal = graal.toModel()
+        if (upx.isSet()) assembler.upx = upx.toModel()
+        if (linux.isSet()) assembler.linux = linux.toModel()
+        if (windows.isSet()) assembler.windows = windows.toModel()
+        if (osx.isSet()) assembler.osx = osx.toModel()
         for (ArtifactImpl artifact : graalJdks) {
-            nativeImage.addGraalJdk(artifact.toModel())
+            assembler.addGraalJdk(artifact.toModel())
         }
-        nativeImage
+        if (options.isSet()) assembler.options = options.toModel()
+        assembler
     }
 
     @CompileStatic

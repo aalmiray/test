@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ package org.jreleaser.gradle.plugin.dsl.hooks
 
 import groovy.transform.CompileStatic
 import org.gradle.api.provider.Property
+import org.gradle.api.provider.SetProperty
 import org.jreleaser.gradle.plugin.dsl.common.Activatable
 
 /**
@@ -30,5 +31,7 @@ import org.jreleaser.gradle.plugin.dsl.common.Activatable
 interface CommandHook extends Hook, Activatable {
     Property<String> getCmd()
 
-    Property<Boolean> getContinueOnError()
+    SetProperty<String> getPlatforms()
+
+    void platform(String platform)
 }

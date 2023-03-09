@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,37 +17,18 @@
  */
 package org.jreleaser.cli;
 
-import org.apache.commons.io.IOUtils;
-import org.jreleaser.config.JReleaserConfigParser;
 import org.jreleaser.model.JReleaserException;
-import org.jreleaser.templates.TemplateResource;
-import org.jreleaser.templates.TemplateUtils;
-import org.jreleaser.templates.VersionDecoratingWriter;
 import picocli.CommandLine;
 
-import java.io.BufferedWriter;
-import java.io.IOException;
-import java.io.Writer;
-import java.nio.file.FileAlreadyExistsException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.time.LocalDate;
-import java.util.LinkedHashSet;
-import java.util.ServiceLoader;
-import java.util.Set;
-
-import static java.nio.file.StandardOpenOption.CREATE;
-import static java.nio.file.StandardOpenOption.CREATE_NEW;
-import static java.nio.file.StandardOpenOption.TRUNCATE_EXISTING;
-import static java.nio.file.StandardOpenOption.WRITE;
 
 /**
  * @author Andres Almiray
  * @since 0.1.0
  */
 @CommandLine.Command(name = "init")
-public class Init extends AbstractLoggingCommand {
+public class Init extends AbstractLoggingCommand<Main> {
     @CommandLine.Option(names = {"-o", "--overwrite"})
     boolean overwrite;
 
@@ -64,59 +45,17 @@ public class Init extends AbstractLoggingCommand {
         return parent;
     }
 
+    @Override
     protected void execute() {
         try {
             outputDirectory = null != basedir ? basedir : Paths.get(".").normalize();
             initLogger();
-
-            if (!getSupportedConfigFormats().contains(format)) {
-                spec.commandLine().getErr()
-                    .println(spec.commandLine()
-                        .getColorScheme()
-                        .errorText($("jreleaser.init.ERROR_invalid_format",
-                            String.join("|", getSupportedConfigFormats())))
-                    );
-                spec.commandLine().usage(parent.out);
-                throw new HaltExecutionException();
-            }
-
-            Path outputFile = outputDirectory.resolve("jreleaser." + format);
-
-            TemplateResource template = TemplateUtils.resolveTemplate(logger, "init/jreleaser." + format + ".tpl");
-
-            String content = IOUtils.toString(template.getReader());
-            LocalDate now = LocalDate.now();
-            content = content.replaceAll("@year@", now.getYear() + "");
-
-            logger.info($("jreleaser.init.TEXT_writing_file"), outputFile.toAbsolutePath());
-
-            try (Writer fileWriter = Files.newBufferedWriter(outputFile, overwrite ? CREATE : CREATE_NEW, WRITE, TRUNCATE_EXISTING);
-                 BufferedWriter decoratedWriter = new VersionDecoratingWriter(fileWriter)) {
-                decoratedWriter.write(content);
-            } catch (FileAlreadyExistsException e) {
-                logger.error($("jreleaser.init.ERROR_file_exists"), outputFile.toAbsolutePath());
-                return;
-            }
-
-            if (!quiet) {
-                logger.info($("jreleaser.init.TEXT_success"), outputDirectory.toAbsolutePath());
-            }
-        } catch (IllegalStateException | IOException e) {
+            org.jreleaser.engine.init.Init.execute(logger, format, overwrite, outputDirectory);
+        } catch (IllegalStateException e) {
             throw new JReleaserException($("ERROR_unexpected_error"), e);
+        } finally {
+            if (null != logger) logger.close();
         }
-    }
-
-    private Set<String> getSupportedConfigFormats() {
-        Set<String> extensions = new LinkedHashSet<>();
-
-        ServiceLoader<JReleaserConfigParser> parsers = ServiceLoader.load(JReleaserConfigParser.class,
-            JReleaserConfigParser.class.getClassLoader());
-
-        for (JReleaserConfigParser parser : parsers) {
-            extensions.add(parser.getPreferredFileExtension());
-        }
-
-        return extensions;
     }
 
     @Override

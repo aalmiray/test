@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,14 +18,12 @@
 package org.jreleaser.model.internal.validation.packagers;
 
 import org.jreleaser.bundle.RB;
-import org.jreleaser.model.Active;
 import org.jreleaser.model.internal.JReleaserContext;
 import org.jreleaser.model.internal.JReleaserModel;
 import org.jreleaser.model.internal.common.Artifact;
 import org.jreleaser.model.internal.distributions.Distribution;
 import org.jreleaser.model.internal.packagers.AsdfPackager;
 import org.jreleaser.model.internal.release.Releaser;
-import org.jreleaser.model.internal.validation.common.Validator;
 import org.jreleaser.util.Errors;
 
 import java.util.List;
@@ -33,6 +31,10 @@ import java.util.List;
 import static java.util.stream.Collectors.toList;
 import static org.jreleaser.model.internal.validation.common.ExtraPropertiesValidator.mergeExtraProperties;
 import static org.jreleaser.model.internal.validation.common.TemplateValidator.validateTemplate;
+import static org.jreleaser.model.internal.validation.common.Validator.resolveActivatable;
+import static org.jreleaser.model.internal.validation.common.Validator.validateCommitAuthor;
+import static org.jreleaser.model.internal.validation.common.Validator.validateContinueOnError;
+import static org.jreleaser.model.internal.validation.common.Validator.validateTap;
 import static org.jreleaser.model.internal.validation.distributions.DistributionsValidator.validateArtifactPlatforms;
 import static org.jreleaser.util.StringUtils.isBlank;
 import static org.jreleaser.util.StringUtils.isNotBlank;
@@ -41,20 +43,22 @@ import static org.jreleaser.util.StringUtils.isNotBlank;
  * @author Andres Almiray
  * @since 1.2.0
  */
-public abstract class AsdfPackagerValidator extends Validator {
+public final class AsdfPackagerValidator {
+    private AsdfPackagerValidator() {
+        // noop
+    }
+
     public static void validateAsdf(JReleaserContext context, Distribution distribution, AsdfPackager packager, Errors errors) {
-        context.getLogger().debug("distribution.{}.asdf", distribution.getName());
+        context.getLogger().debug("distribution.{}." + packager.getType(), distribution.getName());
         JReleaserModel model = context.getModel();
         AsdfPackager parentPackager = model.getPackagers().getAsdf();
 
-        if (!packager.isActiveSet() && parentPackager.isActiveSet()) {
-            packager.setActive(parentPackager.getActive());
-        }
+        resolveActivatable(context, packager, "distributions." + distribution.getName() + "." + packager.getType(), parentPackager);
         if (!packager.resolveEnabled(context.getModel().getProject(), distribution)) {
             context.getLogger().debug(RB.$("validation.disabled"));
             return;
         }
-        Releaser service = model.getRelease().getReleaser();
+        Releaser<?> service = model.getRelease().getReleaser();
         if (!service.isReleaseSupported()) {
             context.getLogger().debug(RB.$("validation.disabled.release"));
             packager.disable();
@@ -62,8 +66,7 @@ public abstract class AsdfPackagerValidator extends Validator {
         }
 
         List<Artifact> candidateArtifacts = packager.resolveCandidateArtifacts(context, distribution);
-        if (candidateArtifacts.size() == 0) {
-            packager.setActive(Active.NEVER);
+        if (candidateArtifacts.isEmpty()) {
             context.getLogger().debug(RB.$("validation.disabled.no.artifacts"));
             errors.warning(RB.$("WARNING.validation.packager.no.artifacts", distribution.getName(),
                 packager.getType(), packager.getSupportedFileExtensions(distribution.getType())));
@@ -97,7 +100,6 @@ public abstract class AsdfPackagerValidator extends Validator {
 
         validateCommitAuthor(packager, parentPackager);
         AsdfPackager.AsdfRepository repository = packager.getRepository();
-        repository.resolveEnabled(model.getProject());
         validateTap(context, distribution, repository, parentPackager.getRepository(), "asdf.repository");
         validateTemplate(context, distribution, packager, parentPackager, errors);
         mergeExtraProperties(packager, parentPackager);
@@ -105,6 +107,6 @@ public abstract class AsdfPackagerValidator extends Validator {
         if (isBlank(packager.getDownloadUrl())) {
             packager.setDownloadUrl(parentPackager.getDownloadUrl());
         }
-        validateArtifactPlatforms(context, distribution, packager, candidateArtifacts, errors);
+        validateArtifactPlatforms(distribution, packager, candidateArtifacts, errors);
     }
 }

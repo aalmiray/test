@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,25 +18,29 @@
 package org.jreleaser.model.internal.validation.assemble;
 
 import org.jreleaser.bundle.RB;
-import org.jreleaser.model.Active;
 import org.jreleaser.model.Archive;
 import org.jreleaser.model.Distribution;
 import org.jreleaser.model.api.JReleaserContext.Mode;
 import org.jreleaser.model.internal.JReleaserContext;
 import org.jreleaser.model.internal.assemble.ArchiveAssembler;
-import org.jreleaser.model.internal.common.FileSet;
-import org.jreleaser.model.internal.validation.common.Validator;
 import org.jreleaser.util.Errors;
 
 import java.util.Map;
 
+import static org.jreleaser.model.internal.validation.assemble.AssemblersValidator.validateAssembler;
+import static org.jreleaser.model.internal.validation.common.Validator.resolveActivatable;
+import static org.jreleaser.util.CollectionUtils.listOf;
 import static org.jreleaser.util.StringUtils.isBlank;
 
 /**
  * @author Andres Almiray
  * @since 0.8.0
  */
-public abstract class ArchiveAssemblerValidator extends Validator {
+public final class ArchiveAssemblerValidator {
+    private ArchiveAssemblerValidator() {
+        // noop
+    }
+
     public static void validateArchive(JReleaserContext context, Mode mode, Errors errors) {
         Map<String, ArchiveAssembler> archive = context.getModel().getAssemble().getArchive();
         if (!archive.isEmpty()) context.getLogger().debug("assemble.archive");
@@ -49,48 +53,46 @@ public abstract class ArchiveAssemblerValidator extends Validator {
         }
     }
 
-    private static void validateArchive(JReleaserContext context, Mode mode, ArchiveAssembler archive, Errors errors) {
-        context.getLogger().debug("assemble.archive.{}", archive.getName());
+    private static void validateArchive(JReleaserContext context, Mode mode, ArchiveAssembler assembler, Errors errors) {
+        context.getLogger().debug("assemble.archive.{}", assembler.getName());
 
-        if (!archive.isActiveSet()) {
-            archive.setActive(Active.NEVER);
-        }
-        if (!archive.resolveEnabled(context.getModel().getProject())) {
+        resolveActivatable(context, assembler,
+            listOf("assemble.archive." + assembler.getName(), "assemble.archive"),
+            "NEVER");
+        if (!assembler.resolveEnabled(context.getModel().getProject())) {
             context.getLogger().debug(RB.$("validation.disabled"));
             return;
         }
 
-        if (isBlank(archive.getName())) {
+        if (isBlank(assembler.getName())) {
             errors.configuration(RB.$("validation_must_not_be_blank", "archive.name"));
             context.getLogger().debug(RB.$("validation.disabled.error"));
-            archive.disable();
+            assembler.disable();
             return;
         }
 
-        archive.setPlatform(archive.getPlatform().mergeValues(context.getModel().getPlatform()));
+        assembler.setPlatform(assembler.getPlatform().mergeValues(context.getModel().getPlatform()));
 
-        if (null == archive.getDistributionType()) {
-            archive.setDistributionType(Distribution.DistributionType.BINARY);
-        }
-        if (null == archive.getStereotype()) {
-            archive.setStereotype(context.getModel().getProject().getStereotype());
+        if (null == assembler.getDistributionType()) {
+            assembler.setDistributionType(Distribution.DistributionType.BINARY);
         }
 
-        if (isBlank(archive.getArchiveName())) {
-            archive.setArchiveName("{{distributionName}}-{{projectVersion}}");
+        if (isBlank(assembler.getArchiveName())) {
+            assembler.setArchiveName("{{distributionName}}-{{projectVersion}}");
         }
 
-        if (archive.getFormats().isEmpty()) {
-            archive.addFormat(Archive.Format.ZIP);
+        if (assembler.getFormats().isEmpty()) {
+            assembler.addFormat(Archive.Format.ZIP);
         }
 
-        if (archive.getFileSets().isEmpty()) {
-            errors.configuration(RB.$("validation_archive_empty_fileset", archive.getName()));
-        } else {
-            int i = 0;
-            for (FileSet fileSet : archive.getFileSets()) {
-                validateFileSet(context, mode, archive, fileSet, i++, errors);
-            }
+        if (null == assembler.getOptions().getTimestamp()) {
+            assembler.getOptions().setTimestamp(context.getModel().resolveArchiveTimestamp());
         }
+
+        if (assembler.getFileSets().isEmpty()) {
+            errors.configuration(RB.$("validation_archive_empty_fileset", assembler.getName()));
+        }
+
+        validateAssembler(context, mode, assembler, errors);
     }
 }

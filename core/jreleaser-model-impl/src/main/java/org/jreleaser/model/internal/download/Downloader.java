@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
  */
 package org.jreleaser.model.internal.download;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.jreleaser.model.internal.JReleaserContext;
 import org.jreleaser.model.internal.common.AbstractModelObject;
 import org.jreleaser.model.internal.common.Activatable;
@@ -24,6 +25,7 @@ import org.jreleaser.model.internal.common.Domain;
 import org.jreleaser.model.internal.common.EnabledAware;
 import org.jreleaser.model.internal.common.ExtraProperties;
 import org.jreleaser.model.internal.common.TimeoutAware;
+import org.jreleaser.mustache.TemplateContext;
 
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -56,10 +58,15 @@ public interface Downloader<A extends org.jreleaser.model.api.download.Downloade
     A asImmutable();
 
     class Unpack extends AbstractModelObject<Unpack> implements Domain, EnabledAware {
+        private static final long serialVersionUID = -5735907573642807009L;
+
         private Boolean enabled;
         private Boolean skipRootEntry;
 
+        @JsonIgnore
         public final org.jreleaser.model.api.download.Downloader.Unpack immutable = new org.jreleaser.model.api.download.Downloader.Unpack() {
+            private static final long serialVersionUID = -6271748744186223250L;
+
             @Override
             public boolean isSkipRootEntry() {
                 return Downloader.Unpack.this.isSkipRootEntry();
@@ -88,7 +95,7 @@ public interface Downloader<A extends org.jreleaser.model.api.download.Downloade
 
         @Override
         public boolean isEnabled() {
-            return enabled != null && enabled;
+            return null != enabled && enabled;
         }
 
         @Override
@@ -98,11 +105,11 @@ public interface Downloader<A extends org.jreleaser.model.api.download.Downloade
 
         @Override
         public boolean isEnabledSet() {
-            return enabled != null;
+            return null != enabled;
         }
 
         public boolean isSkipRootEntry() {
-            return skipRootEntry != null && skipRootEntry;
+            return null != skipRootEntry && skipRootEntry;
         }
 
         public void setSkipRootEntry(Boolean skipRootEntry) {
@@ -110,7 +117,7 @@ public interface Downloader<A extends org.jreleaser.model.api.download.Downloade
         }
 
         public boolean isSkipRootEntrySet() {
-            return skipRootEntry != null;
+            return null != skipRootEntry;
         }
 
         @Override
@@ -126,11 +133,16 @@ public interface Downloader<A extends org.jreleaser.model.api.download.Downloade
     }
 
     class Asset extends AbstractModelObject<Asset> implements Domain {
+        private static final long serialVersionUID = -2850050928704465633L;
+
         private final Unpack unpack = new Unpack();
         private String input;
         private String output;
 
+        @JsonIgnore
         private final org.jreleaser.model.api.download.Downloader.Asset immutable = new org.jreleaser.model.api.download.Downloader.Asset() {
+            private static final long serialVersionUID = 2845138939915499623L;
+
             @Override
             public String getInput() {
                 return input;
@@ -163,19 +175,19 @@ public interface Downloader<A extends org.jreleaser.model.api.download.Downloade
             setUnpack(source.unpack);
         }
 
-        public String getResolvedInput(JReleaserContext context, Downloader downloader) {
-            Map<String, Object> p = context.getModel().props();
-            p.putAll(downloader.getResolvedExtraProperties());
-            p.put(KEY_DOWNLOADER_NAME, downloader.getName());
+        public String getResolvedInput(JReleaserContext context, Downloader<?> downloader) {
+            TemplateContext p = context.getModel().props();
+            p.setAll(downloader.resolvedExtraProperties());
+            p.set(KEY_DOWNLOADER_NAME, downloader.getName());
             return resolveTemplate(input, p);
         }
 
-        public String getResolvedOutput(JReleaserContext context, Downloader downloader, String artifactFile) {
+        public String getResolvedOutput(JReleaserContext context, Downloader<?> downloader, String artifactFile) {
             if (isBlank(output)) return output;
-            Map<String, Object> p = context.getModel().props();
-            p.putAll(downloader.getResolvedExtraProperties());
-            p.put(KEY_DOWNLOADER_NAME, downloader.getName());
-            p.put(KEY_ARTIFACT_FILE, artifactFile);
+            TemplateContext p = context.getModel().props();
+            p.setAll(downloader.resolvedExtraProperties());
+            p.set(KEY_DOWNLOADER_NAME, downloader.getName());
+            p.set(KEY_ARTIFACT_FILE, artifactFile);
             return resolveTemplate(output, p);
         }
 

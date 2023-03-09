@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@ import org.jreleaser.model.internal.common.AbstractModelObject;
 import org.jreleaser.model.internal.common.Artifact;
 import org.jreleaser.model.internal.common.Domain;
 import org.jreleaser.model.internal.distributions.Distribution;
+import org.jreleaser.mustache.TemplateContext;
 import org.jreleaser.util.PlatformUtils;
 
 import java.util.ArrayList;
@@ -41,6 +42,7 @@ import static java.util.Collections.unmodifiableMap;
 import static java.util.Collections.unmodifiableSet;
 import static java.util.stream.Collectors.toList;
 import static org.jreleaser.model.Distribution.DistributionType.BINARY;
+import static org.jreleaser.model.Distribution.DistributionType.FLAT_BINARY;
 import static org.jreleaser.model.Distribution.DistributionType.JAVA_BINARY;
 import static org.jreleaser.model.Distribution.DistributionType.JLINK;
 import static org.jreleaser.model.Distribution.DistributionType.NATIVE_IMAGE;
@@ -66,27 +68,32 @@ import static org.jreleaser.util.StringUtils.isNotBlank;
  */
 public final class BrewPackager extends AbstractRepositoryPackager<org.jreleaser.model.api.packagers.BrewPackager, BrewPackager> {
     private static final Map<org.jreleaser.model.Distribution.DistributionType, Set<String>> SUPPORTED = new LinkedHashMap<>();
+    private static final long serialVersionUID = -6367949798240946095L;
 
     static {
         Set<String> extensions = setOf(ZIP.extension());
+        SUPPORTED.put(NATIVE_IMAGE, extensions);
         SUPPORTED.put(BINARY, extensions);
         SUPPORTED.put(JAVA_BINARY, extensions);
         SUPPORTED.put(JLINK, extensions);
-        SUPPORTED.put(NATIVE_IMAGE, extensions);
         SUPPORTED.put(NATIVE_PACKAGE, setOf(ZIP.extension(), DMG.extension(), PKG.extension()));
         SUPPORTED.put(SINGLE_JAR, setOf(JAR.extension()));
+        SUPPORTED.put(FLAT_BINARY, emptySet());
     }
 
     private final List<Dependency> dependencies = new ArrayList<>();
     private final List<String> livecheck = new ArrayList<>();
-    private final HomebrewTap repository = new HomebrewTap();
+    private final HomebrewTap tap = new HomebrewTap();
     private final Cask cask = new Cask();
 
     private String formulaName;
     private String cachedFormulaName;
     private Boolean multiPlatform;
 
+    @JsonIgnore
     private final org.jreleaser.model.api.packagers.BrewPackager immutable = new org.jreleaser.model.api.packagers.BrewPackager() {
+        private static final long serialVersionUID = -7968635280218751108L;
+
         @Override
         public String getFormulaName() {
             return formulaName;
@@ -99,7 +106,7 @@ public final class BrewPackager extends AbstractRepositoryPackager<org.jreleaser
 
         @Override
         public org.jreleaser.model.api.packagers.PackagerRepository getTap() {
-            return repository.asImmutable();
+            return tap.asImmutable();
         }
 
         @Override
@@ -119,27 +126,27 @@ public final class BrewPackager extends AbstractRepositoryPackager<org.jreleaser
 
         @Override
         public org.jreleaser.model.api.common.CommitAuthor getCommitAuthor() {
-            return commitAuthor.asImmutable();
+            return BrewPackager.this.getCommitAuthor().asImmutable();
         }
 
         @Override
         public String getTemplateDirectory() {
-            return templateDirectory;
+            return BrewPackager.this.getTemplateDirectory();
         }
 
         @Override
         public List<String> getSkipTemplates() {
-            return unmodifiableList(skipTemplates);
+            return unmodifiableList(BrewPackager.this.getSkipTemplates());
         }
 
         @Override
         public String getType() {
-            return type;
+            return BrewPackager.this.getType();
         }
 
         @Override
         public String getDownloadUrl() {
-            return downloadUrl;
+            return BrewPackager.this.getDownloadUrl();
         }
 
         @Override
@@ -174,7 +181,7 @@ public final class BrewPackager extends AbstractRepositoryPackager<org.jreleaser
 
         @Override
         public Active getActive() {
-            return active;
+            return BrewPackager.this.getActive();
         }
 
         @Override
@@ -189,12 +196,12 @@ public final class BrewPackager extends AbstractRepositoryPackager<org.jreleaser
 
         @Override
         public String getPrefix() {
-            return BrewPackager.this.getPrefix();
+            return BrewPackager.this.prefix();
         }
 
         @Override
         public Map<String, Object> getExtraProperties() {
-            return unmodifiableMap(extraProperties);
+            return unmodifiableMap(BrewPackager.this.getExtraProperties());
         }
     };
 
@@ -212,7 +219,7 @@ public final class BrewPackager extends AbstractRepositoryPackager<org.jreleaser
         super.merge(source);
         this.formulaName = merge(this.formulaName, source.formulaName);
         this.multiPlatform = merge(this.multiPlatform, source.multiPlatform);
-        setTap(source.repository);
+        setTap(source.tap);
         setDependenciesAsList(merge(this.dependencies, source.dependencies));
         setLivecheck(merge(this.livecheck, source.livecheck));
         setCask(source.cask);
@@ -226,7 +233,7 @@ public final class BrewPackager extends AbstractRepositoryPackager<org.jreleaser
         return cachedFormulaName;
     }
 
-    public String getResolvedFormulaName(Map<String, Object> props) {
+    public String getResolvedFormulaName(TemplateContext props) {
         if (isBlank(cachedFormulaName)) {
             cachedFormulaName = resolveTemplate(formulaName, props);
             cachedFormulaName = getClassNameForLowerCaseHyphenSeparatedName(cachedFormulaName);
@@ -246,7 +253,7 @@ public final class BrewPackager extends AbstractRepositoryPackager<org.jreleaser
     }
 
     public boolean isMultiPlatform() {
-        return multiPlatform != null && multiPlatform;
+        return null != multiPlatform && multiPlatform;
     }
 
     public void setMultiPlatform(Boolean multiPlatform) {
@@ -254,15 +261,15 @@ public final class BrewPackager extends AbstractRepositoryPackager<org.jreleaser
     }
 
     public boolean isMultiPlatformSet() {
-        return multiPlatform != null;
+        return null != multiPlatform;
     }
 
     public HomebrewTap getTap() {
-        return repository;
+        return tap;
     }
 
     public void setTap(HomebrewTap repository) {
-        this.repository.merge(repository);
+        this.tap.merge(repository);
     }
 
     public Cask getCask() {
@@ -326,7 +333,7 @@ public final class BrewPackager extends AbstractRepositoryPackager<org.jreleaser
         super.asMap(full, props);
         props.put("formulaName", formulaName);
         props.put("multiPlatform", isMultiPlatform());
-        props.put("tap", repository.asMap(full));
+        props.put("tap", tap.asMap(full));
         props.put("dependencies", dependencies);
         props.put("livecheck", livecheck);
         props.put("cask", cask.asMap(full));
@@ -338,7 +345,7 @@ public final class BrewPackager extends AbstractRepositoryPackager<org.jreleaser
     }
 
     public PackagerRepository getPackagerRepository() {
-        return repository;
+        return getTap();
     }
 
     @Override
@@ -360,6 +367,7 @@ public final class BrewPackager extends AbstractRepositoryPackager<org.jreleaser
         return unmodifiableSet(SUPPORTED.getOrDefault(distributionType, emptySet()));
     }
 
+    @Override
     public List<Artifact> resolveCandidateArtifacts(JReleaserContext context, Distribution distribution) {
         List<Artifact> candidateArtifacts = super.resolveCandidateArtifacts(context, distribution);
 
@@ -419,7 +427,7 @@ public final class BrewPackager extends AbstractRepositoryPackager<org.jreleaser
         @Override
         public boolean equals(Object o) {
             if (this == o) return true;
-            if (o == null || getClass() != o.getClass()) return false;
+            if (null == o || getClass() != o.getClass()) return false;
             Dependency that = (Dependency) o;
             return key.equals(that.key);
         }
@@ -431,12 +439,16 @@ public final class BrewPackager extends AbstractRepositoryPackager<org.jreleaser
     }
 
     public static final class HomebrewTap extends PackagerRepository {
+        private static final long serialVersionUID = -2283978797852378530L;
+
         public HomebrewTap() {
             super("homebrew", "homebrew-tap");
         }
     }
 
     public static final class Cask extends AbstractModelObject<Cask> implements Domain {
+        private static final long serialVersionUID = 7405724862627754232L;
+
         private final List<CaskItem> uninstall = new ArrayList<>();
         private final List<CaskItem> zap = new ArrayList<>();
         private Boolean enabled;
@@ -446,7 +458,10 @@ public final class BrewPackager extends AbstractRepositoryPackager<org.jreleaser
         private String appName;
         private String appcast;
 
+        @JsonIgnore
         private final org.jreleaser.model.api.packagers.BrewPackager.Cask immutable = new org.jreleaser.model.api.packagers.BrewPackager.Cask() {
+            private static final long serialVersionUID = 5862868849533321019L;
+
             private List<? extends org.jreleaser.model.api.packagers.BrewPackager.CaskItem> uninstall;
             private List<? extends org.jreleaser.model.api.packagers.BrewPackager.CaskItem> zap;
 
@@ -541,7 +556,7 @@ public final class BrewPackager extends AbstractRepositoryPackager<org.jreleaser
 
 
         public boolean isEnabled() {
-            return enabled != null && enabled;
+            return null != enabled && enabled;
         }
 
         public void setEnabled(Boolean enabled) {
@@ -549,10 +564,10 @@ public final class BrewPackager extends AbstractRepositoryPackager<org.jreleaser
         }
 
         public boolean isEnabledSet() {
-            return enabled != null;
+            return null != enabled;
         }
 
-        public String getResolvedAppcast(Map<String, Object> props) {
+        public String getResolvedAppcast(TemplateContext props) {
             if (isNotBlank(appcast)) {
                 return resolveTemplate(appcast, props);
             }
@@ -567,7 +582,7 @@ public final class BrewPackager extends AbstractRepositoryPackager<org.jreleaser
             return cachedCaskName;
         }
 
-        public String getResolvedCaskName(Map<String, Object> props) {
+        public String getResolvedCaskName(TemplateContext props) {
             if (isBlank(cachedCaskName)) {
                 cachedCaskName = resolveTemplate(name, props);
                 cachedCaskName = getClassNameForLowerCaseHyphenSeparatedName(cachedCaskName);
@@ -586,7 +601,7 @@ public final class BrewPackager extends AbstractRepositoryPackager<org.jreleaser
             return cachedDisplayName;
         }
 
-        public String getResolvedDisplayName(Map<String, Object> props) {
+        public String getResolvedDisplayName(TemplateContext props) {
             if (isBlank(cachedDisplayName)) {
                 cachedDisplayName = resolveTemplate(displayName, props);
                 cachedDisplayName = getNaturalName(getClassNameForLowerCaseHyphenSeparatedName(cachedDisplayName));
@@ -604,7 +619,7 @@ public final class BrewPackager extends AbstractRepositoryPackager<org.jreleaser
             return cachedAppName;
         }
 
-        public String getResolvedAppName(Map<String, Object> props) {
+        public String getResolvedAppName(TemplateContext props) {
             if (isBlank(cachedAppName)) {
                 cachedAppName = resolveTemplate(appName, props);
             } else if (cachedAppName.contains("{{")) {
@@ -620,7 +635,7 @@ public final class BrewPackager extends AbstractRepositoryPackager<org.jreleaser
             return cachedPkgName;
         }
 
-        public String getResolvedPkgName(Map<String, Object> props) {
+        public String getResolvedPkgName(TemplateContext props) {
             if (isBlank(cachedPkgName)) {
                 cachedPkgName = resolveTemplate(pkgName, props);
             } else if (cachedPkgName.contains("{{")) {
@@ -741,10 +756,15 @@ public final class BrewPackager extends AbstractRepositoryPackager<org.jreleaser
     }
 
     public static final class CaskItem extends AbstractModelObject<CaskItem> implements Domain {
+        private static final long serialVersionUID = -2577845359978097441L;
+
         private final List<String> items = new ArrayList<>();
         private String name;
 
+        @JsonIgnore
         private final org.jreleaser.model.api.packagers.BrewPackager.CaskItem immutable = new org.jreleaser.model.api.packagers.BrewPackager.CaskItem() {
+            private static final long serialVersionUID = -8230159341038906539L;
+
             @Override
             public String getName() {
                 return name;

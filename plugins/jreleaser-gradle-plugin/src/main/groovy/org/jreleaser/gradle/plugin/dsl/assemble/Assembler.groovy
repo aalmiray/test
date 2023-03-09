@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,11 +19,14 @@ package org.jreleaser.gradle.plugin.dsl.assemble
 
 import groovy.transform.CompileStatic
 import org.gradle.api.Action
-import org.gradle.api.NamedDomainObjectContainer
+import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.provider.Property
+import org.gradle.api.provider.SetProperty
 import org.jreleaser.gradle.plugin.dsl.common.Activatable
+import org.jreleaser.gradle.plugin.dsl.common.Artifact
 import org.jreleaser.gradle.plugin.dsl.common.ExtraProperties
 import org.jreleaser.gradle.plugin.dsl.common.FileSet
+import org.jreleaser.gradle.plugin.dsl.common.Glob
 import org.jreleaser.gradle.plugin.dsl.platform.Platform
 import org.jreleaser.model.Stereotype
 
@@ -38,15 +41,29 @@ interface Assembler extends Activatable, ExtraProperties {
 
     Property<Stereotype> getStereotype()
 
-    NamedDomainObjectContainer<FileSet> getFileSets()
+    DirectoryProperty getTemplateDirectory()
+
+    void setTemplateDirectory(String templateDirectory)
+
+    SetProperty<String> getSkipTemplates()
+
+    void skipTemplate(String template)
 
     Platform getPlatform()
 
     void setStereotype(String str)
 
+    void artifact(Action<? super Artifact> action)
+
+    void files(Action<? super Glob> action)
+
     void fileSet(Action<? super FileSet> action)
 
     void platform(Action<? super Platform> action)
+
+    void artifact(@DelegatesTo(strategy = Closure.DELEGATE_FIRST, value = Artifact) Closure<Void> action)
+
+    void files(@DelegatesTo(strategy = Closure.DELEGATE_FIRST, value = Glob) Closure<Void> action)
 
     void fileSet(@DelegatesTo(strategy = Closure.DELEGATE_FIRST, value = FileSet) Closure<Void> action)
 

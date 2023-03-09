@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -61,13 +61,13 @@ class MattermostAnnouncerImpl extends AbstractAnnouncer implements MattermostAnn
     }
 
     org.jreleaser.model.internal.announce.MattermostAnnouncer toModel() {
-        org.jreleaser.model.internal.announce.MattermostAnnouncer mattermost = new org.jreleaser.model.internal.announce.MattermostAnnouncer()
-        fillProperties(mattermost)
-        if (webhook.present) mattermost.webhook = webhook.get()
-        if (message.present) mattermost.message = message.get()
+        org.jreleaser.model.internal.announce.MattermostAnnouncer announcer = new org.jreleaser.model.internal.announce.MattermostAnnouncer()
+        fillProperties(announcer)
+        if (webhook.present) announcer.webhook = webhook.get()
+        if (message.present) announcer.message = message.get()
         if (messageTemplate.present) {
-            mattermost.messageTemplate = messageTemplate.asFile.get().absolutePath
+            announcer.messageTemplate = messageTemplate.asFile.get().absolutePath
         }
-        mattermost
+        announcer
     }
 }

@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,9 +25,9 @@ import org.jreleaser.model.spi.download.DownloadException;
 import org.jreleaser.sdk.commons.AbstractArtifactDownloader;
 
 import java.io.IOException;
-import java.net.URL;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 
 import static org.jreleaser.util.StringUtils.isBlank;
 
@@ -66,25 +66,31 @@ public class HttpArtifactDownloader extends AbstractArtifactDownloader<org.jrele
 
     private void downloadAsset(String name, Downloader.Asset asset) throws DownloadException {
         String input = asset.getResolvedInput(context, downloader);
-        String output = asset.getResolvedOutput(context, downloader, Paths.get(input).getFileName().toString());
+        String output = asset.getResolvedOutput(context, downloader, getFilename(input));
 
         if (isBlank(output)) {
-            output = Paths.get(input).getFileName().toString();
+            output = getFilename(input);
         }
 
         Path outputPath = context.getDownloadDirectory().resolve(name).resolve(output);
         context.getLogger().info("{} -> {}", input, context.relativizeToBasedir(outputPath));
 
-        try {
-            org.apache.commons.io.FileUtils.copyURLToFile(
-                new URL(input),
-                outputPath.toFile(),
-                downloader.getConnectTimeout() * 1000,
-                downloader.getReadTimeout() * 1000);
-        } catch (IOException e) {
-            throw new DownloadException(RB.$("ERROR_unexpected_download", input), e);
+        if (!context.isDryrun()) {
+            try {
+                org.apache.commons.io.FileUtils.copyURLToFile(
+                    new URI(input).toURL(),
+                    outputPath.toFile(),
+                    downloader.getConnectTimeout() * 1000,
+                    downloader.getReadTimeout() * 1000);
+            } catch (URISyntaxException | IOException e) {
+                throw new DownloadException(RB.$("ERROR_unexpected_download", input), e);
+            }
         }
 
         unpack(asset.getUnpack(), outputPath);
+    }
+
+    private String getFilename(String name) {
+        return name.substring(name.lastIndexOf('/') + 1);
     }
 }

@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,8 @@
  */
 package org.jreleaser.model.api.assemble;
 
+import org.jreleaser.model.Archive;
+import org.jreleaser.model.api.common.ArchiveOptions;
 import org.jreleaser.model.api.common.Artifact;
 import org.jreleaser.model.api.common.Domain;
 import org.jreleaser.model.api.common.EnabledAware;
@@ -38,6 +40,10 @@ public interface JlinkAssembler extends Assembler, JavaAssembler {
     String getImageName();
 
     String getImageNameTransform();
+
+    Archive.Format getArchiveFormat();
+
+    ArchiveOptions getOptions();
 
     Set<? extends Artifact> getTargetJdks();
 

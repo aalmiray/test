@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,8 +29,8 @@ import org.jreleaser.sdk.commons.ClientUtils;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * @author Andres Almiray
@@ -60,7 +60,7 @@ public class GiteaArtifactUploader extends AbstractArtifactUploader<org.jrelease
 
     @Override
     public void upload(String name) throws UploadException {
-        List<Artifact> artifacts = collectArtifacts();
+        Set<Artifact> artifacts = collectArtifacts();
         if (artifacts.isEmpty()) {
             context.getLogger().info(RB.$("artifacts.no.match"));
         }

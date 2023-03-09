@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,14 +18,12 @@
 package org.jreleaser.model.internal.validation.packagers;
 
 import org.jreleaser.bundle.RB;
-import org.jreleaser.model.Active;
 import org.jreleaser.model.internal.JReleaserContext;
 import org.jreleaser.model.internal.JReleaserModel;
 import org.jreleaser.model.internal.common.Artifact;
 import org.jreleaser.model.internal.distributions.Distribution;
 import org.jreleaser.model.internal.packagers.ScoopPackager;
 import org.jreleaser.model.internal.release.BaseReleaser;
-import org.jreleaser.model.internal.validation.common.Validator;
 import org.jreleaser.util.Errors;
 
 import java.util.List;
@@ -34,6 +32,10 @@ import static java.util.stream.Collectors.toList;
 import static org.jreleaser.model.api.checksum.Checksum.INDIVIDUAL_CHECKSUM;
 import static org.jreleaser.model.internal.validation.common.ExtraPropertiesValidator.mergeExtraProperties;
 import static org.jreleaser.model.internal.validation.common.TemplateValidator.validateTemplate;
+import static org.jreleaser.model.internal.validation.common.Validator.resolveActivatable;
+import static org.jreleaser.model.internal.validation.common.Validator.validateCommitAuthor;
+import static org.jreleaser.model.internal.validation.common.Validator.validateContinueOnError;
+import static org.jreleaser.model.internal.validation.common.Validator.validateTap;
 import static org.jreleaser.model.internal.validation.distributions.DistributionsValidator.validateArtifactPlatforms;
 import static org.jreleaser.util.StringUtils.isBlank;
 
@@ -41,21 +43,22 @@ import static org.jreleaser.util.StringUtils.isBlank;
  * @author Andres Almiray
  * @since 0.1.0
  */
-public abstract class ScoopPackagerValidator extends Validator {
+public final class ScoopPackagerValidator {
+    private ScoopPackagerValidator() {
+        // noop
+    }
+
     public static void validateScoop(JReleaserContext context, Distribution distribution, ScoopPackager packager, Errors errors) {
-        context.getLogger().debug("distribution.{}.scoop", distribution.getName());
+        context.getLogger().debug("distribution.{}." + packager.getType(), distribution.getName());
         JReleaserModel model = context.getModel();
         ScoopPackager parentPackager = model.getPackagers().getScoop();
 
-        if (!packager.isActiveSet() && parentPackager.isActiveSet()) {
-            packager.setActive(parentPackager.getActive());
-        }
+        resolveActivatable(context, packager, "distributions." + distribution.getName() + "." + packager.getType(), parentPackager);
         if (!packager.resolveEnabled(context.getModel().getProject(), distribution)) {
             context.getLogger().debug(RB.$("validation.disabled"));
-            packager.disable();
             return;
         }
-        BaseReleaser service = model.getRelease().getReleaser();
+        BaseReleaser<?, ?> service = model.getRelease().getReleaser();
         if (!service.isReleaseSupported()) {
             context.getLogger().debug(RB.$("validation.disabled.release"));
             packager.disable();
@@ -63,8 +66,7 @@ public abstract class ScoopPackagerValidator extends Validator {
         }
 
         List<Artifact> candidateArtifacts = packager.resolveCandidateArtifacts(context, distribution);
-        if (candidateArtifacts.size() == 0) {
-            packager.setActive(Active.NEVER);
+        if (candidateArtifacts.isEmpty()) {
             context.getLogger().debug(RB.$("validation.disabled.no.artifacts"));
             errors.warning(RB.$("WARNING.validation.packager.no.artifacts", distribution.getName(),
                 packager.getType(), packager.getSupportedFileExtensions(distribution.getType())));
@@ -86,7 +88,6 @@ public abstract class ScoopPackagerValidator extends Validator {
 
         validateCommitAuthor(packager, parentPackager);
         ScoopPackager.ScoopRepository bucket = packager.getBucket();
-        bucket.resolveEnabled(model.getProject());
         validateTap(context, distribution, bucket, parentPackager.getBucket(), "scoop.bucket");
         validateTemplate(context, distribution, packager, parentPackager, errors);
         mergeExtraProperties(packager, parentPackager);
@@ -111,6 +112,6 @@ public abstract class ScoopPackagerValidator extends Validator {
             packager.setAutoupdateUrl(parentPackager.getAutoupdateUrl());
         }
 
-        validateArtifactPlatforms(context, distribution, packager, candidateArtifacts, errors);
+        validateArtifactPlatforms(distribution, packager, candidateArtifacts, errors);
     }
 }

@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,6 +26,16 @@ application {
 
 jar {
     manifest {
+        attributes('Automatic-Module-Name': project.findProperty('automatic.module.name'))
+    }
+}
+
+startScripts {
+    classpath = files('$APP_HOME/lib/*')
+}
+
+jar {
+    manifest {
         attributes('Main-Class': 'org.jreleaser.cli.Main')
     }
 }
@@ -42,8 +52,6 @@ dependencies {
     api project(':jreleaser-config-yaml')
     api project(':jreleaser-config-toml')
     api project(':jreleaser-config-json')
-    api "com.github.victools:jsonschema-generator:$jsonSchemaVersion"
-    api "com.github.victools:jsonschema-module-jackson:$jsonSchemaVersion"
 
     annotationProcessor "info.picocli:picocli-codegen:$picocliVersion"
     api "info.picocli:picocli:$picocliVersion"
@@ -65,6 +73,9 @@ distributions {
     main {
         contents {
             from('../..') {
+                include 'licenses/*'
+                include 'LICENSE'
+                include 'NOTICE'
                 include 'VERSION'
             }
         }

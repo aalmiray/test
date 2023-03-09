@@ -3,7 +3,7 @@
 
     SPDX-License-Identifier: Apache-2.0
 
-    Copyright 2020-2022 The JReleaser authors.
+    Copyright 2020-2023 The JReleaser authors.
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -36,6 +36,7 @@
     <property name="jreleaser.packager.name" value=""/>
     <property name="jreleaser.announcer.name" value=""/>
     <property name="jreleaser.assembler.type" value=""/>
+    <property name="jreleaser.assembler.name" value=""/>
     <property name="jreleaser.overwrite" value="false"/>
     <property name="jreleaser.snapshot" value="false"/>
     <property name="jreleaser.full" value="false"/>
@@ -49,6 +50,7 @@
     <property name="jreleaser.assemblers" value=""/>
     <property name="jreleaser.distributions" value=""/>
     <property name="jreleaser.packagers" value=""/>
+    <property name="jreleaser.catalogers" value=""/>
     <property name="jreleaser.deployer.types" value=""/>
     <property name="jreleaser.deployer.names" value=""/>
     <property name="jreleaser.uploader.types" value=""/>
@@ -58,6 +60,7 @@
     <property name="jreleaser.excluded.announcers" value=""/>
     <property name="jreleaser.excluded.assemblers" value=""/>
     <property name="jreleaser.excluded.distributions" value=""/>
+    <property name="jreleaser.excluded.catalogers" value=""/>
     <property name="jreleaser.excluded.packagers" value=""/>
     <property name="jreleaser.excluded.deployer.types" value=""/>
     <property name="jreleaser.excluded.deployer.names" value=""/>
@@ -65,19 +68,40 @@
     <property name="jreleaser.excluded.uploader.names" value=""/>
     <property name="jreleaser.excluded.downloader.types" value=""/>
     <property name="jreleaser.excluded.downloader.names" value=""/>
+    <property name="jreleaser.template.input.file" value=""/>
+    <property name="jreleaser.template.input.dir" value=""/>
+    <property name="jreleaser.template.target.dir" value=""/>
 
-    <target name="jreleaser-template">
-        <jreleaser:template skip="${jreleaser.skip}"
-                            basedir="${jreleaser.basedir}"
-                            configFile="${jreleaser.config.file}"
-                            distributionName="${jreleaser.distribution.name}"
-                            packagerName="${jreleaser.packager.name}"
-                            announcerName="${jreleaser.announcer.name}"
-                            assemblerType="${jreleaser.assembler.type}"
-                            distributionType="${jreleaser.distribution.type}"
-                            overwrite="${jreleaser.overwrite}"
-                            snapshot="${jreleaser.snapshot}"
-                            outputDir="${jreleaser.outputdir}"/>
+    <target name="jreleaser-env">
+        <jreleaser:env/>
+    </target>
+
+    <target name="jreleaser-template-generate">
+        <jreleaser:template-generate skip="${jreleaser.skip}"
+                                     distributionName="${jreleaser.distribution.name}"
+                                     packagerName="${jreleaser.packager.name}"
+                                     announcerName="${jreleaser.announcer.name}"
+                                     assemblerType="${jreleaser.assembler.type}"
+                                     assemblerName="${jreleaser.assembler.name}"
+                                     distributionType="${jreleaser.distribution.type}"
+                                     overwrite="${jreleaser.overwrite}"
+                                     snapshot="${jreleaser.snapshot}"
+                                     outputDir="${jreleaser.outputdir}"/>
+    </target>
+
+    <target name="jreleaser-template-eval">
+        <jreleaser:template-eval gitRootSearch="${jreleaser.git.root.search}"
+                                 strict="${jreleaser.strict}"
+                                 announce="${jreleaser.announce}"
+                                 assembly="${jreleaser.assembly}"
+                                 changelog="${jreleaser.changelog}"
+                                 download="${jreleaser.download}"
+                                 basedir="${jreleaser.basedir}"
+                                 configFile="${jreleaser.config.file}"
+                                 outputDir="${jreleaser.outputdir}"
+                                 inputFile="${jreleaser.template.input.file}"
+                                 inputDir="${jreleaser.template.input.dir}"
+                                 targetDir="${jreleaser.template.target.dir}"/>
     </target>
 
     <target name="jreleaser-announce">
@@ -165,7 +189,13 @@
                                 uploaderTypes="${jreleaser.uploader.types}"
                                 excludedUploaderTypes="${jreleaser.excluded.uploader.types}"
                                 uploaderNames="${jreleaser.uploader.types}"
-                                excludedUploaderNames="${jreleaser.excluded.uploader.names}"/>
+                                excludedUploaderNames="${jreleaser.excluded.uploader.names}"
+                                catalogers="${jreleaser.catalogers}"
+                                excludedCatalogers="${jreleaser.excluded.catalogers}"/>
+    </target>
+
+    <target name="jreleaser-json-schema">
+        <jreleaser:jsonSchema/>
     </target>
 
     <target name="jreleaser-init">
@@ -236,7 +266,9 @@
                            uploaderTypes="${jreleaser.uploader.types}"
                            excludedUploaderTypes="${jreleaser.excluded.uploader.types}"
                            uploaderNames="${jreleaser.uploader.types}"
-                           excludedUploaderNames="${jreleaser.excluded.uploader.names}"/>
+                           excludedUploaderNames="${jreleaser.excluded.uploader.names}"
+                           catalogers="${jreleaser.catalogers}"
+                           excludedCatalogers="${jreleaser.excluded.catalogers}"/>
     </target>
 
     <target name="jreleaser-sign">
@@ -266,6 +298,21 @@
                           excludedDeployerNames="${jreleaser.excluded.deployer.names}"/>
     </target>
 
+    <target name="jreleaser-catalog">
+        <jreleaser:catalog dryrun="${jreleaser.dry.run}"
+                           selectCurrentPlatform="${jreleaser.select.current.platform}"
+                           gitRootSearch="${jreleaser.git.root.search}"
+                           strict="${jreleaser.strict}"
+                           skip="${jreleaser.skip}"
+                           basedir="${jreleaser.basedir}"
+                           configFile="${jreleaser.config.file}"
+                           outputDir="${jreleaser.outputdir}"
+                           distributions="${jreleaser.distributions}"
+                           excludedDistributions="${jreleaser.excluded.distributions}"
+                           catalogers="${jreleaser.catalogers}"
+                           excludedCatalogers="${jreleaser.excluded.catalogers}"/>
+    </target>
+
     <target name="jreleaser-upload">
         <jreleaser:upload dryrun="${jreleaser.dry.run}"
                           selectCurrentPlatform="${jreleaser.select.current.platform}"
@@ -280,7 +327,9 @@
                           uploaderTypes="${jreleaser.uploader.types}"
                           excludedUploaderTypes="${jreleaser.excluded.uploader.types}"
                           uploaderNames="${jreleaser.uploader.types}"
-                          excludedUploaderNames="${jreleaser.excluded.uploader.names}"/>
+                          excludedUploaderNames="${jreleaser.excluded.uploader.names}"
+                          catalogers="${jreleaser.catalogers}"
+                          excludedCatalogers="${jreleaser.excluded.catalogers}"/>
     </target>
 
     <target name="jreleaser-download">

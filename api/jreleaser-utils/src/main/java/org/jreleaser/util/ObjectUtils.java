@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,8 +27,12 @@ import static org.jreleaser.util.StringUtils.requireNonBlank;
  * @author Andres Almiray
  * @since 0.2.0
  */
-public class ObjectUtils {
+public final class ObjectUtils {
     private static final String MESSAGE = "message";
+
+    private ObjectUtils() {
+        // noop
+    }
 
     /**
      * Checks that the specified condition is met. This method is designed

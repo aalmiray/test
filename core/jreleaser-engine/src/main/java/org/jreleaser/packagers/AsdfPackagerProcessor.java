@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,14 +21,13 @@ import org.apache.commons.lang3.StringUtils;
 import org.jreleaser.model.internal.JReleaserContext;
 import org.jreleaser.model.internal.distributions.Distribution;
 import org.jreleaser.model.internal.packagers.AsdfPackager;
-import org.jreleaser.model.internal.project.Project;
 import org.jreleaser.model.internal.release.BaseReleaser;
 import org.jreleaser.model.internal.release.GithubReleaser;
 import org.jreleaser.model.internal.release.Releaser;
 import org.jreleaser.model.spi.packagers.PackagerProcessingException;
+import org.jreleaser.mustache.TemplateContext;
 
 import java.nio.file.Path;
-import java.util.Map;
 
 import static org.jreleaser.model.Constants.KEY_ASDF_DISTRIBUTION_ARTIFACT_FILE;
 import static org.jreleaser.model.Constants.KEY_ASDF_DISTRIBUTION_ARTIFACT_FILE_NAME;
@@ -51,39 +50,38 @@ public class AsdfPackagerProcessor extends AbstractRepositoryPackagerProcessor<A
     }
 
     @Override
-    protected void doPackageDistribution(Distribution distribution, Map<String, Object> props, Path packageDirectory) throws PackagerProcessingException {
+    protected void doPackageDistribution(Distribution distribution, TemplateContext props, Path packageDirectory) throws PackagerProcessingException {
         super.doPackageDistribution(distribution, props, packageDirectory);
-        copyPreparedFiles(distribution, props);
+        copyPreparedFiles(props);
     }
 
     @Override
-    protected void fillPackagerProperties(Map<String, Object> props, Distribution distribution) throws PackagerProcessingException {
+    protected void fillPackagerProperties(TemplateContext props, Distribution distribution) {
         BaseReleaser<?, ?> releaser = context.getModel().getRelease().getReleaser();
 
         String repoUrl = releaser.getResolvedRepoUrl(context.getModel(), packager.getRepository().getOwner(), packager.getRepository().getResolvedName());
 
-        props.put(KEY_ASDF_PLUGIN_REPO_URL, repoUrl);
-        props.put(KEY_ASDF_PLUGIN_TOOL_CHECK, resolveTemplate(packager.getToolCheck(), props));
+        props.set(KEY_ASDF_PLUGIN_REPO_URL, repoUrl);
+        props.set(KEY_ASDF_PLUGIN_TOOL_CHECK, resolveTemplate(packager.getToolCheck(), props));
 
-        String str = (String) props.get(KEY_DISTRIBUTION_ARTIFACT_FILE);
+        String str = props.get(KEY_DISTRIBUTION_ARTIFACT_FILE);
         str = str.replace(context.getModel().getProject().getEffectiveVersion(), "$ASDF_INSTALL_VERSION");
-        props.put(KEY_ASDF_DISTRIBUTION_ARTIFACT_FILE, str);
-        str = (String) props.get(KEY_DISTRIBUTION_ARTIFACT_FILE_NAME);
+        props.set(KEY_ASDF_DISTRIBUTION_ARTIFACT_FILE, str);
+        str = props.get(KEY_DISTRIBUTION_ARTIFACT_FILE_NAME);
         str = str.replace(context.getModel().getProject().getEffectiveVersion(), "$version");
-        props.put(KEY_ASDF_DISTRIBUTION_ARTIFACT_FILE_NAME, str);
-        str = (String) props.get(KEY_DISTRIBUTION_URL);
+        props.set(KEY_ASDF_DISTRIBUTION_ARTIFACT_FILE_NAME, str);
+        str = props.get(KEY_DISTRIBUTION_URL);
         str = str.replace(context.getModel().getProject().getEffectiveVersion(), "$version");
-        props.put(KEY_ASDF_DISTRIBUTION_URL, str);
+        props.set(KEY_ASDF_DISTRIBUTION_URL, str);
     }
 
     @Override
-    protected void writeFile(Project project,
-                             Distribution distribution,
+    protected void writeFile(Distribution distribution,
                              String content,
-                             Map<String, Object> props,
+                             TemplateContext props,
                              Path outputDirectory,
                              String fileName) throws PackagerProcessingException {
-        Releaser gitService = context.getModel().getRelease().getReleaser();
+        Releaser<?> gitService = context.getModel().getRelease().getReleaser();
         if (fileName.contains("github") && !(gitService instanceof GithubReleaser)) {
             // skip
             return;

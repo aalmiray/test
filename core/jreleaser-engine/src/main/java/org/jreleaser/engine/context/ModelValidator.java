@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,7 +37,11 @@ import static org.jreleaser.util.StringUtils.isNotBlank;
  * @author Andres Almiray
  * @since 1.0.0
  */
-public class ModelValidator {
+public final class ModelValidator {
+    private ModelValidator() {
+        // noop
+    }
+
     public static void validate(JReleaserContext context) {
         try {
             Errors errors = context.validateModel();
@@ -92,7 +96,7 @@ public class ModelValidator {
         context.getLogger().info(RB.$("context.creator.report.project-version"), version);
         context.getLogger().info(RB.$("context.creator.report.release"), context.getModel().getProject().isSnapshot() ? " " : " " + RB.$("not") + " ");
         context.getLogger().info(RB.$("context.creator.report.timestamp"), context.getModel().getTimestamp());
-        if (context.getModel().getCommit() != null) {
+        if (null != context.getModel().getCommit()) {
             context.getLogger().info(RB.$("context.creator.report.head"), context.getModel().getCommit().getShortHash());
         }
         context.getLogger().info(RB.$("context.creator.report.platform"), PlatformUtils.getCurrentFull());

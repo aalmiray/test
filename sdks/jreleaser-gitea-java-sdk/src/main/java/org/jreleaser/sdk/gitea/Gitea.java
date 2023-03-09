@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -59,6 +59,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -76,10 +77,10 @@ public class Gitea {
     private final GiteaAPI api;
 
     public Gitea(JReleaserLogger logger,
-          String endpoint,
-          String token,
-          int connectTimeout,
-          int readTimeout) throws IOException {
+                 String endpoint,
+                 String token,
+                 int connectTimeout,
+                 int readTimeout) {
         requireNonNull(logger, "'logger' must not be null");
         requireNonBlank(token, "'token' must not be blank");
         requireNonBlank(endpoint, "'endpoint' must not be blank");
@@ -119,7 +120,7 @@ public class Gitea {
         }
     }
 
-    public List<Release> listReleases(String owner, String repoName) throws IOException {
+    public List<Release> listReleases(String owner, String repoName) {
         logger.debug(RB.$("git.list.releases"), owner, repoName);
 
         List<Release> releases = new ArrayList<>();
@@ -152,7 +153,7 @@ public class Gitea {
         return releases;
     }
 
-    public List<String> listBranches(String owner, String repoName) throws IOException {
+    public List<String> listBranches(String owner, String repoName) {
         logger.debug(RB.$("git.list.branches"), owner, repoName);
 
         List<String> branches = new ArrayList<>();
@@ -178,7 +179,7 @@ public class Gitea {
         return branches;
     }
 
-    public Map<String, GtAsset> listAssets(String owner, String repo, GtRelease release) throws IOException {
+    public Map<String, GtAsset> listAssets(String owner, String repo, GtRelease release) {
         logger.debug(RB.$("git.list.assets.github"), owner, repo, release.getId());
 
         Map<String, GtAsset> assets = new LinkedHashMap<>();
@@ -192,34 +193,24 @@ public class Gitea {
     public Optional<GtMilestone> findMilestoneByName(String owner, String repo, String milestoneName) {
         logger.debug(RB.$("git.milestone.lookup"), milestoneName, owner, repo);
 
-        try {
-            GtMilestone milestone = api.findMilestoneByTitle(owner, repo, milestoneName);
-
-            if (milestone == null) {
-                return Optional.empty();
-            }
-
-            return "open".equals(milestone.getState()) ? Optional.of(milestone) : Optional.empty();
-        } catch (RestAPIException e) {
-            if (e.isNotFound()) {
-                // ok
-                return Optional.empty();
-            }
-            throw e;
-        }
+        return findMilestone(owner, repo, milestoneName, "open");
     }
 
     public Optional<GtMilestone> findClosedMilestoneByName(String owner, String repo, String milestoneName) {
         logger.debug(RB.$("git.milestone.lookup.closed"), milestoneName, owner, repo);
 
+        return findMilestone(owner, repo, milestoneName, "closed");
+    }
+
+    private Optional<GtMilestone> findMilestone(String owner, String repo, String milestoneName, String state) {
         try {
             GtMilestone milestone = api.findMilestoneByTitle(owner, repo, milestoneName);
 
-            if (milestone == null) {
+            if (null == milestone) {
                 return Optional.empty();
             }
 
-            return "closed".equals(milestone.getState()) ? Optional.of(milestone) : Optional.empty();
+            return state.equals(milestone.getState()) ? Optional.of(milestone) : Optional.empty();
         } catch (RestAPIException e) {
             if (e.isNotFound()) {
                 // ok
@@ -229,7 +220,7 @@ public class Gitea {
         }
     }
 
-    public void closeMilestone(String owner, String repo, GtMilestone milestone) throws IOException {
+    public void closeMilestone(String owner, String repo, GtMilestone milestone) {
         logger.debug(RB.$("git.milestone.close"), milestone.getTitle(), owner, repo);
 
         api.updateMilestone(CollectionUtils.<String, Object>map()
@@ -316,24 +307,19 @@ public class Gitea {
         api.updateRelease(release, owner, repo, id);
     }
 
-    public void uploadAssets(String owner, String repo, GtRelease release, List<Asset> assets) throws IOException {
+    public void uploadAssets(String owner, String repo, GtRelease release, Set<Asset> assets) throws IOException {
         for (Asset asset : assets) {
             if (0 == Files.size(asset.getPath()) || !Files.exists(asset.getPath())) {
                 // do not upload empty or non existent files
                 continue;
             }
 
-            logger.info(" " + RB.$("git.upload.asset"), asset.getFilename());
-            try {
-                api.uploadAsset(owner, repo, release.getId(), toFormData(asset.getPath()));
-            } catch (RestAPIException e) {
-                logger.error(" " + RB.$("git.upload.asset.failure"), asset.getFilename());
-                throw e;
-            }
+            uploadOrUpdateAsset(asset, owner, repo, release,
+                "git.upload.asset", "git.upload.asset.failure");
         }
     }
 
-    public void updateAssets(String owner, String repo, GtRelease release, List<Asset> assets, Map<String, GtAsset> existingAssets) throws IOException {
+    public void updateAssets(String owner, String repo, GtRelease release, Set<Asset> assets, Map<String, GtAsset> existingAssets) throws IOException {
         for (Asset asset : assets) {
             if (0 == Files.size(asset.getPath()) || !Files.exists(asset.getPath())) {
                 // do not upload empty or non existent files
@@ -348,13 +334,18 @@ public class Gitea {
                 throw e;
             }
 
-            logger.info(" " + RB.$("git.update.asset"), asset.getFilename());
-            try {
-                api.uploadAsset(owner, repo, release.getId(), toFormData(asset.getPath()));
-            } catch (RestAPIException e) {
-                logger.error(" " + RB.$("git.upload.asset.failure"), asset.getFilename());
-                throw e;
-            }
+            uploadOrUpdateAsset(asset, owner, repo, release,
+                "git.update.asset", "git.update.asset.failure");
+        }
+    }
+
+    private void uploadOrUpdateAsset(Asset asset, String owner, String repo, GtRelease release, String operationMessageKey, String operationErrorMessageKey) throws IOException {
+        logger.info(" " + RB.$(operationMessageKey), asset.getFilename());
+        try {
+            api.uploadAsset(owner, repo, release.getId(), toFormData(asset.getPath()));
+        } catch (RestAPIException e) {
+            logger.error(" " + RB.$(operationErrorMessageKey), asset.getFilename());
+            throw e;
         }
     }
 
@@ -370,7 +361,7 @@ public class Gitea {
         return Optional.empty();
     }
 
-    public GtLabel getOrCreateLabel(String owner, String name, String labelName, String labelColor, String description) throws IOException {
+    public GtLabel getOrCreateLabel(String owner, String name, String labelName, String labelColor, String description) {
         logger.debug(RB.$("git.label.fetch", labelName));
 
         List<GtLabel> labels = listLabels(owner, name);
@@ -386,7 +377,7 @@ public class Gitea {
         return api.createLabel(owner, name, labelName, labelColor, description);
     }
 
-    public Optional<GtIssue> findIssue(String owner, String name, int issueNumber) throws IOException {
+    public Optional<GtIssue> findIssue(String owner, String name, int issueNumber) {
         logger.debug(RB.$("git.issue.fetch", issueNumber));
         try {
             return Optional.of(api.findIssue(owner, name, issueNumber));
@@ -425,7 +416,7 @@ public class Gitea {
         api.updateIssue(params, owner, name, issue.getNumber());
     }
 
-    private List<GtLabel> listLabels(String owner, String repoName) throws IOException {
+    private List<GtLabel> listLabels(String owner, String repoName) {
         logger.debug(RB.$("git.list.labels"), owner, repoName);
 
         List<GtLabel> labels = new ArrayList<>();

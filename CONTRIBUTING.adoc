@@ -1,5 +1,13 @@
 = Contributing
 
+ifdef::env-github[]
+:tip-caption: :bulb:
+:note-caption: :information_source:
+:important-caption: :heavy_exclamation_mark:
+:caution-caption: :fire:
+:warning-caption: :warning:
+endif::[]
+
 Anyone is welcome to open link:https://github.com/jreleaser/jreleaser/issues[issues] and/or pull-requests for bugfixes,
 feature-requests and/or ideas. If unsure where to start we encourage you to open a
 link:https://github.com/jreleaser/jreleaser/discussions[discussion] topic first.
@@ -42,6 +50,8 @@ TIP: You maye use link:https://github.com/kordamp/gm[] instead in which case the
  * Fork the jreleaser repository to your own github account and clone it locally.
  * Hack on your changes.
  * Correctly format your commit message see <<commit-messages,>> below.
+ * Make sure file headers are updated by running `./gradlew licenseFormat`.
+ * Run a local build before committing, `./gradlew build -PqualityCheck=true`.
  * Ensure that CI passes, if it fails, fix the failures.
  * Every pull request requires a review from the jreleaser subprojects MAINTAINERS.
  * If your pull request consists of more than one commit, please squash your commits as described in <<squash-commits,>>

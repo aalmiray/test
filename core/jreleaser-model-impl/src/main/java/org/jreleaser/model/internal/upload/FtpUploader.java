@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,34 +17,35 @@
  */
 package org.jreleaser.model.internal.upload;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.jreleaser.model.Active;
 import org.jreleaser.model.internal.JReleaserContext;
 import org.jreleaser.model.internal.common.Artifact;
 import org.jreleaser.model.internal.common.Ftp;
+import org.jreleaser.model.internal.common.FtpDelegate;
+import org.jreleaser.mustache.TemplateContext;
 
-import java.util.LinkedHashMap;
 import java.util.Map;
 
 import static java.util.Collections.unmodifiableMap;
-import static org.jreleaser.model.Constants.HIDE;
-import static org.jreleaser.model.Constants.UNSET;
 import static org.jreleaser.model.api.download.FtpDownloader.TYPE;
 import static org.jreleaser.mustache.Templates.resolveTemplate;
-import static org.jreleaser.util.StringUtils.isNotBlank;
 
 /**
  * @author Andres Almiray
  * @since 1.1.0
  */
 public final class FtpUploader extends AbstractUploader<org.jreleaser.model.api.upload.FtpUploader, FtpUploader> implements Ftp {
-    private String username;
-    private String password;
-    private String host;
-    private Integer port;
+    private static final long serialVersionUID = -7427075974576853678L;
+
+    private final FtpDelegate delegate = new FtpDelegate();
     private String path;
     private String downloadUrl;
 
+    @JsonIgnore
     private final org.jreleaser.model.api.upload.FtpUploader immutable = new org.jreleaser.model.api.upload.FtpUploader() {
+        private static final long serialVersionUID = -1377876046305087409L;
+
         @Override
         public String getPath() {
             return path;
@@ -57,32 +58,32 @@ public final class FtpUploader extends AbstractUploader<org.jreleaser.model.api.
 
         @Override
         public String getUsername() {
-            return username;
+            return FtpUploader.this.getUsername();
         }
 
         @Override
         public String getPassword() {
-            return password;
+            return FtpUploader.this.getPassword();
         }
 
         @Override
         public String getHost() {
-            return host;
+            return FtpUploader.this.getHost();
         }
 
         @Override
         public Integer getPort() {
-            return port;
+            return FtpUploader.this.getPort();
         }
 
         @Override
         public String getType() {
-            return type;
+            return FtpUploader.this.getType();
         }
 
         @Override
         public String getName() {
-            return name;
+            return FtpUploader.this.getName();
         }
 
         @Override
@@ -111,8 +112,13 @@ public final class FtpUploader extends AbstractUploader<org.jreleaser.model.api.
         }
 
         @Override
+        public boolean isCatalogs() {
+            return FtpUploader.this.isCatalogs();
+        }
+
+        @Override
         public Active getActive() {
-            return active;
+            return FtpUploader.this.getActive();
         }
 
         @Override
@@ -127,22 +133,22 @@ public final class FtpUploader extends AbstractUploader<org.jreleaser.model.api.
 
         @Override
         public String getPrefix() {
-            return FtpUploader.this.getPrefix();
+            return FtpUploader.this.prefix();
         }
 
         @Override
         public Map<String, Object> getExtraProperties() {
-            return unmodifiableMap(extraProperties);
+            return unmodifiableMap(FtpUploader.this.getExtraProperties());
         }
 
         @Override
         public Integer getConnectTimeout() {
-            return connectTimeout;
+            return FtpUploader.this.getConnectTimeout();
         }
 
         @Override
         public Integer getReadTimeout() {
-            return readTimeout;
+            return FtpUploader.this.getReadTimeout();
         }
     };
 
@@ -158,48 +164,49 @@ public final class FtpUploader extends AbstractUploader<org.jreleaser.model.api.
     @Override
     public void merge(FtpUploader source) {
         super.merge(source);
-        this.username = merge(this.username, source.username);
-        this.password = merge(this.password, source.password);
-        this.host = merge(this.host, source.host);
-        this.port = merge(this.port, source.port);
+        this.delegate.merge(source.delegate);
         this.path = merge(this.path, source.path);
         this.downloadUrl = merge(this.downloadUrl, source.downloadUrl);
     }
 
     @Override
     public String getUsername() {
-        return username;
+        return delegate.getUsername();
     }
 
+    @Override
     public void setUsername(String username) {
-        this.username = username;
+        delegate.setUsername(username);
     }
 
     @Override
     public String getPassword() {
-        return password;
+        return delegate.getPassword();
     }
 
+    @Override
     public void setPassword(String password) {
-        this.password = password;
+        delegate.setPassword(password);
     }
 
     @Override
     public String getHost() {
-        return host;
+        return delegate.getHost();
     }
 
+    @Override
     public void setHost(String host) {
-        this.host = host;
+        delegate.setHost(host);
     }
 
     @Override
     public Integer getPort() {
-        return null != port ? port : 21;
+        return delegate.getPort();
     }
 
+    @Override
     public void setPort(Integer port) {
-        this.port = port;
+        delegate.setPort(port);
     }
 
     public String getPath() {
@@ -220,17 +227,14 @@ public final class FtpUploader extends AbstractUploader<org.jreleaser.model.api.
 
     @Override
     protected void asMap(boolean full, Map<String, Object> props) {
-        props.put("host", host);
-        props.put("port", getPort());
-        props.put("username", isNotBlank(username) ? HIDE : UNSET);
-        props.put("password", isNotBlank(password) ? HIDE : UNSET);
+        delegate.asMap(props);
         props.put("path", path);
         props.put("downloadUrl", downloadUrl);
     }
 
     public String getResolvedPath(JReleaserContext context, Artifact artifact) {
-        Map<String, Object> p = artifactProps(context.fullProps(), artifact);
-        p.putAll(getResolvedExtraProperties());
+        TemplateContext p = artifactProps(context.fullProps(), artifact);
+        p.setAll(resolvedExtraProperties());
         return resolveTemplate(path, p);
     }
 
@@ -240,9 +244,9 @@ public final class FtpUploader extends AbstractUploader<org.jreleaser.model.api.
     }
 
     @Override
-    public String getResolvedDownloadUrl(Map<String, Object> props, Artifact artifact) {
-        Map<String, Object> p = new LinkedHashMap<>(artifactProps(props, artifact));
-        p.putAll(getResolvedExtraProperties());
+    public String getResolvedDownloadUrl(TemplateContext props, Artifact artifact) {
+        TemplateContext p = new TemplateContext(artifactProps(props, artifact));
+        p.setAll(resolvedExtraProperties());
         return resolveTemplate(downloadUrl, p);
     }
 }

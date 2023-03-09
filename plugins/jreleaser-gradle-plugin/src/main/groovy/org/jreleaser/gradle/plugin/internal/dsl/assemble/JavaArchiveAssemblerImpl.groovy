@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,7 +21,6 @@ import groovy.transform.CompileStatic
 import org.gradle.api.Action
 import org.gradle.api.NamedDomainObjectContainer
 import org.gradle.api.NamedDomainObjectFactory
-import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.internal.provider.Providers
 import org.gradle.api.model.ObjectFactory
 import org.gradle.api.provider.ListProperty
@@ -29,9 +28,11 @@ import org.gradle.api.provider.Property
 import org.gradle.api.provider.SetProperty
 import org.gradle.api.tasks.Internal
 import org.jreleaser.gradle.plugin.dsl.assemble.JavaArchiveAssembler
+import org.jreleaser.gradle.plugin.dsl.common.ArchiveOptions
 import org.jreleaser.gradle.plugin.dsl.common.Artifact
 import org.jreleaser.gradle.plugin.dsl.common.Executable
 import org.jreleaser.gradle.plugin.dsl.common.Glob
+import org.jreleaser.gradle.plugin.internal.dsl.common.ArchiveOptionsImpl
 import org.jreleaser.gradle.plugin.internal.dsl.common.ArtifactImpl
 import org.jreleaser.gradle.plugin.internal.dsl.common.ExecutableImpl
 import org.jreleaser.gradle.plugin.internal.dsl.common.GlobImpl
@@ -53,37 +54,27 @@ class JavaArchiveAssemblerImpl extends AbstractAssembler implements JavaArchiveA
     String name
     final Property<String> archiveName
     final SetProperty<Archive.Format> formats
-    final DirectoryProperty templateDirectory
     final JavaImpl java
     final ExecutableImpl executable
     final ArtifactImpl mainJar
     final PlatformImpl platform
+    final ArchiveOptionsImpl options
 
     private final NamedDomainObjectContainer<GlobImpl> jars
-    private final NamedDomainObjectContainer<GlobImpl> files
 
     @Inject
     JavaArchiveAssemblerImpl(ObjectFactory objects) {
         super(objects)
         archiveName = objects.property(String).convention(Providers.<String> notDefined())
         formats = objects.setProperty(Archive.Format).convention(Providers.<Set<Archive.Format>> notDefined())
-        templateDirectory = objects.directoryProperty().convention(Providers.notDefined())
         executable = objects.newInstance(ExecutableImpl, objects)
         java = objects.newInstance(JavaImpl, objects)
         mainJar = objects.newInstance(ArtifactImpl, objects)
         mainJar.setName('mainJar')
         platform = objects.newInstance(PlatformImpl, objects)
+        options = objects.newInstance(ArchiveOptionsImpl, objects)
 
         jars = objects.domainObjectContainer(GlobImpl, new NamedDomainObjectFactory<GlobImpl>() {
-            @Override
-            GlobImpl create(String name) {
-                GlobImpl glob = objects.newInstance(GlobImpl, objects)
-                glob.name = name
-                glob
-            }
-        })
-
-        files = objects.domainObjectContainer(GlobImpl, new NamedDomainObjectFactory<GlobImpl>() {
             @Override
             GlobImpl create(String name) {
                 GlobImpl glob = objects.newInstance(GlobImpl, objects)
@@ -101,14 +92,8 @@ class JavaArchiveAssemblerImpl extends AbstractAssembler implements JavaArchiveA
             executable.isSet() ||
             java.isSet() ||
             mainJar.isSet() ||
-            templateDirectory.present ||
             !jars.isEmpty() ||
-            !files.isEmpty()
-    }
-
-    @Override
-    void setTemplateDirectory(String templateDirectory) {
-        this.templateDirectory.set(new File(templateDirectory))
+            options.isSet()
     }
 
     @Override
@@ -139,8 +124,8 @@ class JavaArchiveAssemblerImpl extends AbstractAssembler implements JavaArchiveA
     }
 
     @Override
-    void files(Action<? super Glob> action) {
-        action.execute(files.maybeCreate("files-${files.size()}".toString()))
+    void options(Action<? super ArchiveOptions> action) {
+        action.execute(options)
     }
 
     @Override
@@ -164,8 +149,8 @@ class JavaArchiveAssemblerImpl extends AbstractAssembler implements JavaArchiveA
     }
 
     @Override
-    void files(@DelegatesTo(strategy = Closure.DELEGATE_FIRST, value = Glob) Closure<Void> action) {
-        ConfigureUtil.configure(action, files.maybeCreate("files-${files.size()}".toString()))
+    void options(@DelegatesTo(strategy = Closure.DELEGATE_FIRST, value = ArchiveOptions) Closure<Void> action) {
+        ConfigureUtil.configure(action, options)
     }
 
     org.jreleaser.model.internal.assemble.JavaArchiveAssembler toModel() {
@@ -180,12 +165,7 @@ class JavaArchiveAssemblerImpl extends AbstractAssembler implements JavaArchiveA
         for (GlobImpl glob : jars) {
             assembler.addJar(glob.toModel())
         }
-        for (GlobImpl glob : files) {
-            assembler.addFile(glob.toModel())
-        }
-        if (templateDirectory.present) {
-            assembler.templateDirectory = templateDirectory.get().asFile.toPath().toString()
-        }
+        if (options.isSet()) assembler.options = options.toModel()
         assembler
     }
 

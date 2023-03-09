@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,19 +17,22 @@
  */
 package org.jreleaser.sdk.commons;
 
+import feign.form.FormData;
 import org.jreleaser.bundle.RB;
 import org.jreleaser.model.JReleaserException;
 import org.jreleaser.model.api.signing.SigningException;
 import org.jreleaser.model.internal.JReleaserContext;
+import org.jreleaser.model.spi.deploy.DeployException;
 import org.jreleaser.model.spi.deploy.maven.MavenDeployer;
+import org.jreleaser.model.spi.upload.UploadException;
 import org.jreleaser.sdk.command.CommandException;
 import org.jreleaser.sdk.signing.SigningUtils;
 import org.jreleaser.sdk.tool.PomChecker;
 import org.jreleaser.sdk.tool.ToolException;
 import org.jreleaser.util.Algorithm;
 import org.jreleaser.util.ChecksumUtils;
-import org.jreleaser.util.DefaultVersions;
 import org.jreleaser.util.Errors;
+import org.jreleaser.util.IoUtils;
 import org.w3c.dom.Document;
 import org.xml.sax.SAXException;
 
@@ -40,7 +43,6 @@ import javax.xml.xpath.XPathExpressionException;
 import javax.xml.xpath.XPathFactory;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.OutputStream;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
 import java.nio.file.FileVisitResult;
@@ -51,6 +53,7 @@ import java.nio.file.Paths;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -59,6 +62,7 @@ import java.util.TreeSet;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.nio.file.FileVisitResult.CONTINUE;
 import static org.jreleaser.util.StringUtils.isNotBlank;
 
@@ -78,6 +82,12 @@ public abstract class AbstractMavenDeployer<A extends org.jreleaser.model.api.de
     private static final String PACKAGING_JAR = "jar";
     private static final String PACKAGING_POM = "pom";
     private static final String PACKAGING_MAVEN_ARCHETYPE = "maven-archetype";
+    private static final String MAVEN_METADATA_XML = "maven-metadata.xml";
+    private static final String EXT_JAR = ".jar";
+    private static final String EXT_POM = ".pom";
+    private static final String EXT_ASC = ".asc";
+    private static final String EXT_MODULE = ".module";
+    private static final String[] EXT_CHECKSUMS = {".md5", ".sha1", ".sha256", ".sha512"};
 
     protected final JReleaserContext context;
 
@@ -104,7 +114,7 @@ public abstract class AbstractMavenDeployer<A extends org.jreleaser.model.api.de
             }
 
             try {
-                DeployableCollector collector = new DeployableCollector(root);
+                DeployableCollector collector = new DeployableCollector(root, context.getModel().getProject().isSnapshot());
 
                 java.nio.file.Files.walkFileTree(root, collector);
                 if (collector.failed) {
@@ -118,7 +128,7 @@ public abstract class AbstractMavenDeployer<A extends org.jreleaser.model.api.de
         }
 
         Map<String, Deployable> deployablesMap = deployables.stream()
-            .collect(Collectors.toMap(Deployable::getFilename, Function.identity()));
+            .collect(Collectors.toMap(Deployable::getFullDeployPath, Function.identity()));
 
         Errors errors = new Errors();
         checkMavenCentralRules(deployablesMap, errors);
@@ -140,7 +150,7 @@ public abstract class AbstractMavenDeployer<A extends org.jreleaser.model.api.de
 
         // 1st check jar, sources, javadoc if applicable
         for (Deployable deployable : deployablesMap.values()) {
-            if (!deployable.getFilename().endsWith("." + PACKAGING_POM)) {
+            if (!deployable.getFilename().endsWith(EXT_POM)) {
                 continue;
             }
 
@@ -148,22 +158,22 @@ public abstract class AbstractMavenDeployer<A extends org.jreleaser.model.api.de
             base = base.substring(0, base.length() - 4);
 
             if (deployable.requiresJar()) {
-                Deployable derived = deployable.deriveByFilename(PACKAGING_JAR, base + ".jar");
-                if (!deployablesMap.containsKey(derived.getFilename())) {
+                Deployable derived = deployable.deriveByFilename(PACKAGING_JAR, base + EXT_JAR);
+                if (!deployablesMap.containsKey(derived.getFullDeployPath())) {
                     errors.configuration(RB.$("validation_is_missing", derived.getFilename()));
                 }
             }
 
             if (deployable.requiresSourcesJar()) {
                 Deployable derived = deployable.deriveByFilename(PACKAGING_JAR, base + "-sources.jar");
-                if (!deployablesMap.containsKey(derived.getFilename())) {
+                if (!deployablesMap.containsKey(derived.getFullDeployPath())) {
                     errors.configuration(RB.$("validation_is_missing", derived.getFilename()));
                 }
             }
 
             if (deployable.requiresJavadocJar()) {
                 Deployable derived = deployable.deriveByFilename(PACKAGING_JAR, base + "-javadoc.jar");
-                if (!deployablesMap.containsKey(derived.getFilename())) {
+                if (!deployablesMap.containsKey(derived.getFullDeployPath())) {
                     errors.configuration(RB.$("validation_is_missing", derived.getFilename()));
                 }
             }
@@ -173,7 +183,8 @@ public abstract class AbstractMavenDeployer<A extends org.jreleaser.model.api.de
             return;
         }
 
-        PomChecker pomChecker = new PomChecker(context.asImmutable(), DefaultVersions.getInstance().getPomcheckerVersion());
+        PomChecker pomChecker = new PomChecker(context.asImmutable(),
+            context.getModel().getDeploy().getMaven().getPomchecker().getVersion());
         try {
             if (!pomChecker.setup()) {
                 context.getLogger().warn(RB.$("tool_unavailable", "pomchecker"));
@@ -186,18 +197,18 @@ public abstract class AbstractMavenDeployer<A extends org.jreleaser.model.api.de
 
         // 2nd check pom
         for (Deployable deployable : deployablesMap.values()) {
-            if (!deployable.getFilename().endsWith("." + PACKAGING_POM)) {
+            if (!deployable.getFilename().endsWith(EXT_POM)) {
                 continue;
             }
 
-            OutputStream out = new ByteArrayOutputStream();
-            OutputStream err = new ByteArrayOutputStream();
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            ByteArrayOutputStream err = new ByteArrayOutputStream();
 
             List<String> args = new ArrayList<>();
             args.add("check-maven-central");
             args.add("--quiet");
             if (context.getModel().getProject().isSnapshot() &&
-                getDeployer().isSnapshotAllowed()) {
+                getDeployer().isSnapshotSupported()) {
                 args.add("--no-release");
             }
             args.add("--file");
@@ -205,8 +216,8 @@ public abstract class AbstractMavenDeployer<A extends org.jreleaser.model.api.de
             try {
                 pomChecker.invoke(context.getBasedir(), args, out, err);
             } catch (CommandException e) {
-                String plumbing = err.toString().trim();
-                String validation = out.toString().trim();
+                String plumbing = IoUtils.toString(err).trim();
+                String validation = IoUtils.toString(out).trim();
 
                 // 1st check out -> validation issues
                 if (isNotBlank(validation)) {
@@ -228,13 +239,10 @@ public abstract class AbstractMavenDeployer<A extends org.jreleaser.model.api.de
         }
 
         for (Deployable deployable : deployablesMap.values()) {
-            if (!deployable.getFilename().endsWith(".jar") &&
-                !deployable.getFilename().endsWith(".pom")) {
-                continue;
-            }
+            if (deployable.isSignature() || deployable.isChecksum()) continue;
 
-            Deployable signedDeployable = deployable.deriveByFilename(deployable.getFilename() + ".asc");
-            if (deployablesMap.containsKey(signedDeployable.getFilename())) {
+            Deployable signedDeployable = deployable.deriveByFilename(deployable.getFilename() + EXT_ASC);
+            if (deployablesMap.containsKey(signedDeployable.getFullDeployPath())) {
                 continue;
             }
 
@@ -252,13 +260,9 @@ public abstract class AbstractMavenDeployer<A extends org.jreleaser.model.api.de
 
     private void checksumDeployables(Map<String, Deployable> deployablesMap, Set<Deployable> deployables) {
         for (Deployable deployable : deployablesMap.values()) {
-            if (!deployable.getFilename().endsWith(".jar") &&
-                !deployable.getFilename().endsWith(".pom") &&
-                !deployable.getFilename().endsWith(".asc")) {
-                continue;
-            }
+            if (deployable.isChecksum()) continue;
 
-            if (deployable.getFilename().endsWith(".asc")) {
+            if (deployable.getFilename().endsWith(EXT_ASC)) {
                 // remove checksum for signature files
                 for (Algorithm algorithm : ALGORITHMS) {
                     Deployable checksumDeployable = deployable.deriveByFilename(deployable.getFilename() + "." + algorithm.formatted());
@@ -272,19 +276,63 @@ public abstract class AbstractMavenDeployer<A extends org.jreleaser.model.api.de
                 for (Algorithm algorithm : ALGORITHMS) {
                     Deployable checksumDeployable = deployable.deriveByFilename(deployable.getFilename() + "." + algorithm.formatted());
 
-                    if (deployablesMap.containsKey(checksumDeployable.getFilename())) {
+                    if (deployablesMap.containsKey(checksumDeployable.getFullDeployPath())) {
                         continue;
                     }
 
                     context.getLogger().debug(RB.$("checksum.calculating", algorithm.formatted(), deployable.getFilename()));
                     String checksum = ChecksumUtils.checksum(algorithm, data);
-                    Files.write(checksumDeployable.getLocalPath(), checksum.getBytes());
+                    Files.write(checksumDeployable.getLocalPath(), checksum.getBytes(UTF_8));
                     deployables.add(checksumDeployable);
                 }
             } catch (IOException e) {
                 throw new JReleaserException(RB.$("ERROR_unexpected_error_calculate_checksum", deployable.getFilename()), e);
             }
         }
+    }
+
+    protected void deployPackages() throws DeployException {
+        Set<Deployable> deployables = collectDeployables();
+        if (deployables.isEmpty()) {
+            context.getLogger().info(RB.$("artifacts.no.match"));
+        }
+
+        D deployer = getDeployer();
+        String baseUrl = deployer.getResolvedUrl(context.fullProps());
+        String token = deployer.getPassword();
+
+        // delete existing packages (if any)
+        deleteExistingPackages(baseUrl, token, deployables);
+
+        for (Deployable deployable : deployables) {
+            if (deployable.isSignature() || deployable.isChecksum()) continue;
+            Path localPath = Paths.get(deployable.getStagingRepository(), deployable.getPath(), deployable.getFilename());
+            context.getLogger().info(" - {}", deployable.getFilename());
+
+            if (!context.isDryrun()) {
+                try {
+                    Map<String, String> headers = new LinkedHashMap<>();
+                    headers.put("Authorization", "Bearer " + token);
+                    FormData data = ClientUtils.toFormData(localPath);
+
+                    String url = baseUrl + deployable.getFullDeployPath();
+                    ClientUtils.putFile(context.getLogger(),
+                        url,
+                        deployer.getConnectTimeout(),
+                        deployer.getReadTimeout(),
+                        data,
+                        headers);
+                } catch (IOException | UploadException e) {
+                    context.getLogger().trace(e);
+                    throw new DeployException(RB.$("ERROR_unexpected_deploy",
+                        context.getBasedir().relativize(localPath), e.getMessage()), e);
+                }
+            }
+        }
+    }
+
+    protected void deleteExistingPackages(String baseUrl, String token, Set<Deployable> deployables) throws DeployException {
+        // noop
     }
 
     public static class Deployable implements Comparable<Deployable> {
@@ -296,40 +344,42 @@ public abstract class AbstractMavenDeployer<A extends org.jreleaser.model.api.de
         private final String version;
         private final String packaging;
 
-        public Deployable(String stagingRepository, String path, String filename) {
-            this(stagingRepository, path, PACKAGING_JAR, filename);
-        }
-
         public Deployable(String stagingRepository, String path, String packaging, String filename) {
             this.stagingRepository = stagingRepository;
             this.path = path;
             this.filename = filename;
             this.packaging = packaging;
 
-            Path p = Paths.get(path);
-            this.version = p.getFileName().toString();
-            p = p.getParent();
-            this.artifactId = p.getFileName().toString();
-            p = p.getParent();
-            String gid = p.toString()
-                .replace("/", ".")
-                .replace("\\", ".");
-            if (gid.startsWith(".")) {
-                gid = gid.substring(1);
+            if (!MAVEN_METADATA_XML.equals(filename)) {
+                Path p = Paths.get(path);
+                this.version = p.getFileName().toString();
+                p = p.getParent();
+                this.artifactId = p.getFileName().toString();
+                p = p.getParent();
+                String gid = p.toString()
+                    .replace("/", ".")
+                    .replace("\\", ".");
+                if (gid.startsWith(".")) {
+                    gid = gid.substring(1);
+                }
+                this.groupId = gid;
+            } else {
+                this.version = "";
+                this.artifactId = "";
+                this.groupId = "";
             }
-            this.groupId = gid;
         }
 
         public boolean requiresJar() {
-            return !PACKAGING_POM.equals(packaging);
+            return isNotBlank(packaging) && !PACKAGING_POM.equals(packaging);
         }
 
         public boolean requiresSourcesJar() {
-            return !PACKAGING_POM.equals(packaging);
+            return isNotBlank(packaging) && !PACKAGING_POM.equals(packaging);
         }
 
         public boolean requiresJavadocJar() {
-            return !PACKAGING_POM.equals(packaging) && !PACKAGING_MAVEN_ARCHETYPE.equals(packaging);
+            return isNotBlank(packaging) && !PACKAGING_POM.equals(packaging) && !PACKAGING_MAVEN_ARCHETYPE.equals(packaging);
         }
 
         public String getGav() {
@@ -342,6 +392,14 @@ public abstract class AbstractMavenDeployer<A extends org.jreleaser.model.api.de
 
         public String getPath() {
             return path;
+        }
+
+        public String getFullDeployPath() {
+            return getDeployPath().substring(1) + "/" + getFilename();
+        }
+
+        public String getDeployPath() {
+            return path.replace("\\", "/");
         }
 
         public String getFilename() {
@@ -375,7 +433,7 @@ public abstract class AbstractMavenDeployer<A extends org.jreleaser.model.api.de
         @Override
         public boolean equals(Object o) {
             if (this == o) return true;
-            if (o == null || getClass() != o.getClass()) return false;
+            if (null == o || getClass() != o.getClass()) return false;
             Deployable that = (Deployable) o;
             return stagingRepository.equals(that.stagingRepository) &&
                 path.equals(that.path) &&
@@ -389,8 +447,19 @@ public abstract class AbstractMavenDeployer<A extends org.jreleaser.model.api.de
 
         @Override
         public int compareTo(Deployable o) {
-            if (o == null) return -1;
-            return filename.compareTo(o.filename);
+            if (null == o) return -1;
+            return getFullDeployPath().compareTo(o.getFullDeployPath());
+        }
+
+        public boolean isSignature() {
+            return filename.endsWith(EXT_ASC);
+        }
+
+        public boolean isChecksum() {
+            for (String ext : EXT_CHECKSUMS) {
+                if (filename.endsWith(ext)) return true;
+            }
+            return false;
         }
     }
 
@@ -400,16 +469,26 @@ public abstract class AbstractMavenDeployer<A extends org.jreleaser.model.api.de
         private final List<PathMatcher> matchers = new ArrayList<>();
         private boolean failed;
 
-        public DeployableCollector(Path root) {
+        public DeployableCollector(Path root, boolean projectIsSnapshot) {
             this.root = root;
 
             FileSystem fileSystem = FileSystems.getDefault();
-            String[] extensions = {".jar", ".jar.asc", ".pom", ".pom.asc"};
-            String[] checksums = {".md5", ".sha1", ".sha256", ".sha512"};
+            String[] extensions = {
+                EXT_JAR, EXT_JAR + EXT_ASC,
+                EXT_POM, EXT_POM + EXT_ASC,
+                EXT_MODULE, EXT_MODULE + EXT_ASC
+            };
             for (String ext : extensions) {
                 matchers.add(fileSystem.getPathMatcher("glob:**/*" + ext));
-                for (String cs : checksums) {
+                for (String cs : EXT_CHECKSUMS) {
                     matchers.add(fileSystem.getPathMatcher("glob:**/*" + ext + cs));
+                }
+            }
+
+            if (projectIsSnapshot) {
+                matchers.add(fileSystem.getPathMatcher("glob:**/" + MAVEN_METADATA_XML));
+                for (String cs : EXT_CHECKSUMS) {
+                    matchers.add(fileSystem.getPathMatcher("glob:**/" + MAVEN_METADATA_XML + cs));
                 }
             }
         }
@@ -430,10 +509,13 @@ public abstract class AbstractMavenDeployer<A extends org.jreleaser.model.api.de
 
         private String resolvePackaging(Path artifactPath) {
             // only inspect if artifactPath ends with .pom
-            if (!artifactPath.getFileName().toString().endsWith("." + PACKAGING_POM)) return PACKAGING_JAR;
+            if (artifactPath.getFileName().toString().endsWith(EXT_JAR)) return PACKAGING_JAR;
+            if (!artifactPath.getFileName().toString().endsWith(EXT_POM)) return "";
 
             try {
-                Document document = DocumentBuilderFactory.newInstance()
+                DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+                factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+                Document document = factory
                     .newDocumentBuilder()
                     .parse(artifactPath.toFile());
                 String query = "/project/packaging";

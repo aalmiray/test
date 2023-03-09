@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,18 +17,15 @@
  */
 package org.jreleaser.sdk.slack;
 
-import org.jreleaser.model.Constants;
 import org.jreleaser.model.internal.JReleaserContext;
 import org.jreleaser.model.spi.announce.AnnounceException;
 import org.jreleaser.model.spi.announce.Announcer;
-import org.jreleaser.mustache.MustacheUtils;
+import org.jreleaser.mustache.TemplateContext;
 import org.jreleaser.sdk.commons.ClientUtils;
 import org.jreleaser.sdk.slack.api.Message;
 
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 
 import static org.jreleaser.util.StringUtils.isNotBlank;
 
@@ -67,8 +64,8 @@ public class SlackAnnouncer implements Announcer<org.jreleaser.model.api.announc
         if (isNotBlank(slack.getMessage())) {
             message = slack.getResolvedMessage(context);
         } else {
-            Map<String, Object> props = new LinkedHashMap<>();
-            props.put(Constants.KEY_CHANGELOG, MustacheUtils.passThrough(context.getChangelog()));
+            TemplateContext props = new TemplateContext();
+            context.getChangelog().apply(props);
             context.getModel().getRelease().getReleaser().fillProps(props, context.getModel());
             message = slack.getResolvedMessageTemplate(context, props);
         }

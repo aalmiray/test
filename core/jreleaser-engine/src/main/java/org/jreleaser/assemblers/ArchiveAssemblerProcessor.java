@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,12 +23,13 @@ import org.jreleaser.model.Constants;
 import org.jreleaser.model.internal.JReleaserContext;
 import org.jreleaser.model.internal.assemble.ArchiveAssembler;
 import org.jreleaser.model.spi.assemble.AssemblerProcessingException;
+import org.jreleaser.mustache.TemplateContext;
 import org.jreleaser.util.FileUtils;
+import org.jreleaser.util.PlatformUtils;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Map;
 
 /**
  * @author Andres Almiray
@@ -40,11 +41,11 @@ public class ArchiveAssemblerProcessor extends AbstractAssemblerProcessor<org.jr
     }
 
     @Override
-    protected void doAssemble(Map<String, Object> props) throws AssemblerProcessingException {
-        Path assembleDirectory = (Path) props.get(Constants.KEY_DISTRIBUTION_ASSEMBLE_DIRECTORY);
+    protected void doAssemble(TemplateContext props) throws AssemblerProcessingException {
+        Path assembleDirectory = props.get(Constants.KEY_DISTRIBUTION_ASSEMBLE_DIRECTORY);
         String archiveName = assembler.getResolvedArchiveName(context);
 
-        Path workDirectory = assembleDirectory.resolve("work");
+        Path workDirectory = assembleDirectory.resolve(WORK_DIRECTORY);
         Path archiveDirectory = workDirectory.resolve(archiveName);
 
         try {
@@ -53,8 +54,14 @@ public class ArchiveAssemblerProcessor extends AbstractAssemblerProcessor<org.jr
         } catch (IOException e) {
             throw new AssemblerProcessingException(RB.$("ERROR_assembler_delete_archive", archiveName), e);
         }
+
+        // copy templates
+        copyTemplates(context, props, archiveDirectory);
+
         // copy fileSets
         context.getLogger().debug(RB.$("assembler.copy.files"), context.relativizeToBasedir(archiveDirectory));
+        copyArtifacts(context, archiveDirectory, PlatformUtils.getCurrentFull(), assembler.isAttachPlatform());
+        copyFiles(context, archiveDirectory);
         copyFileSets(context, archiveDirectory);
 
         // run archive x format
@@ -69,25 +76,7 @@ public class ArchiveAssemblerProcessor extends AbstractAssemblerProcessor<org.jr
 
         try {
             Path archiveFile = assembleDirectory.resolve(finalArchiveName);
-            switch (format) {
-                case ZIP:
-                    FileUtils.zip(workDirectory, archiveFile);
-                    break;
-                case TAR:
-                    FileUtils.tar(workDirectory, archiveFile);
-                    break;
-                case TGZ:
-                case TAR_GZ:
-                    FileUtils.tgz(workDirectory, archiveFile);
-                    break;
-                case TXZ:
-                case TAR_XZ:
-                    FileUtils.xz(workDirectory, archiveFile);
-                    break;
-                case TBZ2:
-                case TAR_BZ2:
-                    FileUtils.bz2(workDirectory, archiveFile);
-            }
+            FileUtils.packArchive(workDirectory, archiveFile, assembler.getOptions().toOptions());
         } catch (IOException e) {
             throw new AssemblerProcessingException(RB.$("ERROR_unexpected_error"), e);
         }

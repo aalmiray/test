@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,7 +23,6 @@ import org.jreleaser.model.internal.JReleaserModel;
 import org.jreleaser.model.internal.distributions.Distribution;
 import org.jreleaser.model.internal.packagers.JbangPackager;
 import org.jreleaser.model.internal.release.BaseReleaser;
-import org.jreleaser.model.internal.validation.common.Validator;
 import org.jreleaser.util.Errors;
 
 import java.util.List;
@@ -34,27 +33,32 @@ import static java.util.stream.Collectors.groupingBy;
 import static org.jreleaser.model.Constants.KEY_REVERSE_REPO_HOST;
 import static org.jreleaser.model.internal.validation.common.ExtraPropertiesValidator.mergeExtraProperties;
 import static org.jreleaser.model.internal.validation.common.TemplateValidator.validateTemplate;
+import static org.jreleaser.model.internal.validation.common.Validator.resolveActivatable;
+import static org.jreleaser.model.internal.validation.common.Validator.validateCommitAuthor;
+import static org.jreleaser.model.internal.validation.common.Validator.validateContinueOnError;
+import static org.jreleaser.model.internal.validation.common.Validator.validateTap;
 import static org.jreleaser.util.StringUtils.isBlank;
 
 /**
  * @author Andres Almiray
  * @since 0.1.0
  */
-public abstract class JbangPackagerValidator extends Validator {
+public final class JbangPackagerValidator {
+    private JbangPackagerValidator() {
+        // noop
+    }
+
     public static void validateJbang(JReleaserContext context, Distribution distribution, JbangPackager packager, Errors errors) {
-        context.getLogger().debug("distribution.{}.jbang", distribution.getName());
+        context.getLogger().debug("distribution.{}." + packager.getType(), distribution.getName());
         JReleaserModel model = context.getModel();
         JbangPackager parentPackager = model.getPackagers().getJbang();
 
-        if (!packager.isActiveSet() && parentPackager.isActiveSet()) {
-            packager.setActive(parentPackager.getActive());
-        }
+        resolveActivatable(context, packager, "distributions." + distribution.getName() + "." + packager.getType(), parentPackager);
         if (!packager.resolveEnabled(context.getModel().getProject(), distribution)) {
             context.getLogger().debug(RB.$("validation.disabled"));
-            packager.disable();
             return;
         }
-        BaseReleaser service = model.getRelease().getReleaser();
+        BaseReleaser<?, ?> service = model.getRelease().getReleaser();
         if (!service.isReleaseSupported()) {
             context.getLogger().debug(RB.$("validation.disabled.release"));
             packager.disable();
@@ -63,8 +67,7 @@ public abstract class JbangPackagerValidator extends Validator {
 
         validateCommitAuthor(packager, parentPackager);
         JbangPackager.JbangRepository catalog = packager.getCatalog();
-        catalog.resolveEnabled(model.getProject());
-        validateTap(context, distribution, catalog, parentPackager.getCatalog(), "jbang.catalog");
+        validateTap(context, distribution, catalog, parentPackager.getCatalog(), "jbang.catalog", "ALWAYS");
         validateTemplate(context, distribution, packager, parentPackager, errors);
         mergeExtraProperties(packager, parentPackager);
         validateContinueOnError(packager, parentPackager);

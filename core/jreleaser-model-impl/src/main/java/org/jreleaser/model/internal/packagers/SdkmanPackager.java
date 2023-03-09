@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,9 +34,9 @@ import static java.util.Collections.unmodifiableMap;
 import static java.util.Collections.unmodifiableSet;
 import static org.jreleaser.model.Constants.HIDE;
 import static org.jreleaser.model.Constants.UNSET;
+import static org.jreleaser.model.Distribution.DistributionType.BINARY;
 import static org.jreleaser.model.Distribution.DistributionType.JAVA_BINARY;
 import static org.jreleaser.model.Distribution.DistributionType.JLINK;
-import static org.jreleaser.model.Distribution.DistributionType.NATIVE_IMAGE;
 import static org.jreleaser.model.api.packagers.SdkmanPackager.SKIP_SDKMAN;
 import static org.jreleaser.model.api.packagers.SdkmanPackager.TYPE;
 import static org.jreleaser.util.CollectionUtils.setOf;
@@ -50,12 +50,13 @@ import static org.jreleaser.util.StringUtils.isNotBlank;
  */
 public final class SdkmanPackager extends AbstractPackager<org.jreleaser.model.api.packagers.SdkmanPackager, SdkmanPackager> implements TimeoutAware {
     private static final Map<org.jreleaser.model.Distribution.DistributionType, Set<String>> SUPPORTED = new LinkedHashMap<>();
+    private static final long serialVersionUID = 3632422575248447545L;
 
     static {
         Set<String> extensions = setOf(ZIP.extension());
         SUPPORTED.put(JAVA_BINARY, extensions);
         SUPPORTED.put(JLINK, extensions);
-        SUPPORTED.put(NATIVE_IMAGE, extensions);
+        SUPPORTED.put(BINARY, extensions);
     }
 
     private Sdkman.Command command;
@@ -68,7 +69,10 @@ public final class SdkmanPackager extends AbstractPackager<org.jreleaser.model.a
     @JsonIgnore
     private boolean published;
 
+    @JsonIgnore
     private final org.jreleaser.model.api.packagers.SdkmanPackager immutable = new org.jreleaser.model.api.packagers.SdkmanPackager() {
+        private static final long serialVersionUID = 3123151880557373320L;
+
         @Override
         public String getCandidate() {
             return candidate;
@@ -111,12 +115,12 @@ public final class SdkmanPackager extends AbstractPackager<org.jreleaser.model.a
 
         @Override
         public String getType() {
-            return type;
+            return SdkmanPackager.this.getType();
         }
 
         @Override
         public String getDownloadUrl() {
-            return downloadUrl;
+            return SdkmanPackager.this.getDownloadUrl();
         }
 
         @Override
@@ -151,7 +155,7 @@ public final class SdkmanPackager extends AbstractPackager<org.jreleaser.model.a
 
         @Override
         public Active getActive() {
-            return active;
+            return SdkmanPackager.this.getActive();
         }
 
         @Override
@@ -166,12 +170,12 @@ public final class SdkmanPackager extends AbstractPackager<org.jreleaser.model.a
 
         @Override
         public String getPrefix() {
-            return SdkmanPackager.this.getPrefix();
+            return SdkmanPackager.this.prefix();
         }
 
         @Override
         public Map<String, Object> getExtraProperties() {
-            return unmodifiableMap(extraProperties);
+            return unmodifiableMap(SdkmanPackager.this.getExtraProperties());
         }
     };
 
@@ -226,7 +230,7 @@ public final class SdkmanPackager extends AbstractPackager<org.jreleaser.model.a
     }
 
     public boolean isCommandSet() {
-        return command != null;
+        return null != command;
     }
 
     public String getConsumerKey() {

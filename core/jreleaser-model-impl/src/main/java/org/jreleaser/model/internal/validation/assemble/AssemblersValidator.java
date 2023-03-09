@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,11 +22,13 @@ import org.jreleaser.model.api.JReleaserContext.Mode;
 import org.jreleaser.model.internal.JReleaserContext;
 import org.jreleaser.model.internal.assemble.ArchiveAssembler;
 import org.jreleaser.model.internal.assemble.Assemble;
+import org.jreleaser.model.internal.assemble.Assembler;
 import org.jreleaser.model.internal.assemble.JavaArchiveAssembler;
+import org.jreleaser.model.internal.assemble.JavaAssembler;
 import org.jreleaser.model.internal.assemble.JlinkAssembler;
 import org.jreleaser.model.internal.assemble.JpackageAssembler;
 import org.jreleaser.model.internal.assemble.NativeImageAssembler;
-import org.jreleaser.model.internal.validation.common.Validator;
+import org.jreleaser.model.internal.common.FileSet;
 import org.jreleaser.util.Errors;
 
 import java.util.ArrayList;
@@ -40,12 +42,21 @@ import static org.jreleaser.model.internal.validation.assemble.JlinkAssemblerVal
 import static org.jreleaser.model.internal.validation.assemble.JpackageAssemblerValidator.postValidateJpackage;
 import static org.jreleaser.model.internal.validation.assemble.JpackageAssemblerValidator.validateJpackage;
 import static org.jreleaser.model.internal.validation.assemble.NativeImageAssemblerValidator.validateNativeImage;
+import static org.jreleaser.model.internal.validation.common.TemplateValidator.validateTemplate;
+import static org.jreleaser.model.internal.validation.common.Validator.resolveActivatable;
+import static org.jreleaser.model.internal.validation.common.Validator.validateFileSet;
+import static org.jreleaser.model.internal.validation.common.Validator.validateGlobs;
+import static org.jreleaser.util.StringUtils.isBlank;
 
 /**
  * @author Andres Almiray
  * @since 0.2.0
  */
-public abstract class AssemblersValidator extends Validator {
+public final class AssemblersValidator {
+    private AssemblersValidator() {
+        // noop
+    }
+
     public static void validateAssemblers(JReleaserContext context, Mode mode, Errors errors) {
         Assemble assemble = context.getModel().getAssemble();
         context.getLogger().debug("assemble");
@@ -92,6 +103,7 @@ public abstract class AssemblersValidator extends Validator {
         });
 
         boolean activeSet = assemble.isActiveSet();
+        resolveActivatable(context, assemble, "assemble", "ALWAYS");
         assemble.resolveEnabled(context.getModel().getProject());
 
         if (assemble.isEnabled()) {
@@ -108,9 +120,49 @@ public abstract class AssemblersValidator extends Validator {
         }
     }
 
-    public static void postValidateAssemblers(JReleaserContext context, Mode mode, Errors errors) {
+    public static void postValidateAssemblers(JReleaserContext context) {
         context.getLogger().debug("assemble");
 
-        postValidateJpackage(context, mode, errors);
+        postValidateJpackage(context);
+    }
+
+    public static void validateAssembler(JReleaserContext context, Mode mode, Assembler<?> assembler, Errors errors) {
+        if (null == assembler.getStereotype()) {
+            assembler.setStereotype(context.getModel().getProject().getStereotype());
+        }
+
+        validateGlobs(
+            assembler.getFiles(),
+            assembler.getType() + "." + assembler.getName() + ".files",
+            errors);
+
+        int i = 0;
+        for (FileSet fileSet : assembler.getFileSets()) {
+            validateFileSet(mode, assembler, fileSet, i++, errors);
+        }
+
+        if (mode == Mode.ASSEMBLE) {
+            validateTemplate(context, assembler, errors);
+        }
+    }
+
+    public static void validateJavaAssembler(JReleaserContext context, Mode mode, JavaAssembler<?> assembler, Errors errors, boolean checkMainJar) {
+        validateAssembler(context, mode, assembler, errors);
+
+        if (checkMainJar) {
+            if (null == assembler.getMainJar()) {
+                errors.configuration(RB.$("validation_is_null", assembler.getType() + "." + assembler.getName() + ".mainJar"));
+                return;
+            }
+
+            if (isBlank(assembler.getMainJar().getPath())) {
+                errors.configuration(RB.$("validation_must_not_be_null", assembler.getType() + "." + assembler.getName() + ".mainJar.path"));
+            }
+        }
+
+        validateGlobs(
+            assembler.getJars(),
+            assembler.getType() + "." + assembler.getName() + ".jars",
+            errors);
     }
 }

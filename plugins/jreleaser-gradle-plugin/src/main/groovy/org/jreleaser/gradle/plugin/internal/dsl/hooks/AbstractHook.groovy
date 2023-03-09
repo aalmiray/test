@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -40,10 +40,12 @@ import static org.jreleaser.util.StringUtils.isNotBlank
 @CompileStatic
 abstract class AbstractHook implements Hook {
     final Property<Active> active
+    final Property<Boolean> continueOnError
 
     @Inject
     AbstractHook(ObjectFactory objects) {
         active = objects.property(Active).convention(Providers.<Active> notDefined())
+        continueOnError = objects.property(Boolean).convention(Providers.<Boolean> notDefined())
     }
 
     @Internal
@@ -70,9 +72,10 @@ abstract class AbstractHook implements Hook {
 
     protected <T extends org.jreleaser.model.internal.hooks.Hook> void fillHookProperties(T hook) {
         if (active.present) hook.active = active.get()
+        if (continueOnError.present) hook.continueOnError = continueOnError.get()
     }
 
-    class FilterImpl implements Filter {
+    static class FilterImpl implements Filter {
         final SetProperty<String> includes
         final SetProperty<String> excludes
 

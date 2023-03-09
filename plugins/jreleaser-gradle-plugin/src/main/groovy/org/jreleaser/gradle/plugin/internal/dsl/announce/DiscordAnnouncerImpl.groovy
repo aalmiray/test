@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -61,13 +61,13 @@ class DiscordAnnouncerImpl extends AbstractAnnouncer implements DiscordAnnouncer
     }
 
     org.jreleaser.model.internal.announce.DiscordAnnouncer toModel() {
-        org.jreleaser.model.internal.announce.DiscordAnnouncer discord = new org.jreleaser.model.internal.announce.DiscordAnnouncer()
-        fillProperties(discord)
-        if (webhook.present) discord.webhook = webhook.get()
-        if (message.present) discord.message = message.get()
+        org.jreleaser.model.internal.announce.DiscordAnnouncer announcer = new org.jreleaser.model.internal.announce.DiscordAnnouncer()
+        fillProperties(announcer)
+        if (webhook.present) announcer.webhook = webhook.get()
+        if (message.present) announcer.message = message.get()
         if (messageTemplate.present) {
-            discord.messageTemplate = messageTemplate.asFile.get().absolutePath
+            announcer.messageTemplate = messageTemplate.asFile.get().absolutePath
         }
-        discord
+        announcer
     }
 }

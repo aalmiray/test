@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,13 +30,9 @@ import java.util.List;
 public interface JavaAssembler extends Assembler {
     String getExecutable();
 
-    String getTemplateDirectory();
-
     Java getJava();
 
     Artifact getMainJar();
 
     List<? extends Glob> getJars();
-
-    List<? extends Glob> getFiles();
 }

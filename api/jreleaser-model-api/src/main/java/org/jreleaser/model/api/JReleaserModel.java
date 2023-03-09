@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ package org.jreleaser.model.api;
 
 import org.jreleaser.model.api.announce.Announce;
 import org.jreleaser.model.api.assemble.Assemble;
+import org.jreleaser.model.api.catalog.Catalog;
 import org.jreleaser.model.api.checksum.Checksum;
 import org.jreleaser.model.api.common.Domain;
 import org.jreleaser.model.api.deploy.Deploy;
@@ -77,6 +78,8 @@ public interface JReleaserModel extends Domain {
 
     Files getFiles();
 
+    Catalog getCatalog();
+
     Map<String, ? extends Distribution> getDistributions();
 
     Map<String, ? extends Extension> getExtensions();
@@ -85,11 +88,15 @@ public interface JReleaserModel extends Domain {
         private final String shortHash;
         private final String fullHash;
         private final String refName;
+        private final int commitTime;
+        private final ZonedDateTime timestamp;
 
-        public Commit(String shortHash, String fullHash, String refName) {
+        public Commit(String shortHash, String fullHash, String refName, int commitTime, ZonedDateTime timestamp) {
             this.shortHash = shortHash;
             this.fullHash = fullHash;
             this.refName = refName;
+            this.commitTime = commitTime;
+            this.timestamp = timestamp;
         }
 
         public String getShortHash() {
@@ -102,6 +109,14 @@ public interface JReleaserModel extends Domain {
 
         public String getRefName() {
             return refName;
+        }
+
+        public int getCommitTime() {
+            return commitTime;
+        }
+
+        public ZonedDateTime getTimestamp() {
+            return timestamp;
         }
     }
 }

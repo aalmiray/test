@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,8 @@
  */
 package org.jreleaser.model.internal.common;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -29,6 +31,8 @@ import static org.jreleaser.util.StringUtils.isNotBlank;
  * @since 0.1.0
  */
 public final class Java extends AbstractModelObject<Java> implements Domain, ExtraProperties, EnabledAware {
+    private static final long serialVersionUID = -2234061310893799176L;
+
     private final Map<String, Object> extraProperties = new LinkedHashMap<>();
 
     private Boolean enabled;
@@ -39,7 +43,10 @@ public final class Java extends AbstractModelObject<Java> implements Domain, Ext
     private String mainClass;
     private Boolean multiProject;
 
+    @JsonIgnore
     private final org.jreleaser.model.api.common.Java immutable = new org.jreleaser.model.api.common.Java() {
+        private static final long serialVersionUID = 1595567967292822458L;
+
         @Override
         public String getVersion() {
             return version;
@@ -82,7 +89,7 @@ public final class Java extends AbstractModelObject<Java> implements Domain, Ext
 
         @Override
         public String getPrefix() {
-            return Java.this.getPrefix();
+            return Java.this.prefix();
         }
 
         @Override
@@ -109,7 +116,7 @@ public final class Java extends AbstractModelObject<Java> implements Domain, Ext
 
     @Override
     public boolean isEnabled() {
-        return enabled != null && enabled;
+        return null != enabled && enabled;
     }
 
     @Override
@@ -119,11 +126,11 @@ public final class Java extends AbstractModelObject<Java> implements Domain, Ext
 
     @Override
     public boolean isEnabledSet() {
-        return enabled != null;
+        return null != enabled;
     }
 
     @Override
-    public String getPrefix() {
+    public String prefix() {
         return "java";
     }
 
@@ -156,7 +163,7 @@ public final class Java extends AbstractModelObject<Java> implements Domain, Ext
     }
 
     public boolean isMultiProject() {
-        return multiProject != null && multiProject;
+        return null != multiProject && multiProject;
     }
 
     public void setMultiProject(Boolean multiProject) {
@@ -180,7 +187,7 @@ public final class Java extends AbstractModelObject<Java> implements Domain, Ext
     }
 
     public boolean isMultiProjectSet() {
-        return multiProject != null;
+        return null != multiProject;
     }
 
     @Override
@@ -222,7 +229,7 @@ public final class Java extends AbstractModelObject<Java> implements Domain, Ext
         map.put("mainModule", mainModule);
         map.put("mainClass", mainClass);
         map.put("multiProject", isMultiProject());
-        map.put("extraProperties", getResolvedExtraProperties());
+        map.put("extraProperties", resolvedExtraProperties());
         return map;
     }
 }

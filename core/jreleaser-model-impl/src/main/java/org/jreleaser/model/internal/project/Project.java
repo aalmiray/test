@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright 2020-2022 The JReleaser authors.
+ * Copyright 2020-2023 The JReleaser authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,8 @@
  */
 package org.jreleaser.model.internal.project;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonPropertyDescription;
 import com.github.mustachejava.TemplateFunction;
 import org.jreleaser.bundle.RB;
 import org.jreleaser.model.Active;
@@ -31,6 +33,7 @@ import org.jreleaser.model.internal.common.Icon;
 import org.jreleaser.model.internal.common.Java;
 import org.jreleaser.model.internal.common.Screenshot;
 import org.jreleaser.mustache.MustacheUtils;
+import org.jreleaser.mustache.TemplateContext;
 import org.jreleaser.util.Env;
 import org.jreleaser.util.PlatformUtils;
 import org.jreleaser.version.CalVer;
@@ -41,6 +44,7 @@ import org.jreleaser.version.JavaRuntimeVersion;
 import org.jreleaser.version.SemanticVersion;
 import org.jreleaser.version.Version;
 
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashMap;
@@ -67,6 +71,8 @@ import static org.jreleaser.util.StringUtils.isNotBlank;
  * @since 0.1.0
  */
 public final class Project extends AbstractModelObject<Project> implements Domain, ExtraProperties, Active.Releaseable {
+    private static final long serialVersionUID = -4652723515081514165L;
+
     private final List<String> authors = new ArrayList<>();
     private final List<String> tags = new ArrayList<>();
     private final List<String> maintainers = new ArrayList<>();
@@ -87,7 +93,10 @@ public final class Project extends AbstractModelObject<Project> implements Domai
     private String vendor;
     private Stereotype stereotype = Stereotype.NONE;
 
+    @JsonIgnore
     private final org.jreleaser.model.api.project.Project immutable = new org.jreleaser.model.api.project.Project() {
+        private static final long serialVersionUID = 4384858957895818432L;
+
         private List<? extends org.jreleaser.model.api.common.Screenshot> screenshots;
         private List<? extends org.jreleaser.model.api.common.Icon> icons;
 
@@ -228,7 +237,7 @@ public final class Project extends AbstractModelObject<Project> implements Domai
 
         @Override
         public String getPrefix() {
-            return Project.this.getPrefix();
+            return Project.this.prefix();
         }
 
         @Override
@@ -265,7 +274,7 @@ public final class Project extends AbstractModelObject<Project> implements Domai
     }
 
     @Override
-    public String getPrefix() {
+    public String prefix() {
         return "project";
     }
 
@@ -313,7 +322,7 @@ public final class Project extends AbstractModelObject<Project> implements Domai
     }
 
     public String getVersionPattern() {
-        return versionPattern != null ? versionPattern.toString() : "";
+        return null != versionPattern ? versionPattern.toString() : "";
     }
 
     public void setVersionPattern(VersionPattern versionPattern) {
@@ -353,6 +362,7 @@ public final class Project extends AbstractModelObject<Project> implements Domai
     }
 
     @Deprecated
+    @JsonPropertyDescription("project.website is deprecated since 1.2.0 and will be removed in 2.0.0. Use project.links.homepage instead")
     public String getWebsite() {
         return links.getHomepage();
     }
@@ -372,6 +382,7 @@ public final class Project extends AbstractModelObject<Project> implements Domai
     }
 
     @Deprecated
+    @JsonPropertyDescription("project.licenseUrl is deprecated since 1.2.0 and will be removed in 2.0.0. Use project.links.license instead")
     public String getLicenseUrl() {
         return links.getLicense();
     }
@@ -407,6 +418,7 @@ public final class Project extends AbstractModelObject<Project> implements Domai
     }
 
     @Deprecated
+    @JsonPropertyDescription("project.docsUrl is deprecated since 1.2.0 and will be removed in 2.0.0. Use project.links.documentation instead")
     public String getDocsUrl() {
         return links.getDocumentation();
     }
@@ -548,7 +560,7 @@ public final class Project extends AbstractModelObject<Project> implements Domai
             sm.put("icon " + (i++), icon.asMap(full));
         }
         map.put("icons", sm);
-        map.put("extraProperties", getResolvedExtraProperties());
+        map.put("extraProperties", resolvedExtraProperties());
         if (java.isEnabled()) {
             map.put("java", java.asMap(full));
         }
@@ -705,11 +717,19 @@ public final class Project extends AbstractModelObject<Project> implements Domai
     }
 
     public static class Snapshot extends AbstractModelObject<Snapshot> implements Domain {
+        private static final long serialVersionUID = -4157019875957411109L;
+
         private Boolean enabled;
         private String pattern;
         private String label;
         private Boolean fullChangelog;
+        @JsonIgnore
+        private String cachedLabel;
+
+        @JsonIgnore
         private final org.jreleaser.model.api.project.Project.Snapshot immutable = new org.jreleaser.model.api.project.Project.Snapshot() {
+            private static final long serialVersionUID = 2581314557970795502L;
+
             @Override
             public String getPattern() {
                 return pattern;
@@ -730,7 +750,6 @@ public final class Project extends AbstractModelObject<Project> implements Domai
                 return unmodifiableMap(Snapshot.this.asMap(full));
             }
         };
-        private String cachedLabel;
 
         public org.jreleaser.model.api.project.Project.Snapshot asImmutable() {
             return immutable;
@@ -806,7 +825,7 @@ public final class Project extends AbstractModelObject<Project> implements Domai
         }
 
         public boolean isFullChangelog() {
-            return fullChangelog != null && fullChangelog;
+            return null != fullChangelog && fullChangelog;
         }
 
         public void setFullChangelog(Boolean fullChangelog) {
@@ -814,7 +833,7 @@ public final class Project extends AbstractModelObject<Project> implements Domai
         }
 
         public boolean isFullChangelogSet() {
-            return fullChangelog != null;
+            return null != fullChangelog;
         }
 
         @Override
@@ -827,64 +846,59 @@ public final class Project extends AbstractModelObject<Project> implements Domai
             return map;
         }
 
-        public Map<String, Object> props(JReleaserModel model) {
+        public TemplateContext props(JReleaserModel model) {
             // duplicate from JReleaserModel to avoid endless recursion
-            Map<String, Object> props = new LinkedHashMap<>();
+            TemplateContext props = new TemplateContext();
             Project project = model.getProject();
-            props.putAll(model.getEnvironment().getProperties());
-            props.putAll(model.getEnvironment().getSourcedProperties());
-            props.put(Constants.KEY_PROJECT_NAME, project.getName());
-            props.put(Constants.KEY_PROJECT_NAME_CAPITALIZED, getCapitalizedName(project.getName()));
-            props.put(Constants.KEY_PROJECT_STEREOTYPE, project.getStereotype());
-            props.put(Constants.KEY_PROJECT_VERSION, project.getVersion());
-            props.put(Constants.KEY_PROJECT_SNAPSHOT, String.valueOf(project.isSnapshot()));
+            props.setAll(model.getEnvironment().getProperties());
+            props.setAll(model.getEnvironment().getSourcedProperties());
+            props.set(Constants.KEY_PROJECT_NAME, project.getName());
+            props.set(Constants.KEY_PROJECT_NAME_CAPITALIZED, getCapitalizedName(project.getName()));
+            props.set(Constants.KEY_PROJECT_STEREOTYPE, project.getStereotype());
+            props.set(Constants.KEY_PROJECT_VERSION, project.getVersion());
+            props.set(Constants.KEY_PROJECT_SNAPSHOT, String.valueOf(project.isSnapshot()));
             if (isNotBlank(project.getDescription())) {
-                props.put(Constants.KEY_PROJECT_DESCRIPTION, MustacheUtils.passThrough(project.getDescription()));
+                props.set(Constants.KEY_PROJECT_DESCRIPTION, MustacheUtils.passThrough(project.getDescription()));
             }
             if (isNotBlank(project.getLongDescription())) {
-                props.put(Constants.KEY_PROJECT_LONG_DESCRIPTION, MustacheUtils.passThrough(project.getLongDescription()));
+                props.set(Constants.KEY_PROJECT_LONG_DESCRIPTION, MustacheUtils.passThrough(project.getLongDescription()));
             }
-            if (isNotBlank(project.getLicense())) {
-                props.put(Constants.KEY_PROJECT_LICENSE, project.getLicense());
-            }
-            if (null != project.getInceptionYear()) {
-                props.put(Constants.KEY_PROJECT_INCEPTION_YEAR, project.getInceptionYear());
-            }
-            if (isNotBlank(project.getCopyright())) {
-                props.put(Constants.KEY_PROJECT_COPYRIGHT, project.getCopyright());
-            }
-            if (isNotBlank(project.getVendor())) {
-                props.put(Constants.KEY_PROJECT_VENDOR, project.getVendor());
-            }
+            props.set(Constants.KEY_PROJECT_LICENSE, project.getLicense());
+            props.set(Constants.KEY_PROJECT_INCEPTION_YEAR, project.getInceptionYear());
+            props.set(Constants.KEY_PROJECT_COPYRIGHT, project.getCopyright());
+            props.set(Constants.KEY_PROJECT_VENDOR, project.getVendor());
             project.getLinks().fillProps(props);
 
             if (project.getJava().isEnabled()) {
-                props.putAll(project.getJava().getResolvedExtraProperties());
-                props.put(Constants.KEY_PROJECT_JAVA_GROUP_ID, project.getJava().getGroupId());
-                props.put(Constants.KEY_PROJECT_JAVA_ARTIFACT_ID, project.getJava().getArtifactId());
-                props.put(Constants.KEY_PROJECT_JAVA_VERSION, project.getJava().getVersion());
-                props.put(Constants.KEY_PROJECT_JAVA_MAIN_CLASS, project.getJava().getMainClass());
-                SemanticVersion jv = SemanticVersion.of(project.getJava().getVersion());
-                props.put(Constants.KEY_PROJECT_JAVA_VERSION_MAJOR, jv.getMajor());
-                if (jv.hasMinor()) props.put(Constants.KEY_PROJECT_JAVA_VERSION_MINOR, jv.getMinor());
-                if (jv.hasPatch()) props.put(Constants.KEY_PROJECT_JAVA_VERSION_PATCH, jv.getPatch());
-                if (jv.hasTag()) props.put(Constants.KEY_PROJECT_JAVA_VERSION_TAG, jv.getTag());
-                if (jv.hasBuild()) props.put(Constants.KEY_PROJECT_JAVA_VERSION_BUILD, jv.getBuild());
+                props.setAll(project.getJava().resolvedExtraProperties());
+                props.set(Constants.KEY_PROJECT_JAVA_GROUP_ID, project.getJava().getGroupId());
+                props.set(Constants.KEY_PROJECT_JAVA_ARTIFACT_ID, project.getJava().getArtifactId());
+                String javaVersion = project.getJava().getVersion();
+                props.set(Constants.KEY_PROJECT_JAVA_VERSION, javaVersion);
+                props.set(Constants.KEY_PROJECT_JAVA_MAIN_CLASS, project.getJava().getMainClass());
+                if (isNotBlank(javaVersion)) {
+                    SemanticVersion jv = SemanticVersion.of(javaVersion);
+                    props.set(Constants.KEY_PROJECT_JAVA_VERSION_MAJOR, jv.getMajor());
+                    if (jv.hasMinor()) props.set(Constants.KEY_PROJECT_JAVA_VERSION_MINOR, jv.getMinor());
+                    if (jv.hasPatch()) props.set(Constants.KEY_PROJECT_JAVA_VERSION_PATCH, jv.getPatch());
+                    if (jv.hasTag()) props.set(Constants.KEY_PROJECT_JAVA_VERSION_TAG, jv.getTag());
+                    if (jv.hasBuild()) props.set(Constants.KEY_PROJECT_JAVA_VERSION_BUILD, jv.getBuild());
+                }
             }
 
             project.parseVersion();
-            props.putAll(project.getResolvedExtraProperties());
+            props.setAll(project.resolvedExtraProperties());
 
             String osName = PlatformUtils.getDetectedOs();
             String osArch = PlatformUtils.getDetectedArch();
-            props.put(Constants.KEY_OS_NAME, osName);
-            props.put(Constants.KEY_OS_ARCH, osArch);
-            props.put(Constants.KEY_OS_VERSION, PlatformUtils.getDetectedVersion());
-            props.put(Constants.KEY_OS_PLATFORM, PlatformUtils.getCurrentFull());
-            props.put(Constants.KEY_OS_PLATFORM_REPLACED, model.getPlatform().applyReplacements(PlatformUtils.getCurrentFull()));
+            props.set(Constants.KEY_OS_NAME, osName);
+            props.set(Constants.KEY_OS_ARCH, osArch);
+            props.set(Constants.KEY_OS_VERSION, PlatformUtils.getDetectedVersion());
+            props.set(Constants.KEY_OS_PLATFORM, PlatformUtils.getCurrentFull());
+            props.set(Constants.KEY_OS_PLATFORM_REPLACED, model.getPlatform().applyReplacements(PlatformUtils.getCurrentFull()));
 
-            applyTemplates(props, project.getResolvedExtraProperties());
-            props.put(Constants.KEY_ZONED_DATE_TIME_NOW, model.getNow());
+            applyTemplates(props, project.resolvedExtraProperties());
+            props.set(Constants.KEY_ZONED_DATE_TIME_NOW, model.getNow());
 
             return props;
         }
@@ -892,6 +906,7 @@ public final class Project extends AbstractModelObject<Project> implements Domai
 
     public static class Links extends AbstractModelObject<Links> implements Domain {
         private static final String PROJECT_LINK = "projectLink";
+        private static final long serialVersionUID = 1574571238759859477L;
 
         private String homepage;
         private String documentation;
@@ -905,7 +920,10 @@ public final class Project extends AbstractModelObject<Project> implements Domai
         private String vcsBrowser;
         private String contribute;
 
+        @JsonIgnore
         private final org.jreleaser.model.api.project.Project.Links immutable = new org.jreleaser.model.api.project.Project.Links() {
+            private static final long serialVersionUID = 3891594676066031996L;
+
             @Override
             public String getHomepage() {
                 return homepage;
@@ -1091,33 +1109,36 @@ public final class Project extends AbstractModelObject<Project> implements Domai
             return map;
         }
 
-        public void fillProps(Map<String, Object> props) {
-            if (isNotBlank(homepage)) props.put(PROJECT_LINK + "Homepage", homepage);
-            if (isNotBlank(documentation)) props.put(PROJECT_LINK + "Documentation", documentation);
-            if (isNotBlank(license)) props.put(PROJECT_LINK + "License", license);
-            if (isNotBlank(bugTracker)) props.put(PROJECT_LINK + "BugTracker", bugTracker);
-            if (isNotBlank(vcsBrowser)) props.put(PROJECT_LINK + "VcsBrowser", vcsBrowser);
-            if (isNotBlank(faq)) props.put(PROJECT_LINK + "Faq", faq);
-            if (isNotBlank(help)) props.put(PROJECT_LINK + "Help", help);
-            if (isNotBlank(donation)) props.put(PROJECT_LINK + "Donation", donation);
-            if (isNotBlank(translate)) props.put(PROJECT_LINK + "translate", translate);
-            if (isNotBlank(contact)) props.put(PROJECT_LINK + "contact", contact);
-            if (isNotBlank(contribute)) props.put(PROJECT_LINK + "contribute", contribute);
-            if (isNotBlank(homepage)) props.put(Constants.KEY_PROJECT_WEBSITE, homepage);
-            if (isNotBlank(documentation)) props.put(Constants.KEY_PROJECT_DOCS_URL, documentation);
-            if (isNotBlank(license)) props.put(Constants.KEY_PROJECT_LICENSE_URL, license);
+        public void fillProps(TemplateContext props) {
+            props.set(PROJECT_LINK + "Homepage", homepage);
+            props.set(PROJECT_LINK + "Documentation", documentation);
+            props.set(PROJECT_LINK + "License", license);
+            props.set(PROJECT_LINK + "BugTracker", bugTracker);
+            props.set(PROJECT_LINK + "VcsBrowser", vcsBrowser);
+            props.set(PROJECT_LINK + "Faq", faq);
+            props.set(PROJECT_LINK + "Help", help);
+            props.set(PROJECT_LINK + "Donation", donation);
+            props.set(PROJECT_LINK + "Translate", translate);
+            props.set(PROJECT_LINK + "Contact", contact);
+            props.set(PROJECT_LINK + "Contribute", contribute);
+            // TODO: Remove these in 2.0.0
+            props.set(Constants.KEY_PROJECT_WEBSITE, homepage);
+            props.set(Constants.KEY_PROJECT_DOCS_URL, documentation);
+            props.set(Constants.KEY_PROJECT_LICENSE_URL, license);
         }
 
         public Collection<LinkTemplate> asLinkTemplates() {
             List<LinkTemplate> links = new ArrayList<>();
             if (isNotBlank(homepage)) links.add(new LinkTemplate("homepage", homepage));
+            if (isNotBlank(documentation)) links.add(new LinkTemplate("documentation", documentation));
+            if (isNotBlank(license)) links.add(new LinkTemplate("license", license));
             if (isNotBlank(bugTracker)) links.add(new LinkTemplate("bugtracker", bugTracker));
+            if (isNotBlank(vcsBrowser)) links.add(new LinkTemplate("vcs-browser", vcsBrowser));
             if (isNotBlank(faq)) links.add(new LinkTemplate("faq", faq));
             if (isNotBlank(help)) links.add(new LinkTemplate("help", help));
             if (isNotBlank(donation)) links.add(new LinkTemplate("donation", donation));
             if (isNotBlank(translate)) links.add(new LinkTemplate("translate", translate));
             if (isNotBlank(contact)) links.add(new LinkTemplate("contact", contact));
-            if (isNotBlank(vcsBrowser)) links.add(new LinkTemplate("vcs-browser", vcsBrowser));
             if (isNotBlank(contribute)) links.add(new LinkTemplate("contribute", contribute));
             return links;
         }
@@ -1141,11 +1162,16 @@ public final class Project extends AbstractModelObject<Project> implements Domai
         }
     }
 
-    public static class VersionPattern extends AbstractModelObject<VersionPattern> {
+    public static class VersionPattern extends AbstractModelObject<VersionPattern> implements Serializable {
+        private static final long serialVersionUID = -8292733451111227968L;
+
         private org.jreleaser.model.VersionPattern.Type type;
         private String format;
 
+        @JsonIgnore
         private final org.jreleaser.model.api.project.Project.VersionPattern immutable = new org.jreleaser.model.api.project.Project.VersionPattern() {
+            private static final long serialVersionUID = 1073045324421554619L;
+
             @Override
             public org.jreleaser.model.VersionPattern.Type getType() {
                 return type;
@@ -1195,13 +1221,17 @@ public final class Project extends AbstractModelObject<Project> implements Domai
                     if (isNotBlank(format)) {
                         s += ":" + format;
                     }
+                    break;
+                default:
+                    // noop
+                    break;
             }
             return s;
         }
 
         @Override
         public void merge(VersionPattern source) {
-            if (source != null) {
+            if (null != source) {
                 this.type = merge(this.type, source.type);
                 this.format = merge(this.format, source.format);
             }
