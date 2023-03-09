@@ -12,14 +12,15 @@ permissions:
 
 jobs:
   jpackage:
-    name: 'JPackage on ${{ matrix.os }}'
+    name: 'JPackage on ${{ matrix.job.os }}'
     strategy:
       fail-fast: true
       matrix:
-        - { os: ubuntu-latest,  platform: linux-x86_64 }
-        - { os: macOS-latest,   platform: osx-x86_64 }
-        - { os: windows-latest, platform: windows-x86_64 }
-    runs-on: ${{ matrix.os }}
+        job:
+          - { os: ubuntu-latest,  platform: linux-x86_64 }
+          - { os: macOS-latest,   platform: osx-x86_64 }
+          - { os: windows-latest, platform: windows-x86_64 }
+    runs-on: ${{ matrix.job.os }}
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -42,7 +43,7 @@ jobs:
         shell: bash
         run: |
           cd out/jreleaser/assemble/jreleaser-standalone/jlink
-          unzip -q -d work-${{ matrix.platform }} jreleaser-standalone-${{ inputs.project-version }}-${{ matrix.platform }}.zip
+          unzip -q -d work-${{ matrix.job.platform }} jreleaser-standalone-${{ inputs.project-version }}-${{ matrix.job.platform }}.zip
 
       - name: Setup Java
         uses: actions/setup-java@v3
