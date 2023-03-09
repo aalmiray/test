@@ -32,7 +32,7 @@ jobs:
           echo ${{ inputs.project-version }} > VERSION
 
       - name: Build
-        run: ./gradlew -Prelease=true -PreproducibleBuild=true build -S
+        run: ./gradlew -Prelease=true -PreproducibleBuild=true assemble -S
 
       - name: Jlink
         uses: jreleaser/release-action@v1
