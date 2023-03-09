@@ -35,10 +35,11 @@ jobs:
         run: ./gradlew -Prelease=true -PreproducibleBuild=true assemble -S
 
       - name: Jlink
-        uses: jreleaser/release-action@v1
+        uses: jreleaser/release-action@v2
         with:
           version: early-access
           arguments: assemble --assembler jlink
+          setup-java: false
         env:
           JRELEASER_PROJECT_VERSION: ${{ inputs.project-version }}
 

@@ -15,7 +15,7 @@ permissions:
 
 jobs:
   jpackage:
-    name: 'JPackage on ${{ matrix.job.os }}'
+    name: '${{ matrix.job.os }}'
     strategy:
       fail-fast: true
       matrix:
@@ -61,15 +61,16 @@ jobs:
         run: |
           echo ${{ inputs.project-version }} > VERSION
 
-      - name: Build
+      - name: Jdks
         shell: bash
         run: ./gradlew :jreleaser:copyJdksFromCache :jreleaser:setupJdks
 
       - name: Jpackage
-        uses: jreleaser/release-action@v1
+        uses: jreleaser/release-action@v2
         with:
           version: early-access
           arguments: assemble --assembler jpackage --select-current-platform
+          setup-java: false
         env:
           JRELEASER_PROJECT_VERSION: ${{ inputs.project-version }}
 
