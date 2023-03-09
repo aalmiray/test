@@ -6,6 +6,9 @@ on:
       project-version:
         required: true
         type: string
+      project-effective-version:
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -43,7 +46,8 @@ jobs:
         shell: bash
         run: |
           cd out/jreleaser/assemble/jreleaser-standalone/jlink
-          unzip -q -d work-${{ matrix.job.platform }} jreleaser-standalone-${{ inputs.project-version }}-${{ matrix.job.platform }}.zip
+          ls -l 
+          unzip -q -d work-${{ matrix.job.platform }} jreleaser-standalone-${{ inputs.project-effective-version }}-${{ matrix.job.platform }}.zip
 
       - name: Setup Java
         uses: actions/setup-java@v3

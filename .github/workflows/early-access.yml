@@ -38,6 +38,7 @@ jobs:
     uses: aalmiray/test/.github/workflows/step-jpackage.yml@main
     with:
       project-version: ${{ needs.precheck.outputs.VERSION }}
+      project-effective-version: early-access
 
   native-image:
     needs: [precheck, jlink]

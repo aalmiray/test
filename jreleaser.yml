@@ -113,6 +113,7 @@ assemble:
       active: ALWAYS
       jlink: jreleaser-standalone
       attachPlatform: true
+      exported: false
       applicationPackage:
         appName: jreleaser
         appVersion: '{{projectVersionNumber}}'
@@ -168,3 +169,34 @@ assemble:
         - '-H:IncludeLocales=en,ca,de,es,fr,hi,it,ja,nl,pt_BR,zh_TW,ru,ko'
         - '-H:Optimize=2'
         - '-H:+RemoveUnusedSymbols'
+
+distributions:
+  jreleaser:
+    artifacts:
+      - path: plugins/{{distributionName}}/build/distributions/{{distributionName}}-{{projectVersion}}.zip
+        transform: '{{distributionName}}/{{distributionName}}-{{projectEffectiveVersion}}.zip'
+        extraProperties:
+          skipSpec: true
+      - path: plugins/{{distributionName}}/build/distributions/{{distributionName}}-{{projectVersion}}.tar
+        transform: '{{distributionName}}/{{distributionName}}-{{projectEffectiveVersion}}.tar'
+        extraProperties:
+          skipFlatpak: true
+
+  jreleaser-installer:
+    type: NATIVE_PACKAGE
+    executable:
+      name: jreleaser
+      windowsExtension: exe
+    artifacts:
+      - path: '{{jpackageDir}}/JReleaser-{{projectVersionNumber}}-osx-x86_64.pkg'
+        transform: '{{distributionName}}/{{distributionName}}-{{projectEffectiveVersion}}-osx-x86_64.pkg'
+        platform: 'osx-x86_64'
+      - path: '{{jpackageDir}}/jreleaser_{{projectVersionNumber}}-1_amd64.deb'
+        transform: '{{distributionName}}/{{distributionName}}_{{projectEffectiveVersion}}-1_amd64.deb'
+        platform: 'linux-x86_64'
+      - path: '{{jpackageDir}}/jreleaser-{{projectVersionNumber}}-1.x86_64.rpm'
+        transform: '{{distributionName}}/{{distributionName}}-{{projectEffectiveVersion}}-1.x86_64.rpm'
+        platform: 'linux-x86_64'
+      - path: '{{jpackageDir}}/jreleaser-{{projectVersionNumber}}-windows-x86_64.msi'
+        transform: '{{distributionName}}/{{distributionName}}-{{projectEffectiveVersion}}-windows-x86_64.msi'
+        platform: 'windows-x86_64'
